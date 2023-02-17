@@ -1,0 +1,14 @@
+# Required packages 
+python >= 3.9.12
+pandas >= 1.4.4
+numpy >= 1.23.3
+scipy >= 1.8.1
+matplotlib >= 3.5.3
+seaborn >= 0.12.0
+scikit-learn >=1.1.2
+re >= 2.2.1
+tqdm >= 4.64.1
+
+# Less common packages needed
+metabolinks >= 0.75
+UpSetPlot >= 0.8.0
