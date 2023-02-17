@@ -7,14 +7,6 @@ Repository for the metabolomics data analysis pipeline
 
 # Required Python Packages and Database File Examples
 
-**HMDB Database**
-
-- Go to 'https://drive.google.com/drive/folders/1hqlkGJQbISL30pjGCIB8wRH9tM917MKm'.
-- Download 'hmdb_complete.csv'.
-- There are also the other files present in the repository in this link.
-
-Note: In the future, HMDB database as well as other databases (LOTUS and DrugBank) will have appropriate python files that you can run to extract, parse and automatically treat them so you can always have the most current version of them.
-
 **Anaconda and Anaconda related packages**
 
 - Most packages needed are automatically installed when you install Anaconda (see tutorial here https://docs.anaconda.com/anaconda/install/index.html).
@@ -31,6 +23,12 @@ Note: In the future, HMDB database as well as other databases (LOTUS and DrugBan
 - Go to https://github.com/tctianchi/pyvenn/blob/master/venn.py.
 - Over 'Raw' (see where 'Watch' is on the upper left and move look down), click 'Save link as...'.
 - Save it on the same folder you have the rest of the files.
+
+**Databases**
+
+Right now, the HMDB, LOTUS and DrugBank databases that are used in the Jupyter notebook as examples are present in this repository.
+
+However, in the future, these databases will have corresponding python files that you can run to extract, parse and automatically treat them so you can always have the most current version of them.
 
 # Patch Notes
 
@@ -93,6 +91,7 @@ Note: In the future, HMDB database as well as other databases (LOTUS and DrugBan
 - Changes to put the project in a git-hub repository (patch notes now in Readme.md file of repository).
 - Added Readme.md and requirements.txt file.
 - Updated package installation instructions.
+- Changed HMDB database to be a xlsx file (smaller file) and minor bugfix in database reading.
 
 #### In Future Patches:
 
