@@ -57,7 +57,7 @@ However, in the future, these databases will have corresponding python files tha
 #### V1.4 - Improvements to common and exclusive features analysis (03/01/2023)
 
 - Added automatic Venn Diagram plotting for common and exclusive features analysis (venn.py must now be in the same folder)
-- Added automatic UpSet plot construction (an alternative to Venn Diagram which may be preferable for larger numbers of classes (may require installing a new package - pip install upsetplot)
+- Added automatic UpSet plot construction (an alternative to Venn Diagram) which may be preferable for larger numbers of classes (may require installing a new package - pip install upsetplot)
 
 #### V2.0 - Reorganization and merging of notebooks, addition of multiple quality of life features, univariate analysis, etc. (08/02/2023)
 
@@ -93,11 +93,18 @@ However, in the future, these databases will have corresponding python files tha
 - Updated package installation instructions.
 - Changed HMDB database to be a xlsx file (smaller file) and minor bugfix in database reading.
 
+#### V2.1 - Git-hub Repository (06/06/2023)
+
+- Updated and added PCA function to metanalysis.py (now retrieves loadings).
+- Added Permutation Testing for Random Forest and PLS-DA supervised analysis that can accept one of multiple metrics.
+- Added ROC Curve for PLS-DA and updated ROC section for Random Forest in notebook.
+- Added Volcano Plot prototype in visualization of unsupervised analysis.
+- Added PCA and Loading plot (biplot) based on the counts of each chemical composition series in each sample.
+- Some minor changes and additions in comments.
+
 #### In Future Patches:
 
 - Add sMDiN analysis to notebooks.
 - Add XGBoost analysis.
 - Add customization of fonts in figures.
-- Add PLS ROC curve.
-- Add Permutation Testing.
 - (Long term) provide graphical user interface as notebook alternative

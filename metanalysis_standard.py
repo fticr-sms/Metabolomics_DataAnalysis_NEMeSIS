@@ -9,6 +9,7 @@ import sklearn.ensemble as skensemble
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.metrics import r2_score, roc_auc_score, roc_curve, auc, f1_score, precision_score, recall_score
 import sklearn.model_selection
+from sklearn.decomposition import PCA
 
 # Our Python package
 import metabolinks.transformations as transf
@@ -884,8 +885,28 @@ def exclusive(samples):
     return exclusive
 
 
+### Step 4 Functions
+### Functions related to perform PCA (unsupervised analysis)
+
+# Specific PCA calculation that also returns loadings
+def compute_df_with_PCs_VE_loadings(df, n_components=5, whiten=True, labels=None, return_var_ratios_and_loadings=False):
+    pca = PCA(n_components=n_components, svd_solver='full', whiten=whiten)
+    pc_coords = pca.fit_transform(df)
+    var_explained = pca.explained_variance_ratio_[:pca.n_components_]
+    loadings = pca.components_[:pca.n_components_].T
+
+    # concat labels to PCA coords (in a DataFrame)
+    principaldf = pd.DataFrame(pc_coords, index=df.index, columns=[f'PC {i}' for i in range(1, pca.n_components_+1)])
+    if labels is not None:
+        labels_col = pd.DataFrame(labels, index=principaldf.index, columns=['Label'])
+        principaldf = pd.concat([principaldf, labels_col], axis=1)
+    if not return_var_ratios_and_loadings:
+        return principaldf
+    else:
+        return principaldf, var_explained, loadings
+
 ### Step 5 Functions
-### Functions related to perform and evaluate thorugh different metrics Random Forests and PLS-DA
+### Functions related to perform and evaluate through different metrics Random Forests and PLS-DA
 
 ### These functions are altered versions from the ones available in the multianalysis.py file from the BinSim paper
 
@@ -937,8 +958,6 @@ def RF_ROC_cv(treated_data, target, pos_label, n_trees=200, n_iter=1, cv=None, n
     """Fits and extracts Random Forest model data and calculates metrics to plot a ROC curve."""
     
     # Run classifier with cross-validation and plot ROC curves
-    classifier = skensemble.RandomForestClassifier(n_estimators=n_trees)
-
     tprs = []
     aucs = []
     mean_fpr = np.linspace(0, 1, 100)
@@ -982,6 +1001,64 @@ def RF_ROC_cv(treated_data, target, pos_label, n_trees=200, n_iter=1, cv=None, n
     return {'average fpr': mean_fpr, 'average tpr': mean_tpr, 
             'upper tpr': tprs_upper, 'lower trp': tprs_lower,
             'mean AUC': mean_auc, 'std AUC': std_auc}
+
+
+def permutation_RF(df, labels, iter_num=100, n_trees=200, cv=None, n_fold=3, random_state=None,
+                   metric = ('accuracy')):
+    """Performs permutation test n times of a dataset for Random Forest classifiers giving its performance (estimated by
+        cross-validation) for the original and all permutations made and respective p-value.
+
+       df: Pandas DataFrame.
+       labels: target labels.
+       iter_num: int (default - 100); number of permutations made.
+       n_trees: int (default - 200); number of trees in each Random Forest.
+       cv: splitter class of sklearn.model_selection (default - None); choose a cross-validation method (and respective args); if
+        None, the default method is stratified cross-validation.
+       n_fold: int (default - 3); number of groups to divide dataset in for k-fold cross-validation (max n_fold = minimum number of
+        samples belonging to one group) if cv is None.
+       random_state: int (default - None); random seed given to make the permutations rng class labels.
+       metric: tuple (default - ('accuracy')); metric to give to scikit-learn cross_validate.
+
+       Returns: (scalar, list of scalars, scalar);
+        estimated predictive accuracy of the non-permuted Random Forest model
+        estimated predictive accuracy of all permuted Random Forest models
+        p-value ((number of permutations with accuracy > original accuracy) + 1)/(number of permutations + 1).
+    """
+
+    # get a bit generator
+    rng = np.random.default_rng(seed=random_state)
+
+    # Setting up variables for result storing
+    Perm = []
+    # List of columns to shuffle and dataframe of the data to put columns in NewC shuffled order
+    NewC = np.arange(df.shape[0])
+    df = df.copy()
+
+    # For dividing the dataset in balanced n_fold groups with a random random state maintained in all permutations (identical splits)
+    if cv is None:
+        cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+
+
+    for _ in range(iter_num + 1):
+        # Number of different permutations + original dataset where Random Forest cross-validation will be made
+        # Temporary dataframe with columns in order of the NewC
+        temp = df.iloc[NewC, :]
+
+        # Random Forest setup and cross-validation
+        rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
+        cv_res = sklearn.model_selection.cross_validate(rf, temp, labels, cv=cv, scoring=metric)
+
+        # Shuffle dataset columns - 1 permutation of the columns (leads to permutation of labels)
+        rng.shuffle(NewC)
+        # Appending K-fold cross-validation predictive accuracy
+        Perm.append(np.mean(cv_res['test_score']))
+
+    # Taking out K-fold cross-validation accuracy for the non-shuffled (labels) dataset and p-value calculation
+    CV = Perm[0] # Non-permuted dataset results - Perm [0]
+    pvalue = (sum(Perm[1:] >= Perm[0]) + 1) / (iter_num + 1)
+
+    return CV, Perm[1:], pvalue
+
 
 def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=15, kf=None, n_fold=5, scale=False):
     """Searches for an optimum number of components to use in PLS-DA.
@@ -1059,11 +1136,13 @@ def PLSDA_model_CV(df, labels, n_comp=10,
        labels: target labels.
        n_comp: integer; number of components to use in PLS-DA.
        kf: default None; pass a specific cross validation method from 
-        https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators (3.1.2)
+        https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators (3.1.2).
        n_fold: int (default: 5); number of groups to divide dataset in for cross-validation
         (NOTE: max n_fold can not exceed minimum number of samples per class).
        iter_num: int (default: 1); number of iterations that cross validation is repeated.
-       scale: bool (default: False); if data is scaled when inputted to PLS model (only true if scaling was not done earlier)
+       encode2as1vector: bool (default: True); if you have 2 classes, if True, encode them as 0 and 1 in one vector; else
+        use one-hot encoding as with multi-class cases.
+       scale: bool (default: False); if data is scaled when inputted to PLS model (only true if scaling was not done earlier).
        feat_type: string (default: 'VIP'); types of feature importance metrics to use; accepted: {'VIP', 'Coef', 'Weights'}.
 
     Returns: (accuracy, F1-score, precision, recall, Q2, import_features);
@@ -1204,6 +1283,224 @@ def PLSDA_model_CV(df, labels, n_comp=10,
         return {'accuracy': accuracies, 'F1-scores':f1_scores, 'precision': precision, 'recall':recall,
                 'Q2': CVR2, 'imp_feat': imp_features}
 
+
+def PLSDA_ROC_cv(treated_data, target, pos_label, n_comp=10, scale=False, n_iter=1, cv=None, n_fold=5):
+    """Fits and extracts PLS-DA model data and calculates metrics to plot a ROC curve."""
+
+    # Run classifier with cross-validation and plot ROC curves
+    tprs = []
+    aucs = []
+    mean_fpr = np.linspace(0, 1, 100)
+
+    if cv is None:
+        cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+
+    encoded_target = []
+    for i in target:
+        if i == pos_label:
+            encoded_target.append(1)
+        else:
+            encoded_target.append(0)
+
+    # Number of times PLS-DA cross-validation is made
+    # with `n_fold` randomly generated folds.
+    for itr in range(n_iter):
+        # Fit and evaluate a PLS-DA model for each fold in cross validation
+        for train_index, test_index in cv.split(treated_data, encoded_target):
+            # Random Forest setup and fit
+            plsda = PLSRegression(n_components=n_comp, scale=scale)
+            X_train, X_test = treated_data.iloc[train_index, :], treated_data.iloc[test_index, :]
+            y_train, y_test = [encoded_target[i] for i in train_index], [encoded_target[i] for i in test_index]
+            # Classifier fit
+            plsda.fit(X_train, y_train)
+
+            # Metrics for ROC curve plotting
+            scores = plsda.predict(X_test)#[:,rf.classes_ == pos_label]
+
+            fpr, tpr, _ = roc_curve(y_test, scores, pos_label=1)
+
+            interp_tpr = np.interp(mean_fpr, fpr, tpr)
+            #interp_tpr[0] = 0.0
+            tprs.append(interp_tpr)
+            aucs.append(roc_auc_score(y_test, scores))
+
+    # Mean of every fold of the cross-validation
+    mean_tpr = np.mean(tprs, axis=0)
+    #mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    std_auc = np.std(aucs)
+
+    std_tpr = np.std(tprs, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+
+    # fpr - false positive rate, tpr - true positive rate, AUC - area under curve
+    return {'average fpr': mean_fpr, 'average tpr': mean_tpr,
+            'upper tpr': tprs_upper, 'lower trp': tprs_lower,
+            'mean AUC': mean_auc, 'std AUC': std_auc}
+
+
+def permutation_PLSDA(df, labels, n_comp=10, iter_num=100, cv=None, n_fold=5, random_state=None,
+                      encode2as1vector=True, scale=False, metric='accuracy'):
+    """Performs permutation test n times of a dataset for PLS-DA classifiers giving its performance (estimated by
+        cross-validation) for the original and all permutations made and respective p-value.
+
+       df: Pandas DataFrame.
+       labels: target labels.
+       n_comp: int (default - 10); number of components to use in PLS-DA.
+       iter_num: int (default - 100); number of permutations made.
+       cv: splitter class of sklearn.model_selection (default - None); choose a cross-validation method (and respective
+        args); if None, the default method is stratified cross-validation.
+       n_fold: int (default - 3); number of groups to divide dataset in for k-fold cross-validation (max n_fold =
+        minimum number of samples belonging to one group) if cv is None.
+       random_state: int (default - None); random seed given to make the permutations rng class labels.
+       encode2as1vector: bool (default: True); if you have 2 classes, if True, encode them as 0 and 1 in one vector; else
+        use one-hot encoding as with multi-class cases.
+       scale: bool (default: False); if data is scaled when inputted to PLS model (only true if scaling was not done earlier).
+       metric: str (default - 'accuracy'); metric to give to scikit-learn cross_validate. Accepted: 'accuracy',
+        'f1_weighted', 'recall_weighted' or 'precision_weighted'.
+
+       Returns: (scalar, list of scalars, scalar);
+        estimated predictive accuracy of the non-permuted Random Forest model
+        estimated predictive accuracy of all permuted Random Forest models
+        p-value ((number of permutations with accuracy > original accuracy) + 1)/(number of permutations + 1).
+    """
+
+    # get a bit generator
+    rng = np.random.default_rng(seed=random_state)
+
+    # list to store results
+    Accuracy = []
+    f1_scores = []
+    precision = []
+    recall = []
+    if metric not in ['accuracy', 'f1_weighted', 'recall_weighted', 'precision_weighted']:
+        raise ValueError("Metric not accepted. Must be one of 'accuracy', 'f1_weighted', 'recall_weighted' or 'precision_weighted'.")
+
+    # list of rows to shuffle and dataframe of the data to put rows in each NewC shuffled order
+    NewC = np.arange(df.shape[0])
+    df = df.copy()  # TODO: check if this copy is really necessary
+
+    unique_labels = list(pd.unique(labels))
+
+    is1vector = len(unique_labels) == 2 and encode2as1vector
+
+    matrix = _generate_y_PLSDA(labels, unique_labels, is1vector)
+
+    if is1vector:
+        # keep a copy to use later
+        correct_labels = matrix.copy()
+
+    # For dividing the dataset in balanced n_fold groups with a random random state maintained
+    # in all permutations (identical splits)
+    if cv is None:
+        cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+
+    # Number of permutations + dataset with non-shuffled labels equal to iter_num + 1
+    for i in range(iter_num + 1):
+        # Temporary dataframe with rows in order of the NewC
+        temp = df.iloc[NewC, :]
+
+        # Setting up variables for results of the application of n-fold cross-validated PLS-DA
+        nright = 0
+
+        # To store real and predicted classes to calculate F1-score, precision and recall
+        if not is1vector:
+            all_preds = pd.DataFrame(columns=matrix.columns, index=matrix.index)
+            all_tests = pd.DataFrame(columns=matrix.columns, index=matrix.index)
+            a = 0
+        else:
+            all_preds = []
+            all_tests = []
+
+        # Repeating for each of the n groups
+        for train_index, test_index in cv.split(df, labels):
+            # plsda model building for each of the n stratified groups made
+            plsda = PLSRegression(n_components=n_comp, scale=scale)
+            X_train, X_test = temp.iloc[train_index, :], temp.iloc[test_index, :]
+            if not is1vector:
+                y_train = matrix.iloc[train_index, :].copy()
+                y_test = matrix.iloc[test_index, :].copy()
+
+            else:
+                y_train, y_test = correct_labels[train_index], correct_labels[test_index]
+                correct = correct_labels[test_index]
+
+            # Fitting the model
+            plsda.fit(X=X_train, Y=y_train)
+
+            # Predictions the test group
+            y_pred = plsda.predict(X_test)
+
+            # Decision rule for classification
+            if not is1vector:
+                rounded_pred = y_pred.copy()
+                for i in range(len(y_pred)):
+                    if list(y_test.iloc[i, :]).index(max(y_test.iloc[i, :])) == np.argmax(
+                        y_pred[i]
+                    ):
+                        nright += 1  # Correct prediction
+
+                    for l in range(len(y_pred[i])):
+                        if l == np.argmax(y_pred[i]):
+                            rounded_pred[i, l] = 1
+                        else:
+                            rounded_pred[i, l] = 0
+
+                # Save y-test and predictions to calculate F1-score, precision and recall
+                all_tests.iloc[a:a+len(y_test)] = y_test
+                all_preds.iloc[a:a+len(y_test)] = rounded_pred
+                a = a + len(y_test)
+
+            else:
+                rounded = np.round(y_pred)
+                for p in range(len(y_pred)):
+                    if rounded[p] >= 1:
+                        rounded[p] = 1
+                    else:
+                        rounded[p] = 0
+                    if rounded[p] == correct[p]:
+                        nright += 1  # Correct prediction
+
+                # Save y-test and predictions to calculate F1-score, precision and recall
+                all_preds.extend(list(rounded[:,0]))
+                all_tests.extend(y_test)
+
+
+        # Calculate accuracy for this iteration
+        Accuracy.append(nright / len(labels))
+        # Calculate F1-score, precision and recall for the fold and storing results
+        if metric in ['f1_weighted', 'recall_weighted', 'precision_weighted']:
+            if not is1vector:
+                f1_scores.append(f1_score(all_tests.astype(int), all_preds.astype(int), average='weighted'))
+                precision.append(precision_score(all_tests.astype(int), all_preds.astype(int), average='weighted'))
+                recall.append(recall_score(all_tests.astype(int), all_preds.astype(int), average='weighted'))
+            else:
+                f1_scores.append(f1_score(all_tests, all_preds, average='weighted'))
+                precision.append(precision_score(all_tests, all_preds, average='weighted'))
+                recall.append(recall_score(all_tests, all_preds, average='weighted'))
+
+
+        # Shuffle dataset rows, generating 1 permutation of the labels
+        rng.shuffle(NewC)
+
+    if metric == 'accuracy':
+        performance = Accuracy.copy()
+    elif metric == 'f1_weighted':
+        performance = f1_scores.copy()
+    elif metric == 'recall_weighted':
+        performance = recall.copy()
+    elif metric == 'precision_weighted':
+        performance = precision.copy()
+
+    # Return also the K-fold cross-validation performance for the non-shuffled dataset
+    # and the p-value
+    CV = performance[0] # Predictive Accuracy of non-permuted dataset PLS-DA model - performance[0]
+    pvalue = (
+        sum( [performance[i] for i in range(1, len(performance)) if performance[i] >= performance[0]] ) + 1
+    ) / (iter_num + 1)
+
+    return CV, performance[1:], pvalue
 
 ### Step 6 Functions
 ### Functions related to perform Univariate Analysis
