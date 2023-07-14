@@ -3,6 +3,7 @@
 import pandas as pd
 import numpy as np
 import panel as pn
+import param
 
 # metanalysis_standard.py file
 import metanalysis_standard as metsta
@@ -65,68 +66,63 @@ class DataPreTreatment:
         
         self.content = pn.Column("# Section 3: Data Pre-Treatment", "Choose the pre-treatment to apply to the data.",
                                 page3)
-        self.params  = {'filt_method': filt_method.value, 'filt_kw': filt_kw.value,
-                        'mvi_method': mvi_method.value, 'mvi_kw': mvi_kw.value,
-                        'norm_method': norm_method.value}
 
     def view(self):
         return self.content
-    
-    def retrieve_params(self):
-        self.params  = {'filt_method': filt_method.value, 'filt_kw': filt_kw.value,
-                        'mvi_method': mvi_method.value, 'mvi_kw': mvi_kw.value,
-                        'norm_method': norm_method.value}
-        return self.params
-    
+
+# Define pages as classes
+class ClassColours:
+    def __init__(self):
+
+        self.content = pn.Column("# Section 3.1: Select Colours for each Class", "To maintain consistency in the plots.")
+
+    def view(self):
+        return self.content
 
 # Page 1 - Reading File
-# TODO: Substitute file reading by fileinput widget.
 # TODO: Make Reset button to read other datasets.
 
+# Page 1 - Reading File
 def read_file(event):
     "Function to read the file given."
     if filename.value == '':
         dataframe_to_show.value = pd.DataFrame()
-        return '', ''
-    elif file_extension.value == 'CSV':
-        if filename.value.endswith('.csv'):
-            file = pd.read_csv(filename.value)
-            file.insert(1, 'Neutral Mass', file['Bucket label'].str.replace('Da', '').astype('float')) 
-            #important for database match
-            file = file.set_index('Bucket label')
+    elif filename.filename.endswith('.csv'):
+        file = pd.read_csv(filename.filename)
+        file.insert(1, 'Neutral Mass', file['Bucket label'].str.replace('Da', '').astype('float'))
+        #important for database match
+        file = file.set_index('Bucket label')
 
-            # Replaces zeros with numpy nans. Essential for data processing
-            file = file.replace({0:np.nan})
+        # Replaces zeros with numpy nans. Essential for data processing
+        file = file.replace({0:np.nan})
 
-            # Samples names frequently have 00000. Use this code to make them 'cleaner'. 
-            # If not needed just skip this part (use #)
-            def renamer(colname):
-                # Util to optionally remove all those 00000 from sample names
-                return ''.join(colname.split('00000'))
-            file.columns = [renamer(i) for i in file.columns]
-        else:
-            pn.state.notifications.error('Provided file is not a csv file.')
+        # Samples names frequently have 00000. Use this code to make them 'cleaner'.
+        # If not needed just skip this part (use #)
+        def renamer(colname):
+            # Util to optionally remove all those 00000 from sample names
+            return ''.join(colname.split('00000'))
+        file.columns = [renamer(i) for i in file.columns]
+        dataframe_to_show.value = file
+
+    elif filename.filename.endswith('.xlsx') or filename.filename.endswith('.xls'):
+        file = pd.read_excel(filename.filename)
+        file = file.set_index('Bucket label')
+        dataframe_to_show.value = file
+
     else:
-        if filename.value.endswith('.xlsx') or filename.value.endswith('.xls'):
-            file = pd.read_excel(filename.value)
-            file = file.set_index('Bucket label')
-        else:
-            pn.state.notifications.error('Provided file is not an Excel file.')
-    
-    dataframe_to_show.value = file
+        pn.state.notifications.error('Provided file is not an Excel or a csv file.')
 
 
 # Widgets and reacting functions of page 1
-filename = pn.widgets.TextInput(name='Filename', placeholder='Dataset.csv', max_length=100)
+filename = pn.widgets.FileInput(name='Choose file', accept='.csv,.xlsx,.xls')
 
 confirm_button_filename = pn.widgets.Button(name='Read File', button_type='primary', disabled=True)
 tooltip_file = pn.widgets.TooltipIcon(value="Provided file must come from MetaboScape.")
 file_extension = pn.widgets.RadioBoxGroup(name='File type', options=['CSV','Excel'], inline=False)
-#file_input = pn.widgets.FileInput(name='Choose file', accept='.csv,.xlsx,.xls') # Substitute read_filename and file_extension in the future.
 dataframe_to_show = pn.widgets.DataFrame(pd.DataFrame(), name='Data')
 
 # Update button so it can be pressed after you put something in the filename
-@pn.depends(filename.param.value, watch=True)
+@pn.depends(filename.param.filename, watch=True)
 def _update_confirm_button_filename(filename):
     if filename != '':
         confirm_button_filename.disabled = False
@@ -169,10 +165,8 @@ confirm_button_filename.on_click(_update_confirm_step1)
 confirm_button_step1.on_click(_confirm_step1)
 
 # Setting up the page layout
-section1page = pn.GridSpec()
-section1page[0:4,   0  ] = pn.Column(filename, pn.Row(file_extension, tooltip_file), confirm_button_filename)
-section1page[0:4,   1:5] = dataframe_to_show
-section1page[5,   :] = confirm_button_step1
+section1page = pn.Column(filename, pn.Row(confirm_button_filename, tooltip_file),
+                        dataframe_to_show, confirm_button_step1)
 
 
 
@@ -311,11 +305,6 @@ def _update_filt_kw_limits(target, method):
     else:
         filt_kw.end = 1
 
-# Change the IntSlider limits based on method chosen and dataset
-#@pn.depends(filt_method.param.value, watch=True)
-#def _update_limit_filt(filt_method):
-#    filt_kw.end = limits_filt[filt_method]
-
 filt_method_tooltip = pn.widgets.TooltipIcon(value=
     """'total_samples' requires a feature to appear in at least x samples in the whole dataset to be retained.
     'class_samples' requires a feature to appear in at least x samples of at least 1 class to be retained.""")
@@ -352,6 +341,7 @@ def _confirm_button_initial_filtering(event):
     target = target_widget.value.split(',')
     initial_filtering(dataframe_to_show.value, 
                       sample_cols, target=target, filt_method=filt_method.value, filt_kw=filt_kw.value)
+    annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
     if len(page1_2) == 3:
         page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',filtered_df,
                        confirm_button_next_step_2])
@@ -374,29 +364,33 @@ page1_2 = pn.Column(pn.Row(filt_method, filt_method_tooltip), pn.Row(filt_kw, fi
 
 
 # Page 2 - Annotation of Metabolites
-# TODO: Perform annotation (funny, taking into account the name of the page)
 # TODO: Call notification error when database reading does not go well - highlight which filled space 
 # caused it to not go well (should be on the easy side)
 
 # Read the database function
 def read_database(filename, abv, ID_col, name_col, formula_col):
-    if filename.endswith('.csv'):
-        db = pd.read_csv(filename).set_index(ID_col)
-        if abv == 'HMDB':
-            db[name_col] = db[name_col].str.replace("b'", "")
-            db[name_col] = db[name_col].str.replace("'", "")
-    elif filename.endswith('.xlsx'):
-        db = pd.read_excel(filename).set_index(ID_col)
-        if abv == 'HMDB':
-            db[name_col] = db[name_col].str.replace("b'", "")
-            db[name_col] = db[name_col].str.replace("'", "")
-    else:
-        raise ValueError('File Format not accepted. Only csv and xlsx files are accepted.')
-    ##
-    db['Mass'] = db[formula_col].dropna().apply(metsta.calculate_monoisotopic_mass)
-    return db
+    try:
+        if filename.endswith('.csv'):
+            db = pd.read_csv(filename).set_index(ID_col)
+            if abv == 'HMDB':
+                db[name_col] = db[name_col].str.replace("b'", "")
+                db[name_col] = db[name_col].str.replace("'", "")
+        elif filename.endswith('.xlsx'):
+            db = pd.read_excel(filename).set_index(ID_col)
+            if abv == 'HMDB':
+                db[name_col] = db[name_col].str.replace("b'", "")
+                db[name_col] = db[name_col].str.replace("'", "")
+        else:
+            raise ValueError('File Format not accepted. Only csv and xlsx files are accepted.')
+        ##
+        db['Mass'] = db[formula_col].dropna().apply(metsta.calculate_monoisotopic_mass)
+        return db
+    except:
+        pn.state.notifications.error('Database could not be read. Check if all parameters given are correct.',
+                                     duration=5000)
 
 # Widgets for selecting number of databases
+n_databases_show = pn.widgets.IntInput(name='Nº of Databases to annotate', value=1, step=1, start=0, end=5)
 n_databases = pn.widgets.IntInput(name='Nº of Databases to annotate', value=1, step=1, start=0, end=5)
 tooltip_n_databases = pn.widgets.TooltipIcon(value="Select how many (0-5) databases you want to use for annotation.")
 # Button to perform filtering
@@ -474,7 +468,10 @@ class DatabaseSection():
                 else:
                     self.content[6] = f'Database {self.abv} has {len(self.db.value)} metabolites.'
                 self.read.value = True
+                while len(page2)>4:
+                    page2.pop(-1)
                 confirm_button_databases_read.disabled = False
+                confirm_button_annotation_perform.disabled = True
 
         # Initial parameters of the Database section so we can grab values easier down the line
         self.content = pn.Column(pn.Row(static_db_file, db_file_input),
@@ -501,6 +498,7 @@ dbs_arrangement_all = pn.Row(DB_dict['1'].content, DB_dict['2'].content, DB_dict
 
 # Make the designated number of database sections appear
 def _confirm_button_n_databases(event):
+    n_databases.value = n_databases_show.value
     titles = pn.Row()
     dbs_arrangement = pn.Row()
     for i in range(n_databases.value):
@@ -510,15 +508,21 @@ def _confirm_button_n_databases(event):
     # Keep the page layout organized
     if len(page2) == 1:
         page2.append(titles)
-        page2.append(pn.Row(dbs_arrangement))
+        page2.append(dbs_arrangement)
     else:
+        while len(page2)>4:
+            page2.pop(-1)
         page2[1] = pn.Row(titles)
-        page2[2] = pn.Row(dbs_arrangement)
+        page2[2] = dbs_arrangement
+
+    if n_databases.value == 0:
+        page2.append(confirm_button_databases_read)
+        confirm_button_databases_read.disabled = False
 
 confirm_button_n_databases.on_click(_confirm_button_n_databases)
 
 # Initial page layout
-page2 = pn.Column(pn.Row(n_databases, tooltip_n_databases, confirm_button_n_databases))
+page2 = pn.Column(pn.Row(n_databases_show, tooltip_n_databases, confirm_button_n_databases))
 confirm_button_databases_read = pn.widgets.Button(icon=img_confirm_button, name='Confirm Databases',
                                                  button_type='success', disabled=False)
 
@@ -567,35 +571,346 @@ annotation_param_selection = pn.Column(annotation_margin_method_radio,
 # Make the annotation part of the layout appear and disable button to confirm databases
 def _confirm_button_databases_read(event):
     confirm_button_databases_read.disabled = True
+    confirm_button_annotation_perform.disabled = False
+    annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
     
-    if len(page2) == 4:
-        page2.append(annotation_param_selection)
+    page2.append(annotation_param_selection)
 confirm_button_databases_read.on_click(_confirm_button_databases_read)
 
+# Widgets fot annotation part
+performing_annotation_arrangement = pn.Column() # Start with empty page for the annotation widgets
+tqdm_database = {i+1:pn.widgets.Tqdm() for i in range(n_databases.end)}
+verbose_annotated_compounds = {i+1:pn.widgets.StaticText(name='', value=f'') for i in range(n_databases.end)}
+annotated_df = pn.widgets.DataFrame(pd.DataFrame(index=filtered_df.value.index))
+
+# Function to perform metabolite annotation (also contributes to updating the page)
+def metabolite_annotation():
+    # For each database, perform annotation adding a section with 4 columns (ID, metabolite name, formula and number of matches)
+    for i in range(n_databases.value):
+        # Get the correct database
+        db_to_use = str(i+1)
+
+        # Prepare columns
+        matched_ids_col = 'Matched '+DB_dict[db_to_use].abv+' IDs'
+        matched_names_col = 'Matched '+DB_dict[db_to_use].abv+' names'
+        matched_formulas_col = 'Matched '+DB_dict[db_to_use].abv+' formulas'
+        match_count_col = DB_dict[db_to_use].abv+' match count'
+        annotated_df.value[matched_ids_col] = ''
+        annotated_df.value[matched_names_col] = ""
+        annotated_df.value[matched_formulas_col] = ""
+        annotated_df.value[match_count_col] = ""
+
+        # Update the page layout correctly, whether it is a repeat annotation or new one
+        if len(performing_annotation_arrangement) == i:
+            performing_annotation_arrangement.append(pn.Row(f'Annotating {DB_dict[db_to_use].abv} Database:',
+                                                            tqdm_database[i+1], verbose_annotated_compounds[i+1]))
+        else:
+            performing_annotation_arrangement[i] = pn.Row(f'Annotating {DB_dict[db_to_use].abv} Database:',
+                                                            tqdm_database[i+1], verbose_annotated_compounds[i+1])
+
+        # Annotation for each metabolite
+        for a in tqdm_database[i+1](range(filtered_df.value.shape[0])):
+            matched_ids = []
+            matched_names = []
+            matched_formulas = []
+
+            # See candidates for annotation to add
+            # Option 1 - Based on maximum PPM Deviation
+            if annotation_margin_method_radio.value == 'PPM Deviation':
+                ppm_margin = annotation_ppm_deviation.value
+
+                candidates_for_annotation = abs((DB_dict[db_to_use].db.value['Mass']-filtered_df.value[
+                    radiobox_neutral_mass.value][a])/filtered_df.value[radiobox_neutral_mass.value][a])*10**6
+                candidates_for_annotation = candidates_for_annotation[candidates_for_annotation<ppm_margin]
+
+            # Option 2 - Based on maximum Dalton Deviation
+            elif annotation_margin_method_radio.value == 'Absolute Dalton Deviation':
+                Da_margin = annotation_Da_deviation.value
+
+                candidates_for_annotation = abs(
+                    DB_dict[db_to_use].db.value['Mass']-filtered_df.value[radiobox_neutral_mass.value][a])
+                candidates_for_annotation = candidates_for_annotation[candidates_for_annotation<Da_margin]
+
+            # Store candidates
+            for m in candidates_for_annotation.index:
+                matched_ids.append(m)
+                matched_names.append(DB_dict[db_to_use].db.value[DB_dict[db_to_use].annotation][m])
+                matched_formulas.append(DB_dict[db_to_use].db.value[DB_dict[db_to_use].formula][m])
+
+            # Add the annotation candidates
+            if len(matched_ids) > 0:
+                annotated_df.value.at[annotated_df.value.index[a], matched_ids_col] = matched_ids
+                annotated_df.value.at[annotated_df.value.index[a], matched_names_col] = matched_names
+                annotated_df.value.at[annotated_df.value.index[a], matched_formulas_col] = matched_formulas
+                annotated_df.value.at[annotated_df.value.index[a], match_count_col] = len(matched_ids)
+            else:
+                annotated_df.value.at[annotated_df.value.index[a], matched_ids_col] = np.nan
+                annotated_df.value.at[annotated_df.value.index[a], matched_names_col] = np.nan
+                annotated_df.value.at[annotated_df.value.index[a], matched_formulas_col] = np.nan
+                annotated_df.value.at[annotated_df.value.index[a], match_count_col] = 0
+
+        verbose_annotated_compounds[
+            i+1].value = f'Annotated {annotated_df.value[matched_ids_col].notnull().sum()} compounds.'
+
+# Perform annotation, update page layout
+def _press_confirm_annotation_perform(event):
+    while len(performing_annotation_arrangement)>0:
+        performing_annotation_arrangement.pop(-1)
+    page2.append(performing_annotation_arrangement)
+    confirm_button_annotation_perform.disabled=True
+    metabolite_annotation()
+    page2.append(confirm_button_next_step_3)
+
+confirm_button_annotation_perform.on_click(_press_confirm_annotation_perform)
+
+# Button to next step
+confirm_button_next_step_3 = pn.widgets.Button(icon=img_confirm_button, name='Next Step - Data Pre-Treatment',
+                                                     button_type='success', disabled=False)
+
+# Go to next step function and calling it
+def _confirm_button_next_step_3(event):
+    page3_button.disabled = False
+    DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
+    main_area.clear()
+    show_page(pages["Data Pre-Treatment"])
+confirm_button_next_step_3.on_click(_confirm_button_next_step_3)
 
 
 
-# Page 3 - Data Pre-Treatment (very incomplete)
-# TODO: Most everything
 
-# Missing Value Imputations
-mvi_method = pn.widgets.Select(name="Missing Value Imputation Method", value="min_sample", 
-                                       options=['min_sample', 'min_feat', 'min_data', 'zero'])
-mvi_kw = pn.widgets.FloatSlider(name="Missing Value Imputation Keyword", value=0.2, start=0, end=1, step=0.01)
-limits_mvi = {"min_sample": 1, "min_feat": 1, "min_data": 1, "zero": 0}
-# Update the keyword slider based on methodology chosen
-@pn.depends(mvi_method.param.value, watch=True)
+#### This marks the separation to use mainly param instead of only panel
+#### I believe most areas before do not need param, except for the TODO marked in the next part
+
+# Param Class to store all DataFrame
+# TODO: Put previous dataframes - dataframe_to_show, filtered_df and annotated_df here as well and put this class at the begginning of program
+
+# Contains before treatment data, treated_data, processed_data, univariate_data, meta_data, bin_data
+class DataFrame_Storage(param.Parameterized):
+
+    # Starting DataFrame (after annotation)
+    original_df = param.DataFrame()
+
+    # DataFrame treated
+    treated_df = param.DataFrame()
+
+    # Metadata
+    metadata_df = param.DataFrame()
+
+    # DataFrame for exclusive/common compounds
+    processed_df = param.DataFrame()
+
+    # DataFrame for univariate analysis
+    univariate_df = param.DataFrame()
+
+    # BinSim treated DataFrame
+    binsim_df = param.DataFrame()
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+
+        self.controls = pn.Param(self, parameters=['treated_df'], name='Pre-Treatment Selection')
+
+    def concat_annots(_, MS_df, annot_df):
+        return pd.concat((MS_df, annot_df), axis=1)
+
+# Initializing the Store
+DataFrame_Store = DataFrame_Storage()
+# This here below runs when you finish step 3 by clicking the button
+# DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
+
+# Page 3 - Data Pre-Treatment
+# TODO: There is currently an error when running the pre-treatment due to the layout, it does not seem to affect functionality though
+
+# Param to encompass the choice of Pre-Treatment methods
+# TODO: Introduce way to read reference sample for PQN normalization
+class PreTreatment(param.Parameterized):
+    # Update the keyword slider based on methodology chosen
+
+    # Missing Value Imputation
+    mvi_method = param.Selector(default="Minimum of Sample")
+    mvi_kw = param.Number(default=0.2, bounds=(0,1))
+
+    # Normalization
+    norm_method = param.Selector(default="Reference Feature")
+    norm_kw = param.Selector(default=None)
+
+    # Transformation
+    tf_method = param.Selector(default="Generalized Logarithmic Transformation (glog)")
+    tf_kw = param.Number(default=None)
+
+    # Scaling
+    scaling_method = param.Selector(default="Pareto Scaling")
+    scaling_kw = param.String(default="")
+
+    # Confirm Pre-Treatment Selection
+    confirm_button = param.Boolean(default=False)
+
+    # Function to confirm Pre-Treatment Selection and Updating DataFrames
+    # TODO: Make Metadata appear in a more clean way
+    def _confirm_button_press(self, event):
+        performing_pretreatment(self, DataFrame_Store, target_widget, checkbox_samples)
+        page3[:,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
+            ('Metadata', DataFrame_Store.metadata_df.T),
+            ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'mvi_method': pn.widgets.Select(name="Missing Value Imputation Method", value = 'Minimum of sample',
+                            options=['Minimum of Sample', 'Minimum of Feature', 'Minimum of Data', 'Zero'],
+                description='What Minimum to use as reference and what fraction of it for constant value imputation.'),
+            'mvi_kw': pn.widgets.FloatSlider(name="Missing Value Imputation Fraction of Minimum Chosen",
+                                             value=0.2, step=0.01),
+
+            'norm_method': pn.widgets.Select(name="Normalization Method", value = 'Write reference feature here',
+                            options=['Reference Feature', 'Total Intensity Sum', 'PQN', 'Quantile', 'None']),
+            'norm_kw': pn.widgets.MultiChoice(name="Normalization Keyword", max_items=1,
+                                              option_limit=8, search_option_limit=8, disabled=True,
+                        description="""If you do not find your reference feature (Norm. by Ref. Feat.) or your sample (if you are choosing a sample for PQN), start writing it in the box below until it appears."""),
+
+            'tf_method': pn.widgets.Select(name="Transformation Method",
+                                           value = 'Generalized Logarithmic Transformation (glog)',
+                            options=['Generalized Logarithmic Transformation (glog)', None]),
+            'tf_kw': pn.widgets.FloatInput(name="Transformation Keyword", value=None,
+                    description="""Lambda value in glog transformation. Leave empty or 0 for usual log transformation.
+                    Ignored if Transformation Method is None.
+            glog equation is: log\N{SUBSCRIPT TWO}((y + \u221A(y\N{SUPERSCRIPT TWO} + lambda\N{SUPERSCRIPT TWO}) ) /2)
+                    """),
+
+            'scaling_method': pn.widgets.Select(name="Scaling Method", value = 'Pareto Scaling',
+                            options=['Pareto Scaling', 'Auto Scaling', 'Mean Centering', 'Range Scaling',
+                                     'Vast Scaling', 'Level Scaling', None]),
+            'scaling_kw': pn.widgets.Select(name="Scaling Keyword for Level Scaling only", value='', disabled=True,
+                                           options=['Average', 'Median']),
+
+            'confirm_button': pn.widgets.Button(name="Confirm Pre-Treatment", button_type='primary'),
+        }
+        self.controls = pn.Param(self, widgets=widgets, name='Pre-Treatment Selection')
+
+# Initializing Pre-Treatment Param
+PreTreatment_Method = PreTreatment()
+
+# Update options for missing value imputation keyword based on missing value imputation
+limits_mvi = {"Minimum of Sample": 1, "Minimum of Feature": 1, "Minimum of Data": 1, "Zero": 0}
+@pn.depends(PreTreatment_Method.controls.widgets['mvi_method'].param.value, watch=True)
 def _update_limit_mvi(mvi_method):
-    mvi_kw.end = limits_mvi[mvi_method]
-    mvi_kw.value = 0.2
+    if mvi_method == None:
+        PreTreatment_Method.controls.widgets['mvi_kw'].value = 0
+    PreTreatment_Method.controls.widgets['mvi_kw'].end = limits_mvi[
+        PreTreatment_Method.controls.widgets['mvi_method'].value]
 
-# Normalization
-norm_method = pn.widgets.Select(name="Normalization Method", value="ref_feat", 
-                                       options=['ref_feat', 'total_sum', 'PQN', 'Quantile', None])
-#norm_kw = pn.widgets.FloatSlider(name="Missing Value Imputation Keyword", value=0.2, start=0, end=1, step=0.01)
+# Update options for normalization keyword based on normalization
+options_norm = {"Reference Feature": None, "Total Intensity Sum": '', "PQN": ["mean", "median"],
+                "Quantile": ["mean", "median"], 'None': ''}
+@pn.depends(PreTreatment_Method.controls.widgets['norm_method'].param.value, watch=True)
+def _update_options_norm(norm_method):
+    if norm_method in ['Total Intensity Sum', 'None']:
+        PreTreatment_Method.controls.widgets['norm_kw'].disabled = True
+        PreTreatment_Method.controls.widgets['norm_kw'].placeholder = ''
+        PreTreatment_Method.controls.widgets['norm_kw'].value = []
+    elif norm_method == 'Reference Feature':
+        PreTreatment_Method.controls.widgets['norm_kw'].value = []
+        PreTreatment_Method.controls.widgets['norm_kw'].options = list(filtered_df.value.index)
+        PreTreatment_Method.controls.widgets['norm_kw'].placeholder = 'Reference Feature'
+        PreTreatment_Method.controls.widgets['norm_kw'].disabled = False
+    elif norm_method == 'PQN':
+        PreTreatment_Method.controls.widgets['norm_kw'].value = []
+        PreTreatment_Method.controls.widgets['norm_kw'].options = options_norm[norm_method] + list(checkbox_samples.value)
+        PreTreatment_Method.controls.widgets['norm_kw'].placeholder = ''
+        PreTreatment_Method.controls.widgets['norm_kw'].disabled = False
 
-# Layout of the INCOMPLETE page
-page3 = pn.Column(mvi_method, mvi_kw, norm_method)
+    else:
+        PreTreatment_Method.controls.widgets['norm_kw'].value = []
+        PreTreatment_Method.controls.widgets['norm_kw'].options = options_norm[norm_method]
+        PreTreatment_Method.controls.widgets['norm_kw'].placeholder = ''
+        PreTreatment_Method.controls.widgets['norm_kw'].disabled = False
+
+# Update options for scaling keyword based on scaling
+@pn.depends(PreTreatment_Method.controls.widgets['scaling_method'].param.value, watch=True)
+def _update_options_scaling(scaling_method):
+    if scaling_method == 'Level Scaling':
+        PreTreatment_Method.controls.widgets['scaling_kw'].disabled = False
+        PreTreatment_Method.controls.widgets['scaling_kw'].value = 'Average'
+    else:
+        PreTreatment_Method.controls.widgets['scaling_kw'].disabled = True
+        PreTreatment_Method.controls.widgets['scaling_kw'].value = ''
+
+# Click button to confirm Pre-Treatment
+PreTreatment_Method.controls.widgets['confirm_button'].on_click(PreTreatment_Method._confirm_button_press)
+
+def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target_widget, checkbox_samples):
+    "Putting keywords to pass to filtering_pretreatment function and performing pre-treatment."
+
+    # Missing Value Imputation
+    mvi_translation = {'Minimum of Sample':'min_sample', 'Minimum of Feature':'min_feat', 'Minimum of Data':'min_data',
+                      'Zero':'zero'}
+    mvi = mvi_translation[PreTreatment_Method.mvi_method]
+    mvi_kw = PreTreatment_Method.mvi_kw
+
+    # Normalization
+    norm_translation = {'Reference Feature':'ref_feat', 'Total Intensity Sum':'total_sum', 'PQN':'PQN',
+                      'Quantile':'Quantile', 'None': None}
+    norm = norm_translation[PreTreatment_Method.norm_method]
+
+    norm_kw = PreTreatment_Method.norm_kw
+    if norm_kw == 'Mean':
+        norm_kw = 'mean'
+    elif norm_kw == 'Median':
+        norm_kw = 'median'
+
+    # Transformation
+    tf_translation = {'Generalized Logarithmic Transformation (glog)':'glog', None: None}
+    tf = tf_translation[PreTreatment_Method.tf_method]
+
+    tf_kw = PreTreatment_Method.tf_kw
+
+    # Scaling
+    scaling_translation = {'Pareto Scaling':'pareto', 'Auto Scaling':'auto', 'Mean Centering':'mean_center',
+                      'Range Scaling':'range', 'Vast Scaling': 'vast', 'Level Scaling': 'level', None: None}
+    scaling = scaling_translation[PreTreatment_Method.scaling_method]
+
+    if PreTreatment_Method.scaling_kw == 'Average':
+        scaling_kw = True
+    else:
+        scaling_kw = False
+
+    # Data to pass, target and sample columns
+    data = DataFrame_Store.original_df
+    target = target_widget.value.split(',')
+    sample_cols = checkbox_samples.value
+
+    a,b,c,d,e = metsta.filtering_pretreatment(data, target, sample_cols,
+                      filt_method=None, filt_kw=2, # Filtering based on number of times features appear
+                      extra_filt=None, # Filtering based on annotation of features ('Formula' or 'Name')
+                      mvi=mvi, mvi_kw=mvi_kw, # Missing value imputation
+                      norm=norm, norm_kw=norm_kw, # Normalization
+                      tf=tf, tf_kw=tf_kw, # Transformation
+                      scaling=scaling, scaling_kw=scaling_kw) # Scaling
+
+    DataFrame_Store.treated_df, DataFrame_Store.processed_df, DataFrame_Store.univariate_df = a, b, c
+    DataFrame_Store.metadata_df, DataFrame_Store.binsim_df = d, e
+
+# Button to next step
+confirm_button_next_step_4 = pn.widgets.Button(icon=img_confirm_button, name='Next Step - Class Colours',
+                                                     button_type='success', disabled=False)
+
+# Go to next step function and calling it
+def _confirm_button_next_step_4(event):
+    page4_button.disabled = False
+    main_area.clear()
+    show_page(pages["Class Colours"])
+confirm_button_next_step_4.on_click(_confirm_button_next_step_4)
+
+# Organize Page Layout
+page3 = pn.GridSpec()
+page3[:,0:2] = PreTreatment_Method.controls
+page3[:,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
+        ('Metadata', DataFrame_Store.metadata_df),
+       ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
+
 
 
 
@@ -607,7 +922,8 @@ pages = {
     "Data Metadata": DataMetadata(),
     "Data Filtering": DataFiltering(),
     "Data Annotation": DataAnnotation(),
-    "Data Pre-Treatment": DataPreTreatment()
+    "Data Pre-Treatment": DataPreTreatment(),
+    "Class Colours": ClassColours()
 }
 
 # Function to show the selected page - needs update (may cause bug)
@@ -626,6 +942,7 @@ page1_1_button = pn.widgets.Button(name="Data Metadata", button_type="default", 
 page1_2_button = pn.widgets.Button(name="Data Filtering", button_type="default", disabled=True)
 page2_button = pn.widgets.Button(name="Data Annotation", button_type="primary", disabled=True)
 page3_button = pn.widgets.Button(name="Data Pre-Treatment", button_type="primary", disabled=True)
+page4_button = pn.widgets.Button(name="Class Colours", button_type="primary", disabled=True)
 
 # Set up button click callbacks
 page1_button.on_click(lambda event: show_page(pages["Data Reading"]))
@@ -635,7 +952,7 @@ page2_button.on_click(lambda event: show_page(pages["Data Annotation"]))
 page3_button.on_click(lambda event: show_page(pages["Data Pre-Treatment"]))
 
 # Create the sidebar
-sidebar = pn.Column(index_button, page1_button, page1_1_button, page1_2_button, page2_button, page3_button)
+sidebar = pn.Column(index_button, page1_button, page1_1_button, page1_2_button, page2_button, page3_button, page4_button)
 
 # Create the main area and display the first page
 main_area = OpeningPage().content
