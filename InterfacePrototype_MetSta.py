@@ -721,6 +721,7 @@ DataFrame_Store = DataFrame_Storage()
 
 # Page 3 - Data Pre-Treatment
 # TODO: There is currently an error when running the pre-treatment due to the layout, it does not seem to affect functionality though
+# TODO: Both Normalization by a Reference Feature and Quantile Normalization have to be fixed in metabolinks
 
 # Param to encompass the choice of Pre-Treatment methods
 # TODO: Introduce way to read reference sample for PQN normalization
@@ -856,6 +857,8 @@ def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target_widget,
     norm = norm_translation[PreTreatment_Method.norm_method]
 
     norm_kw = PreTreatment_Method.norm_kw
+    if norm in ['PQN', 'Quantile']:
+        norm_kw = norm_kw[0]
     if norm_kw == 'Mean':
         norm_kw = 'mean'
     elif norm_kw == 'Median':
