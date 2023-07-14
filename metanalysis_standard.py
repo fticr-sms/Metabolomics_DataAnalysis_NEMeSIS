@@ -764,7 +764,7 @@ def normalizer(data, norm='ref_feat', norm_kw='555.2692975341 Da'):
     elif norm == 'PQN': # Normalization by Probabilistic Quotient Normalization (norm_kw is ref_sample, usually, 'mean')
         N = transf.normalize_PQN(data, ref_sample=norm_kw)
     elif norm == 'Quantile': # Normalization by Quantile Normalization (norm_kw is ref_feat, usually, 'mean')
-        N = transf.normalize_quantile(data, ref_feat=norm_kw)
+        N = transf.normalize_quantile(data, ref_type=norm_kw)
     elif norm == None: # No Normalization
         N = data.copy()
     else:
@@ -835,7 +835,7 @@ def filtering_pretreatment(data, target, sample_cols,
     imputed = missing_value_imputer(filt_sample_data.copy(), mvi=mvi, mvi_kw=mvi_kw) # Missing Value Imputation
     N = normalizer(imputed, norm=norm, norm_kw=norm_kw) # Normalization
     NG = transformer(N, tf=tf, tf_kw=tf_kw) # Transformation
-    NGP = scaler(NG, scaling=scaling, scaling_kw=scaling_kw) 
+    NGP = scaler(NG, scaling=scaling, scaling_kw=scaling_kw) # Scaling
     
     # Meta data DataFrame
     meta_data = meta_data.reindex(NGP.columns)
