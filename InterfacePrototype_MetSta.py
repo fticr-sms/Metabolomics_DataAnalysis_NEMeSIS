@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import panel as pn
 import param
+import random
+import seaborn as sns
 
 # metanalysis_standard.py file
 import metanalysis_standard as metsta
@@ -74,7 +76,17 @@ class DataPreTreatment:
 class ClassColours:
     def __init__(self):
 
-        self.content = pn.Column("# Section 3.1: Select Colours for each Class", "To maintain consistency in the plots.")
+        self.content = pn.Column("# Section 3.1: Select Colours for each Class", "To maintain consistency in the plots.",
+                                 "### Choose the colors for each class", page4)
+
+    def view(self):
+        return self.content
+
+# Define pages as classes
+class TransitionalPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Select which Analysis you would like to do:", transitional_page)
 
     def view(self):
         return self.content
@@ -716,12 +728,10 @@ class DataFrame_Storage(param.Parameterized):
 
 # Initializing the Store
 DataFrame_Store = DataFrame_Storage()
-# This here below runs when you finish step 3 by clicking the button
-# DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
 
 # Page 3 - Data Pre-Treatment
 # TODO: There is currently an error when running the pre-treatment due to the layout, it does not seem to affect functionality though
-# TODO: Both Normalization by a Reference Feature and Quantile Normalization have to be fixed in metabolinks
+# TODO: Normalization by a Reference Feature has to be fixed in metabolinks
 
 # Param to encompass the choice of Pre-Treatment methods
 # TODO: Introduce way to read reference sample for PQN normalization
@@ -751,9 +761,11 @@ class PreTreatment(param.Parameterized):
     # TODO: Make Metadata appear in a more clean way
     def _confirm_button_press(self, event):
         performing_pretreatment(self, DataFrame_Store, target_widget, checkbox_samples)
-        page3[:,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
+        page3[:4,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
             ('Metadata', DataFrame_Store.metadata_df.T),
             ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
+        confirm_button_next_step_4.disabled = False
+        page3[5, :] = confirm_button_next_step_4
 
     def __init__(self, **params):
 
@@ -898,21 +910,127 @@ def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target_widget,
 
 # Button to next step
 confirm_button_next_step_4 = pn.widgets.Button(icon=img_confirm_button, name='Next Step - Class Colours',
-                                                     button_type='success', disabled=False)
+                                                     button_type='success', disabled=True)
 
 # Go to next step function and calling it
 def _confirm_button_next_step_4(event):
     page4_button.disabled = False
+
+    # Filling the target storage with the correct target and default colours
+    target_list(target_widget.value.split(','), colours)
+
+    # Setting up the layout of page 4
+    n_classes = len(target_list.color_classes)
+    for row in range(0, n_classes, 5):
+        new_row = pn.Row()
+        for col in range(5):
+            key = list(target_list.color_classes.keys())[row+col]
+            new_row.append(pn.widgets.ColorPicker(value=target_list.color_classes[key], name=str(key)))
+
+        page4.append(new_row)
+    page4.append(confirm_button_next_step_transitionalpage)
+
     main_area.clear()
     show_page(pages["Class Colours"])
 confirm_button_next_step_4.on_click(_confirm_button_next_step_4)
 
 # Organize Page Layout
 page3 = pn.GridSpec()
-page3[:,0:2] = PreTreatment_Method.controls
-page3[:,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
+page3[:5,0:2] = PreTreatment_Method.controls
+page3[:5,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
         ('Metadata', DataFrame_Store.metadata_df),
        ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
+page3[5, :] = confirm_button_next_step_4
+
+
+
+
+# Page 4 - Choosing Class Colours
+
+# Default colours - 10 possible colours
+colours = sns.color_palette('tab10', 10)
+
+# Function to fill the target and colours of the above class
+def TargetStorage_filling(target_list, colours):
+
+    temp_dict = {}
+    target = target_list
+    classes = pd.unique(target)
+    for cl in range(len(classes)):
+
+        # The first 10 different targets will follow the tab10 default colours
+        if cl < len(colours):
+            temp_dict[classes[cl]] = RGB(np.array(colours[cl])*255)
+
+        # Generate random colours after the first 10
+        else:
+            # From https://www.geeksforgeeks.org/create-random-hex-color-code-using-python/
+            # Generating a random number in between 0 and 2^24
+            color = random.randrange(0, 2**24)
+            # Converting that number from base-10 (decimal) to base-16 (hexadecimal)
+            hex_color = hex(color)
+            color_in_hex = "#" + hex_color[2:]
+            temp_dict[classes[cl]] = color_in_hex
+    return temp_dict
+
+# From Stack Overflow
+def RGB(col): return '#%02x%02x%02x' % (int(col[0]), int(col[1]), int(col[2]))
+
+# Class to store target and to store target colours
+class TargetStorage(param.Parameterized):
+
+    # Function to do when calling the function
+    updater = param.Callable(TargetStorage_filling)
+
+    # Setting up parameters
+    target = param.List(default=target_widget.value.split(','))
+    color_classes = param.Dict(default={})
+
+    def __init__(self, **params):
+        super().__init__(**params)
+
+    def __call__(self, target, colours):
+        self.color_classes = self.updater(target, colours)
+
+        return self
+
+target_list = TargetStorage()
+
+# Setting up empty page
+page4 = pn.Column()
+
+# Button to next step and to confirm colours
+confirm_button_next_step_transitionalpage = pn.widgets.Button(icon=img_confirm_button, name='Next Step - Analysis',
+                                                     button_type='success', disabled=False)
+# Confirm colours, go to next step function and calling it
+def _confirm_button_next_step_5(event):
+    n_classes = len(target_list.color_classes)
+    for row in range(0, n_classes, 5):
+        for col in range(5):
+            key = list(target_list.color_classes.keys())[row+col]
+            target_list.color_classes[key] = page4[row//5][col].value
+    main_area.clear()
+    show_page(pages["Transitional Page"])
+confirm_button_next_step_transitionalpage.on_click(_confirm_button_next_step_5)
+
+
+
+
+ComExc_A = pn.widgets.Button(name='Common/Exclusive Comp.', button_type='primary')
+Unsup_A = pn.widgets.Button(name='Unsupervised Analysis', button_type='default')
+Sup_A = pn.widgets.Button(name='Supervised Analysis', button_type='success')
+Univariate_A = pn.widgets.Button(name='Univariate Analysis', button_type='warning')
+DataViz_A = pn.widgets.Button(name='Data Visualization', button_type='danger')
+
+pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, DataViz_A)
+
+BinSim_A = pn.widgets.Button(name='BinSim Specific Analysis', button_type='success')
+CompFinder_A = pn.widgets.Button(name='Compound Finder', button_type='warning')
+ToBeAdded_A = pn.widgets.Button(name='More to be added', button_type='danger', disabled=True)
+
+transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, DataViz_A),
+                             '### Other Options:',
+                             pn.Row(BinSim_A, CompFinder_A, ToBeAdded_A))
 
 
 
@@ -926,7 +1044,8 @@ pages = {
     "Data Filtering": DataFiltering(),
     "Data Annotation": DataAnnotation(),
     "Data Pre-Treatment": DataPreTreatment(),
-    "Class Colours": ClassColours()
+    "Class Colours": ClassColours(),
+    "Transitional Page": TransitionalPage()
 }
 
 # Function to show the selected page - needs update (may cause bug)
@@ -953,6 +1072,7 @@ page1_1_button.on_click(lambda event: show_page(pages["Data Metadata"]))
 page1_2_button.on_click(lambda event: show_page(pages["Data Filtering"]))
 page2_button.on_click(lambda event: show_page(pages["Data Annotation"]))
 page3_button.on_click(lambda event: show_page(pages["Data Pre-Treatment"]))
+page4_button.on_click(lambda event: show_page(pages["Class Colours"]))
 
 # Create the sidebar
 sidebar = pn.Column(index_button, page1_button, page1_1_button, page1_2_button, page2_button, page3_button, page4_button)
