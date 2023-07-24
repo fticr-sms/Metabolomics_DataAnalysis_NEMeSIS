@@ -91,6 +91,73 @@ class TransitionalPage:
     def view(self):
         return self.content
 
+class CommonExclusivePage:
+    def __init__(self):
+
+        self.content = pn.Column("# Seeing Common and Exclusive Compounds Between Biological Classes",
+                                 comexc_page)
+
+    def view(self):
+        return self.content
+
+class UnsupervisedAnalysisPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Performing Unsupervised Analysis", "Including PCA and Hierarchical Clustering",
+                                 unsup_analysis_page)
+
+    def view(self):
+        return self.content
+
+class SupervisedAnalysisPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Performing Supervised Analysis", "Including Random Forest and PLS-DA",
+                                 sup_analysis_page)
+
+    def view(self):
+        return self.content
+
+class UnivariateAnalysisPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Performing Univariate Analysis", "Including Univariate and Fold-Change Analysis",
+                                 univar_analysis_page)
+
+    def view(self):
+        return self.content
+
+class DataVisualizationPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Plots to Visualize Your Data", "Van Krevelen and Chemical Composition Series",
+                                 data_viz_page)
+
+    def view(self):
+        return self.content
+
+class BinSimPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Performing BinSim Analysis",
+                                 "Include all previous analysis specifically for BinSim treated data",
+                                 binsim_analysis_page)
+
+    def view(self):
+        return self.content
+
+class CompoundFinderPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Find a specific compound", "Observe barplots and boxplots of that specific feature",
+                                 comp_finder_page)
+
+    def view(self):
+        return self.content
+
+
+
+
 # Page 1 - Reading File
 # TODO: Make Reset button to read other datasets.
 
@@ -1009,6 +1076,13 @@ def _confirm_button_next_step_5(event):
         for col in range(5):
             key = list(target_list.color_classes.keys())[row+col]
             target_list.color_classes[key] = page4[row//5][col].value
+    page5_button.disabled = False
+    page6_button.disabled = False
+    page7_button.disabled = False
+    page8_button.disabled = False
+    page9_button.disabled = False
+    page10_button.disabled = False
+    page11_button.disabled = False
     main_area.clear()
     show_page(pages["Transitional Page"])
 confirm_button_next_step_transitionalpage.on_click(_confirm_button_next_step_5)
@@ -1028,9 +1102,69 @@ BinSim_A = pn.widgets.Button(name='BinSim Specific Analysis', button_type='succe
 CompFinder_A = pn.widgets.Button(name='Compound Finder', button_type='warning')
 ToBeAdded_A = pn.widgets.Button(name='More to be added', button_type='danger', disabled=True)
 
+# Functions for pressing each button
+def _confirm_button_ComExc_A(event):
+    main_area.clear()
+    show_page(pages["Common and Exclusive Compounds"])
+ComExc_A.on_click(_confirm_button_ComExc_A)
+
+def _confirm_button_Unsup_A(event):
+    main_area.clear()
+    show_page(pages["Unsupervised Analysis"])
+Unsup_A.on_click(_confirm_button_Unsup_A)
+
+def _confirm_button_Sup_A(event):
+    main_area.clear()
+    show_page(pages["Supervised Analysis"])
+Sup_A.on_click(_confirm_button_Sup_A)
+
+def _confirm_button_Univariate_A(event):
+    main_area.clear()
+    show_page(pages["Univariate Analysis"])
+Univariate_A.on_click(_confirm_button_Univariate_A)
+
+def _confirm_button_DataViz_A(event):
+    main_area.clear()
+    show_page(pages["Data Visualization"])
+DataViz_A.on_click(_confirm_button_DataViz_A)
+
+def _confirm_button_BinSim_A(event):
+    main_area.clear()
+    show_page(pages["BinSim Analysis"])
+BinSim_A.on_click(_confirm_button_BinSim_A)
+
+def _confirm_button_CompFinder_A(event):
+    main_area.clear()
+    show_page(pages["Compound Finder"])
+CompFinder_A.on_click(_confirm_button_CompFinder_A)
+
 transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, DataViz_A),
                              '### Other Options:',
                              pn.Row(BinSim_A, CompFinder_A, ToBeAdded_A))
+
+
+
+
+# Page for Common and Exclusive Compounds
+comexc_page = pn.Column()
+
+# Page for Unsupervised Analysis
+unsup_analysis_page = pn.Column()
+
+# Page for Supervised Analysis
+sup_analysis_page = pn.Column()
+
+# Page for Univariate Analysis
+univar_analysis_page = pn.Column()
+
+# Page for Data Visualization
+data_viz_page = pn.Column()
+
+# Page for BinSim Analysis
+binsim_analysis_page = pn.Column()
+
+# Page for Compound Finder
+comp_finder_page = pn.Column()
 
 
 
@@ -1045,7 +1179,14 @@ pages = {
     "Data Annotation": DataAnnotation(),
     "Data Pre-Treatment": DataPreTreatment(),
     "Class Colours": ClassColours(),
-    "Transitional Page": TransitionalPage()
+    "Transitional Page": TransitionalPage(),
+    "Common and Exclusive Compounds": CommonExclusivePage(),
+    "Unsupervised Analysis": UnsupervisedAnalysisPage(),
+    "Supervised Analysis": SupervisedAnalysisPage(),
+    "Univariate Analysis": UnivariateAnalysisPage(),
+    "Data Visualization": DataVisualizationPage(),
+    "BinSim Analysis": BinSimPage(),
+    "Compound Finder": CompoundFinderPage()
 }
 
 # Function to show the selected page - needs update (may cause bug)
@@ -1065,6 +1206,13 @@ page1_2_button = pn.widgets.Button(name="Data Filtering", button_type="default",
 page2_button = pn.widgets.Button(name="Data Annotation", button_type="primary", disabled=True)
 page3_button = pn.widgets.Button(name="Data Pre-Treatment", button_type="primary", disabled=True)
 page4_button = pn.widgets.Button(name="Class Colours", button_type="primary", disabled=True)
+page5_button = pn.widgets.Button(name="Common/Exclusive Comp.", button_type="primary", disabled=True)
+page6_button = pn.widgets.Button(name="Unsupervised Analysis", button_type="default", disabled=True)
+page7_button = pn.widgets.Button(name="Supervised Analysis", button_type="success", disabled=True)
+page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="warning", disabled=True)
+page9_button = pn.widgets.Button(name="Data Visualization", button_type="danger", disabled=True)
+page10_button = pn.widgets.Button(name="BinSim Analysis", button_type="success", disabled=True)
+page11_button = pn.widgets.Button(name="Compound Finder", button_type="warning", disabled=True)
 
 # Set up button click callbacks
 page1_button.on_click(lambda event: show_page(pages["Data Reading"]))
@@ -1073,10 +1221,18 @@ page1_2_button.on_click(lambda event: show_page(pages["Data Filtering"]))
 page2_button.on_click(lambda event: show_page(pages["Data Annotation"]))
 page3_button.on_click(lambda event: show_page(pages["Data Pre-Treatment"]))
 page4_button.on_click(lambda event: show_page(pages["Class Colours"]))
+page5_button.on_click(lambda event: show_page(pages["Common and Exclusive Compounds"]))
+page6_button.on_click(lambda event: show_page(pages["Unsupervised Analysis"]))
+page7_button.on_click(lambda event: show_page(pages["Supervised Analysis"]))
+page8_button.on_click(lambda event: show_page(pages["Univariate Analysis"]))
+page9_button.on_click(lambda event: show_page(pages["Data Visualization"]))
+page10_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
+page11_button.on_click(lambda event: show_page(pages["Compound Finder"]))
 
 # Create the sidebar
-sidebar = pn.Column(index_button, page1_button, page1_1_button, page1_2_button, page2_button, page3_button, page4_button)
-
+sidebar = pn.Column(index_button, page1_button, page1_1_button, page1_2_button, page2_button, page3_button, page4_button,
+                   page5_button, page6_button, page7_button, page8_button, page9_button, page10_button,
+                   page11_button)
 # Create the main area and display the first page
 main_area = OpeningPage().content
 
