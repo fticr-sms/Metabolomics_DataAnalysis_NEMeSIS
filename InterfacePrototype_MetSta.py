@@ -6,14 +6,20 @@ import panel as pn
 import param
 import random
 import seaborn as sns
+import holoviews as hv
+import plotly.express as px
+import plotly.graph_objects as go
+from aux_metsta_functions import plot_confidence_ellipse
 
 # metanalysis_standard.py file
 import metanalysis_standard as metsta
 
 # The initial pages, especially the read file one does not have the nomenclature that I started using later on
 # for the different widgets as well as organization
-pn.extension(notifications=True)
+pn.extension('plotly', notifications=True)
+hv.extension('plotly')
 pn.config.sizing_mode="stretch_width"
+# TODO: Avoid Overlapping with pn.GridSpec() when updating new sections of it.
 
 # Define pages as classes
 # Initial Pages class building
@@ -828,11 +834,11 @@ class PreTreatment(param.Parameterized):
     # TODO: Make Metadata appear in a more clean way
     def _confirm_button_press(self, event):
         performing_pretreatment(self, DataFrame_Store, target_widget, checkbox_samples)
-        page3[:4,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
+        page3[:5,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
             ('Metadata', DataFrame_Store.metadata_df.T),
             ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
         confirm_button_next_step_4.disabled = False
-        page3[5, :] = confirm_button_next_step_4
+        #page3[5, :] = confirm_button_next_step_4
 
     def __init__(self, **params):
 
@@ -984,6 +990,7 @@ def _confirm_button_next_step_4(event):
     page4_button.disabled = False
 
     # Filling the target storage with the correct target and default colours
+    target_list.target = target_widget.value.split(',')
     target_list(target_widget.value.split(','), colours)
 
     # Setting up the layout of page 4
@@ -1069,7 +1076,7 @@ page4 = pn.Column()
 # Button to next step and to confirm colours
 confirm_button_next_step_transitionalpage = pn.widgets.Button(icon=img_confirm_button, name='Next Step - Analysis',
                                                      button_type='success', disabled=False)
-# Confirm colours, go to next step function and calling it
+# Confirm colours, go to next step function and calling it, enabling all buttons for analysis and performing initial computations for each analysis
 def _confirm_button_next_step_5(event):
     n_classes = len(target_list.color_classes)
     for row in range(0, n_classes, 5):
@@ -1083,6 +1090,22 @@ def _confirm_button_next_step_5(event):
     page9_button.disabled = False
     page10_button.disabled = False
     page11_button.disabled = False
+
+    # Initial Calculations for PCA and storing initial plots
+    principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(DataFrame_Store.treated_df,
+                                       n_components=n_components_compute.value,
+                                       whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
+    PCA_params.pca_scores = principaldf
+    PCA_params.explained_variance = var
+    PCA_params.pca_loadings = pd.DataFrame(loadings)
+    PCA_params.PCA_plot[0] = _plot_PCA()
+    middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0])
+    PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
+    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0])
+    PCA_params.scatter_PCA_plot[0] = _scatter_PCA_plot()
+    end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0])
+
+
     main_area.clear()
     show_page(pages["Transitional Page"])
 confirm_button_next_step_transitionalpage.on_click(_confirm_button_next_step_5)
@@ -1149,7 +1172,264 @@ transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, Dat
 comexc_page = pn.Column()
 
 # Page for Unsupervised Analysis
-unsup_analysis_page = pn.Column()
+
+# Tab for PCA analysis
+# TODO: PCA is strraight away computed with 10 components. If your data has less than 10 features, this will lead to an error and everything will fail.
+# Should this possibility be taken into account?
+
+# Param Class to store parameters and data regarding PCA
+class PCA_Storage(param.Parameterized):
+    # Update the keyword slider based on methodology chosen
+
+    # Components to compute PCA
+    n_components = param.Number(default=10)
+
+    # N dimensions to show in plot
+    n_dimensions = param.String(default='2 Components')
+
+    # PCAs to plot
+    PCx = param.String(default='PC 1')
+    PCy = param.String(default='PC 2')
+    PCz = param.String(default='PC 3')
+
+    # Draw Ellipses
+    ellipse_draw = param.Boolean(default=True)
+    confidence = param.Number(default=0.95)
+    confidence_std = param.Number(default=2)
+
+    # Computed PCA df
+    pca_scores = param.DataFrame()
+    explained_variance = param.Array()
+    pca_loadings = param.DataFrame()
+
+    # Storing figures
+    PCA_plot = param.List(default=['a'])
+    exp_var_fig_plot = param.List(default=['a'])
+    scatter_PCA_plot = param.List(default=['a'])
+
+    # Update the PCA plot
+    @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', watch=True)
+    def _update_PCA_plot(self):
+        self.PCA_plot[0] = _plot_PCA()
+        middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0])
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'n_components': pn.widgets.IntInput(name='Number of Components to Compute:',
+                                           value=10, step=1, start=2, end=20,
+                                          description='Select 2-20 components.'),
+            'n_dimensions': pn.widgets.RadioBoxGroup(name="n_dimensions",
+                                                     value = '2 Components',
+                            options=['2 Components', '3 Components'], inline = True),
+            'PCx': pn.widgets.Select(name="Principal Component in X axis",
+                                    value='PC 1', options=['PC '+str(i+1) for i in range(self.n_components)]),
+            'PCy': pn.widgets.Select(name="Principal Component in Y axis",
+                                    value='PC 2', options=['PC '+str(i+1) for i in range(self.n_components)]),
+            'PCz': pn.widgets.Select(name="Principal Component in Z axis",
+                                    value='PC 3', options=['PC '+str(i+1) for i in range(self.n_components)],
+                                     disabled=True),
+            'ellipse_draw': pn.widgets.Checkbox(name="Draw Confidence Ellipses (Only for 2-D)",
+                                    value=True),
+            'confidence': pn.widgets.FloatInput(name="Ellipse Confidence Level",
+                                    value=0.95, step=0.01, start=0, end=1, disabled=False,
+                                    description='E.g. 0.95 confidence level means a 95% confidence level of the sigma error ellipse based on the covariance matrix'),
+            'confidence_std': pn.widgets.FloatInput(name="Ellipse Confidence Level (standard deviation unit)",
+                                    value=2, step=0.50, start=1, end=5,
+                description='''Only used if Level of Confidence of Ellipse is 0.
+                E.g. 1 stands for 68.3% and 2 for 95.4% confidence level of the sigma error ellipse based on the covariance matrix''',
+                                    disabled=True),
+        }
+        self.controls = pn.Param(self, parameters=['n_dimensions', 'PCx', 'PCy', 'PCz',
+                                                   'ellipse_draw', 'confidence', 'confidence_std'],
+                                 widgets=widgets, name='Parameters for PCA Projection plot')
+
+# Running initial param to store PCA details
+PCA_params = PCA_Storage()
+
+def _plot_PCA():
+    "Function to plot 2- or 3-D PCA projections"
+
+    # 2 dimensions
+    if PCA_params.n_dimensions == '2 Components':
+        PCx_var_explained = PCA_params.explained_variance[int(PCA_params.PCx.split(" ")[-1])-1]
+        PCy_var_explained = PCA_params.explained_variance[int(PCA_params.PCy.split(" ")[-1])-1]
+
+        # Plot PCA
+        PCA_plot = px.scatter(
+            PCA_params.pca_scores, x=PCA_params.PCx, y=PCA_params.PCy, color=PCA_params.pca_scores['Label'],
+            color_discrete_map=target_list.color_classes,
+            title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained)*100:.2f}%''',
+            labels={PCA_params.PCx: PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)',
+                   PCA_params.PCy: PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)'})
+
+        # Draw ellipses if ellipses wanted
+        if PCA_params.ellipse_draw:
+            ellipses_df = pd.DataFrame()
+            for lbl in target_list.color_classes.keys():
+                subset_points = PCA_params.pca_scores[PCA_params.pca_scores['Label']==lbl]
+                subset_points = subset_points[[PCA_params.PCx, PCA_params.PCy]]
+                temp = plot_confidence_ellipse(
+                    subset_points, q=PCA_params.confidence, nstd=PCA_params.confidence_std).array()
+                temp = pd.concat((pd.DataFrame(temp), pd.DataFrame([lbl,]*len(temp), columns=['label'])), axis=1)
+                ellipses_df = pd.concat((ellipses_df, temp))
+            ellipses = px.line(ellipses_df, x=0, y=1, color='label', color_discrete_map=target_list.color_classes)
+
+            # Final Plot joining the 2
+            final_PCA_plot = go.Figure(data=PCA_plot.data + ellipses.data)
+            final_PCA_plot.update_layout(
+                title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained)*100:.2f}%''')
+            final_PCA_plot.update_xaxes(title=PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)')
+            final_PCA_plot.update_yaxes(title=PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)')
+
+        else:
+            final_PCA_plot = PCA_plot
+
+    # 3 dimensions
+    else:
+        PCx_var_explained = PCA_params.explained_variance[int(PCA_params.PCx.split(" ")[-1])-1]
+        PCy_var_explained = PCA_params.explained_variance[int(PCA_params.PCy.split(" ")[-1])-1]
+        PCz_var_explained = PCA_params.explained_variance[int(PCA_params.PCz.split(" ")[-1])-1]
+
+        final_PCA_plot = px.scatter_3d(
+            PCA_params.pca_scores, x=PCA_params.PCx, y=PCA_params.PCy, z=PCA_params.PCz,
+            color=PCA_params.pca_scores['Label'],
+            color_discrete_map=target_list.color_classes,
+            title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained + PCz_var_explained)*100:.2f}%''',
+            labels={PCA_params.PCx: PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)',
+                   PCA_params.PCy: PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)',
+                   PCA_params.PCz: PCA_params.PCz + f' ({PCz_var_explained*100:.2f}%)'})
+
+    return final_PCA_plot
+
+def _plot_PCA_explained_variance():
+    "Function to plot cumulative explained variance"
+
+    exp_var_cumul = np.cumsum(PCA_params.explained_variance)*100
+    exp_var_df = pd.DataFrame((range(1, exp_var_cumul.shape[0] + 1), exp_var_cumul, PCA_params.explained_variance*100),
+                             index=["Number of Components", "Cumulative Explained Variance (%)",
+                                   "Explained Variance of This Component (%)"]).T
+    exp_var_fig = px.area(exp_var_df,
+        x="Number of Components",
+        y="Cumulative Explained Variance (%)",
+                          custom_data=["Explained Variance of This Component (%)"]
+    )
+    # Make the hover list contained the variance explained by the corresponding component
+    exp_var_fig.update_traces(
+        hovertemplate="<br>".join([
+            "Number of Components: %{x}",
+            "Cumulative Explained Variance (%): %{y}",
+            "Explained Variance of This Component (%): %{customdata[0]:.5f}"]))
+    exp_var_fig.update_yaxes(range=(0,100))
+    return exp_var_fig
+
+def _scatter_PCA_plot():
+    "Function plotting a full matrix of PCA projections of the 4 (maximum) first Principal Components."
+
+    columns = [PCA_params.pca_scores.columns[i] for i in range(4) if i < PCA_params.n_components]
+
+    scatter_PCA_plot = px.scatter_matrix(
+        PCA_params.pca_scores,
+        dimensions=columns,
+        color="Label",
+        color_discrete_map=target_list.color_classes,
+        labels={PCA_params.pca_scores.columns[i]: PCA_params.pca_scores.columns[i] +f" ({var:.2f}%)"
+            for i, var in enumerate(PCA_params.explained_variance * 100)}
+    )
+
+    scatter_PCA_plot.update_traces(diagonal_visible=False)
+    return scatter_PCA_plot
+
+# Extra widgets for the page
+compute_PCA_button = pn.widgets.Button(name='Compute', button_type='success')
+n_components_compute = pn.widgets.IntInput(name='Number of Components to Compute:',
+                                           value=10, step=1, start=2, end=20,
+                                          description='Select 2-20 components.')
+
+# When pressing the button, runs again the PCA with the designated number of components
+def _compute_PCA_button(event):
+    principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(DataFrame_Store.treated_df,
+                                       n_components=n_components_compute.value,
+                                       whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
+    PCA_params.pca_scores = principaldf
+    PCA_params.explained_variance = var
+    PCA_params.pca_loadings = pd.DataFrame(loadings)
+    PCA_params.n_components = n_components_compute.value
+    PCA_params.controls.widgets['n_components'].value = n_components_compute.value
+
+compute_PCA_button.on_click(_compute_PCA_button)
+
+# Function to see if Z-axis can be edited (3D) or not (2D)
+@pn.depends(PCA_params.controls.widgets['n_dimensions'].param.value, watch=True)
+def _update_PCz_disabled(dimensions):
+    if dimensions == '2 Components':
+        PCA_params.controls.widgets['PCz'].disabled = True
+    elif dimensions == '3 Components':
+        PCA_params.controls.widgets['PCz'].disabled = False
+
+# Function updating the possible components to choose based on number of components of the PCA and updating the explained variance plot
+@pn.depends(PCA_params.controls.widgets['n_components'].param.value, watch=True)
+def _update_PC_options(components):
+    PCA_params.controls.widgets['PCx'].options = ['PC '+str(i+1) for i in range(components)]
+    PCA_params.controls.widgets['PCy'].options = ['PC '+str(i+1) for i in range(components)]
+    PCA_params.controls.widgets['PCz'].options = ['PC '+str(i+1) for i in range(components)]
+
+    PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
+    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0])
+
+    if len(PCA_params.scatter_PCA_plot[0].data[0]['dimensions']) < 4:
+        PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
+        end_page_PCA[1] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0])
+    else:
+        if components < 4:
+            PCA_params.scatter_PCA_plot[0] = _scatter_PCA_plot()
+            end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0])
+
+# Function enabling/disabling the confidence level parameters for ellipses
+@pn.depends(PCA_params.controls.widgets['ellipse_draw'].param.value,
+            watch=True)
+def _update_ellipse_options(ellipse):
+    if ellipse:
+        PCA_params.controls.widgets['confidence'].disabled = False
+    else:
+        PCA_params.controls.widgets['confidence'].disabled = True
+        PCA_params.controls.widgets['confidence_std'].disabled = True
+
+# Function enabling/disabling the confidence level based on std parameter for ellipses
+@pn.depends(PCA_params.controls.widgets['confidence'].param.value,
+            watch=True)
+def _update_ellipse_std_options(confidence):
+    if confidence == 0:
+        PCA_params.controls.widgets['confidence_std'].disabled = False
+    else:
+        PCA_params.controls.widgets['confidence_std'].disabled = True
+
+# First section of the page
+initial_page_PCA = pn.GridSpec()
+initial_page_PCA[0,:2] = n_components_compute
+initial_page_PCA[0,2] = compute_PCA_button
+
+# Middle section of the page
+middle_page_PCA = pn.GridSpec()
+middle_page_PCA[0,0] = PCA_params.controls
+middle_page_PCA[0,1:3] = 'To plot a PCA'
+
+# Final section of the page
+end_page_PCA = pn.Column('To plot explained variance figure', 'To plot matrices of PCA projections')
+page_PCA = pn.Column(initial_page_PCA, middle_page_PCA, end_page_PCA)
+
+
+
+# Tab for HCA analysis
+page_HCA = pn.Column()
+
+# Page with PCA and HCA analysis
+unsup_analysis_page = pn.Tabs(('PCA', page_PCA), ('HCA', page_HCA))
+
+
+
 
 # Page for Supervised Analysis
 sup_analysis_page = pn.Column()
