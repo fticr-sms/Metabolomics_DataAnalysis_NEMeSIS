@@ -16,10 +16,9 @@ import metanalysis_standard as metsta
 
 # The initial pages, especially the read file one does not have the nomenclature that I started using later on
 # for the different widgets as well as organization
-pn.extension('plotly', notifications=True)
+pn.extension('plotly', 'floatpanel', notifications=True)
 hv.extension('plotly')
 pn.config.sizing_mode="stretch_width"
-# TODO: Avoid Overlapping with pn.GridSpec() when updating new sections of it.
 
 # Define pages as classes
 # Initial Pages class building
@@ -27,7 +26,9 @@ class OpeningPage:
     def __init__(self):
         self.content = pn.Column("# Welcome to MetSta!",
                                  "# The Go-To place for your extreme-resolution metabolomics data analysis need.",
-    pn.pane.Image('Picture_Test.png'))
+                                pn.pane.Image('Picture_Test.png'))
+    def view(self):
+        return self.content
 
 class DataReading:
     def __init__(self):
@@ -161,13 +162,63 @@ class CompoundFinderPage:
     def view(self):
         return self.content
 
+# Create the main area and display the first page
+main_area = OpeningPage().content
 
+
+
+# Param Class to store all DataFrames
+# TODO: Put previous dataframes - filtered_df and annotated_df here as well
+
+# Contains before treatment data, treated_data, processed_data, univariate_data, meta_data, bin_data
+class DataFrame_Storage(param.Parameterized):
+
+    # Read DataFrame
+    read_df = param.DataFrame()
+
+    # Starting DataFrame (after annotation)
+    original_df = param.DataFrame()
+
+    # DataFrame treated
+    treated_df = param.DataFrame()
+
+    # Metadata
+    metadata_df = param.DataFrame()
+
+    # DataFrame for exclusive/common compounds
+    processed_df = param.DataFrame()
+
+    # DataFrame for univariate analysis
+    univariate_df = param.DataFrame()
+
+    # BinSim treated DataFrame
+    binsim_df = param.DataFrame()
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+
+        self.controls = pn.Param(self, parameters=['treated_df'], name='Pre-Treatment Selection')
+
+    def concat_annots(_, MS_df, annot_df):
+        return pd.concat((MS_df, annot_df), axis=1)
+
+# Initializing the Store
+DataFrame_Store = DataFrame_Storage()
 
 
 # Page 1 - Reading File
 # TODO: Make Reset button to read other datasets.
 
 # Page 1 - Reading File
+
+# Widgets and reacting functions of page 1
+filename = pn.widgets.FileInput(name='Choose file', accept='.csv,.xlsx,.xls')
+
+confirm_button_filename = pn.widgets.Button(name='Read File', button_type='primary', disabled=True)
+tooltip_file = pn.widgets.TooltipIcon(value="Provided file must come from MetaboScape.")
+dataframe_to_show = pn.widgets.DataFrame(pd.DataFrame(), name='Data')
+
 def read_file(event):
     "Function to read the file given."
     if filename.value == '':
@@ -198,14 +249,6 @@ def read_file(event):
         pn.state.notifications.error('Provided file is not an Excel or a csv file.')
 
 
-# Widgets and reacting functions of page 1
-filename = pn.widgets.FileInput(name='Choose file', accept='.csv,.xlsx,.xls')
-
-confirm_button_filename = pn.widgets.Button(name='Read File', button_type='primary', disabled=True)
-tooltip_file = pn.widgets.TooltipIcon(value="Provided file must come from MetaboScape.")
-file_extension = pn.widgets.RadioBoxGroup(name='File type', options=['CSV','Excel'], inline=False)
-dataframe_to_show = pn.widgets.DataFrame(pd.DataFrame(), name='Data')
-
 # Update button so it can be pressed after you put something in the filename
 @pn.depends(filename.param.filename, watch=True)
 def _update_confirm_button_filename(filename):
@@ -224,7 +267,7 @@ img_confirm_button = '''<svg xmlns="http://www.w3.org/2000/svg"
     <path d="M5 12l5 5l10 -10"></path>
     </svg>'''
 
-# Enanling button for next step
+# Enabling button for next step
 def _update_confirm_step1(event):
     confirm_button_step1.disabled = False
 
@@ -233,12 +276,12 @@ def _confirm_step1(event):
     page1_1_button.disabled = False
     confirm_button_filename.disabled = True
     filename.disabled = True
-    file_extension.disabled = True
-    checkbox_formula.options = list(dataframe_to_show.value.columns)
-    checkbox_annotation.options = list(dataframe_to_show.value.columns)
-    radiobox_neutral_mass.options = ['None'] + list(dataframe_to_show.value.columns)
-    checkbox_others.options = list(dataframe_to_show.value.columns)
-    checkbox_samples.options = list(dataframe_to_show.value.columns)
+    DataFrame_Store.read_df = dataframe_to_show.value
+    checkbox_formula.options = list(DataFrame_Store.read_df.columns)
+    checkbox_annotation.options = list(DataFrame_Store.read_df.columns)
+    radiobox_neutral_mass.options = ['None'] + list(DataFrame_Store.read_df.columns)
+    checkbox_others.options = list(DataFrame_Store.read_df.columns)
+    checkbox_samples.options = list(DataFrame_Store.read_df.columns)
     main_area.clear()
     show_page(pages["Data Metadata"])
     # reset button
@@ -295,7 +338,7 @@ confirm_button_column_selection = pn.widgets.Button(icon=img_confirm_button, nam
 # Confirm column selection, update sample columns, make target editable while providing a possible target
 def _update_confirm_column_selection(event):
     sample_cols = []
-    cols = list(dataframe_to_show.value.columns)
+    cols = list(DataFrame_Store.read_df.columns)
     for col in cols:
         if col not in checkbox_formula.value:
             if col not in checkbox_annotation.value:
@@ -424,7 +467,7 @@ def initial_filtering(df, sample_cols, target=None, filt_method='total_samples',
 def _confirm_button_initial_filtering(event):
     sample_cols = checkbox_samples.value
     target = target_widget.value.split(',')
-    initial_filtering(dataframe_to_show.value, 
+    initial_filtering(DataFrame_Store.read_df,
                       sample_cols, target=target, filt_method=filt_method.value, filt_kw=filt_kw.value)
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
     if len(page1_2) == 3:
@@ -662,7 +705,7 @@ def _confirm_button_databases_read(event):
     page2.append(annotation_param_selection)
 confirm_button_databases_read.on_click(_confirm_button_databases_read)
 
-# Widgets fot annotation part
+# Widgets for annotation part
 performing_annotation_arrangement = pn.Column() # Start with empty page for the annotation widgets
 tqdm_database = {i+1:pn.widgets.Tqdm() for i in range(n_databases.end)}
 verbose_annotated_compounds = {i+1:pn.widgets.StaticText(name='', value=f'') for i in range(n_databases.end)}
@@ -732,7 +775,7 @@ def metabolite_annotation():
                 annotated_df.value.at[annotated_df.value.index[a], matched_ids_col] = np.nan
                 annotated_df.value.at[annotated_df.value.index[a], matched_names_col] = np.nan
                 annotated_df.value.at[annotated_df.value.index[a], matched_formulas_col] = np.nan
-                annotated_df.value.at[annotated_df.value.index[a], match_count_col] = 0
+                annotated_df.value.at[annotated_df.value.index[a], match_count_col] = np.nan
 
         verbose_annotated_compounds[
             i+1].value = f'Annotated {annotated_df.value[matched_ids_col].notnull().sum()} compounds.'
@@ -756,55 +799,35 @@ confirm_button_next_step_3 = pn.widgets.Button(icon=img_confirm_button, name='Ne
 def _confirm_button_next_step_3(event):
     page3_button.disabled = False
     DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
+    creating_has_match_column()
     main_area.clear()
     show_page(pages["Data Pre-Treatment"])
 confirm_button_next_step_3.on_click(_confirm_button_next_step_3)
+
+def creating_has_match_column():
+    "Creating the has match column to be used later (common/exclusive compounds)."
+    if n_databases.value == 0:
+        for i in DataFrame_Store.original_df.index:
+            df = DataFrame_Store.original_df.loc[[i]]
+            hasmatch = df[checkbox_annotation.value].notnull().values.any()
+            DataFrame_Store.original_df.at[i, 'Has Match?'] = hasmatch
+
+    else:
+        cols_to_see = checkbox_annotation.value + list(DataFrame_Store.original_df.columns[-n_databases.value*4:])
+
+        DataFrame_Store.original_df['Has Match?'] = np.nan
+        for i in DataFrame_Store.original_df.index:
+            df = DataFrame_Store.original_df.loc[[i]]
+            hasmatch = df[cols_to_see].notnull().values.any()
+            DataFrame_Store.original_df.at[i, 'Has Match?'] = hasmatch
 
 
 
 
 #### This marks the separation to use mainly param instead of only panel
-#### I believe most areas before do not need param, except for the TODO marked in the next part
-
-# Param Class to store all DataFrame
-# TODO: Put previous dataframes - dataframe_to_show, filtered_df and annotated_df here as well and put this class at the begginning of program
-
-# Contains before treatment data, treated_data, processed_data, univariate_data, meta_data, bin_data
-class DataFrame_Storage(param.Parameterized):
-
-    # Starting DataFrame (after annotation)
-    original_df = param.DataFrame()
-
-    # DataFrame treated
-    treated_df = param.DataFrame()
-
-    # Metadata
-    metadata_df = param.DataFrame()
-
-    # DataFrame for exclusive/common compounds
-    processed_df = param.DataFrame()
-
-    # DataFrame for univariate analysis
-    univariate_df = param.DataFrame()
-
-    # BinSim treated DataFrame
-    binsim_df = param.DataFrame()
-
-    def __init__(self, **params):
-
-        super().__init__(**params)
-
-        self.controls = pn.Param(self, parameters=['treated_df'], name='Pre-Treatment Selection')
-
-    def concat_annots(_, MS_df, annot_df):
-        return pd.concat((MS_df, annot_df), axis=1)
-
-# Initializing the Store
-DataFrame_Store = DataFrame_Storage()
 
 # Page 3 - Data Pre-Treatment
 # TODO: There is currently an error when running the pre-treatment due to the layout, it does not seem to affect functionality though
-# TODO: Normalization by a Reference Feature has to be fixed in metabolinks
 
 # Param to encompass the choice of Pre-Treatment methods
 # TODO: Introduce way to read reference sample for PQN normalization
@@ -1009,7 +1032,7 @@ def _confirm_button_next_step_4(event):
 confirm_button_next_step_4.on_click(_confirm_button_next_step_4)
 
 # Organize Page Layout
-page3 = pn.GridSpec()
+page3 = pn.GridSpec(mode='override')
 page3[:5,0:2] = PreTreatment_Method.controls
 page3[:5,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
         ('Metadata', DataFrame_Store.metadata_df),
@@ -1174,7 +1197,7 @@ comexc_page = pn.Column()
 # Page for Unsupervised Analysis
 
 # Tab for PCA analysis
-# TODO: PCA is strraight away computed with 10 components. If your data has less than 10 features, this will lead to an error and everything will fail.
+# TODO: PCA is straight away computed with 10 components. If your data has less than 10 features, this will lead to an error and everything will fail.
 # Should this possibility be taken into account?
 
 # Param Class to store parameters and data regarding PCA
@@ -1407,12 +1430,12 @@ def _update_ellipse_std_options(confidence):
         PCA_params.controls.widgets['confidence_std'].disabled = True
 
 # First section of the page
-initial_page_PCA = pn.GridSpec()
+initial_page_PCA = pn.GridSpec(mode='override')
 initial_page_PCA[0,:2] = n_components_compute
 initial_page_PCA[0,2] = compute_PCA_button
 
 # Middle section of the page
-middle_page_PCA = pn.GridSpec()
+middle_page_PCA = pn.GridSpec(mode='override')
 middle_page_PCA[0,0] = PCA_params.controls
 middle_page_PCA[0,1:3] = 'To plot a PCA'
 
@@ -1493,6 +1516,7 @@ page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="warnin
 page9_button = pn.widgets.Button(name="Data Visualization", button_type="danger", disabled=True)
 page10_button = pn.widgets.Button(name="BinSim Analysis", button_type="success", disabled=True)
 page11_button = pn.widgets.Button(name="Compound Finder", button_type="warning", disabled=True)
+RESET_button = pn.widgets.Button(name="RESET", button_type="danger", disabled=False)
 
 # Set up button click callbacks
 page1_button.on_click(lambda event: show_page(pages["Data Reading"]))
@@ -1509,12 +1533,38 @@ page9_button.on_click(lambda event: show_page(pages["Data Visualization"]))
 page10_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
 page11_button.on_click(lambda event: show_page(pages["Compound Finder"]))
 
+# Reset panel widgets
+reset_panel_float_text = pn.widgets.StaticText(name='', value='Do you want to reset all parameters of the software?')
+reset_panel_float_yes_button = pn.widgets.Button(name='Yes', button_type='danger')
+reset_panel_float_no_button = pn.widgets.Button(name='No', button_type='default')
+reset_floatpanel = pn.layout.FloatPanel(reset_panel_float_text, reset_panel_float_yes_button, reset_panel_float_no_button,
+                                      name='Reset', margin=20, position='center', config={"headerControls": {"close": "remove"}},
+                                      contained=False)
+
+def RESET(event):
+    reset_panel = pn.Column(reset_floatpanel, height=200)
+    #main_area.clear()
+    if len(main_area) == 1:
+        main_area.append(reset_panel)
+    else:
+        reset_floatpanel.status = 'normalized'
+
+def No_Reset(event):
+    reset_floatpanel.status = 'closed'
+    main_area.pop(-1)
+
+#def Yes_Reset(event):
+
+
+RESET_button.on_click(RESET)
+reset_panel_float_no_button.on_click(No_Reset)
+#reset_panel_float_yes_button.on_click(Yes_Reset)
+
+
 # Create the sidebar
 sidebar = pn.Column(index_button, page1_button, page1_1_button, page1_2_button, page2_button, page3_button, page4_button,
                    page5_button, page6_button, page7_button, page8_button, page9_button, page10_button,
-                   page11_button)
-# Create the main area and display the first page
-main_area = OpeningPage().content
+                   page11_button, 'To Reset (TODO)', RESET_button)
 
 app = pn.template.FastListTemplate(title='Testing MetSta', sidebar=[sidebar], main=[main_area])
 
