@@ -10,6 +10,11 @@ import holoviews as hv
 import plotly.express as px
 import plotly.graph_objects as go
 from aux_metsta_functions import plot_confidence_ellipse
+import scipy.spatial.distance as dist
+import scipy.cluster.hierarchy as hier
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import interface_aux_functions as iaf
 
 # metanalysis_standard.py file
 import metanalysis_standard as metsta
@@ -111,6 +116,7 @@ class UnsupervisedAnalysisPage:
     def __init__(self):
 
         self.content = pn.Column("# Performing Unsupervised Analysis", "Including PCA and Hierarchical Clustering",
+                                 "##### Known problem: Changing HCA plot characteristics many many times can lead to memory issues.",
                                  unsup_analysis_page)
 
     def view(self):
@@ -1122,12 +1128,17 @@ def _confirm_button_next_step_5(event):
     PCA_params.explained_variance = var
     PCA_params.pca_loadings = pd.DataFrame(loadings)
     PCA_params.PCA_plot[0] = _plot_PCA()
-    middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0])
+    middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot',}})
     PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
-    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0])
+    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot',}})
     PCA_params.scatter_PCA_plot[0] = _scatter_PCA_plot()
-    end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0])
+    end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot',}})
 
+    # Initial calculations for HCA and storing initial plots
+    HCA_params.dists = dist.pdist(DataFrame_Store.treated_df, metric=HCA_params.dist_metric)
+    HCA_params.Z = hier.linkage(HCA_params.dists, method=HCA_params.link_metric)
+    HCA_params.HCA_plot[0] = _plot_HCA()
+    page_HCA[0:6,1:4] = HCA_params.HCA_plot[0]
 
     main_area.clear()
     show_page(pages["Transitional Page"])
@@ -1234,7 +1245,7 @@ class PCA_Storage(param.Parameterized):
     @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', watch=True)
     def _update_PCA_plot(self):
         self.PCA_plot[0] = _plot_PCA()
-        middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0])
+        middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot',}})
 
     def __init__(self, **params):
 
@@ -1349,9 +1360,9 @@ def _plot_PCA_explained_variance():
     return exp_var_fig
 
 def _scatter_PCA_plot():
-    "Function plotting a full matrix of PCA projections of the 4 (maximum) first Principal Components."
+    "Function plotting a full matrix of PCA projections of the 6 (maximum) first Principal Components."
 
-    columns = [PCA_params.pca_scores.columns[i] for i in range(4) if i < PCA_params.n_components]
+    columns = [PCA_params.pca_scores.columns[i] for i in range(6) if i < PCA_params.n_components]
 
     scatter_PCA_plot = px.scatter_matrix(
         PCA_params.pca_scores,
@@ -1359,7 +1370,8 @@ def _scatter_PCA_plot():
         color="Label",
         color_discrete_map=target_list.color_classes,
         labels={PCA_params.pca_scores.columns[i]: PCA_params.pca_scores.columns[i] +f" ({var:.2f}%)"
-            for i, var in enumerate(PCA_params.explained_variance * 100)}
+            for i, var in enumerate(PCA_params.explained_variance * 100)},
+        height=800
     )
 
     scatter_PCA_plot.update_traces(diagonal_visible=False)
@@ -1400,15 +1412,15 @@ def _update_PC_options(components):
     PCA_params.controls.widgets['PCz'].options = ['PC '+str(i+1) for i in range(components)]
 
     PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
-    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0])
+    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot',}})
 
     if len(PCA_params.scatter_PCA_plot[0].data[0]['dimensions']) < 4:
         PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
-        end_page_PCA[1] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0])
+        end_page_PCA[1] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot',}})
     else:
         if components < 4:
             PCA_params.scatter_PCA_plot[0] = _scatter_PCA_plot()
-            end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0])
+            end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot',}})
 
 # Function enabling/disabling the confidence level parameters for ellipses
 @pn.depends(PCA_params.controls.widgets['ellipse_draw'].param.value,
@@ -1446,7 +1458,111 @@ page_PCA = pn.Column(initial_page_PCA, middle_page_PCA, end_page_PCA)
 
 
 # Tab for HCA analysis
-page_HCA = pn.Column()
+# Param Class to store parameters and data regarding HCA
+# TODO: Each time you modify the HCA, a new matplotlib plot is created, thus this could lead to memory issues
+class HCA_Storage(param.Parameterized):
+
+    # Distance metric to compute HCA
+    dist_metric = param.String(default='euclidean')
+
+    # Linkage metric
+    link_metric = param.String(default='ward')
+
+    # Distance matrix and Z linkage matrix
+    dists = param.Array()
+    Z = param.Array()
+
+    # Figure details
+    fig_text = param.String('Figure Details')
+    fig_x = param.Number(default=4)
+    fig_y = param.Number(default=4)
+    col_threshold = param.Number(default=0)
+    dpi = param.Number(default=200)
+
+    # Storing figure
+    HCA_plot = param.List(default=['Pane to Plot a HCA Dendrogram'])
+
+    # Update the HCA plot
+    @param.depends('dist_metric', 'link_metric', watch=True)
+    def _update_HCA_compute_plot(self):
+        # Recompute Distance and Linkage matrices
+        self.dists = dist.pdist(DataFrame_Store.treated_df, metric=self.dist_metric)
+        self.Z = hier.linkage(self.dists, method=self.link_metric)
+        # Plot the new HCA
+        self.HCA_plot[0] = _plot_HCA()
+        page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+
+    @param.depends('fig_text', 'fig_x', 'fig_y', 'col_threshold', 'dpi', watch=True)
+    def _update_HCA_plot(self):
+        self.HCA_plot[0] = _plot_HCA()
+        page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'dist_metric': pn.widgets.Select(name='Distance Metric:',
+                                           value='euclidean', options=['euclidean', 'cityblock', 'minkowski', 'seuclidean',
+                    'sqeuclidean', 'braycurtis', 'canberra', 'chebyshev', 'correlation', 'cosine', 'dice', 'hamming',
+                    'jaccard', 'jensenshannon', 'kulczynski1', 'mahalanobis', 'matching', 'rogerstanimoto', 'russellrao',
+                    'sokalmichener', 'sokalsneath', 'yule'],
+                    description='Select distance metric. See details in https://docs.scipy.org/doc/scipy/reference/spatial.distance.html.'),
+            'link_metric': pn.widgets.Select(name='Linkage:',
+                                           value='ward', options=['ward', 'average', 'centroid', 'single', 'complete',
+                                                                  'weighted', 'median'],
+                    description='Select Linkage. See details in https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html.'),
+            'fig_text': pn.widgets.StaticText(name="", value='Figure Details',
+                                             styles={'font-size': 'large'}),
+            'fig_x': pn.widgets.IntInput(name="X-axis", value=4, step=1, start=1, end=20, disabled=False,
+                                    description='X axis length for HCA plot.'),
+            'fig_y': pn.widgets.IntInput(name="Y-axis", value=4, step=1, start=1, end=20, disabled=False,
+                                    description='Y axis length for HCA plot.'),
+            'col_threshold': pn.widgets.IntInput(name="Color Threshold",
+                                    value=0, step=1, start=0, disabled=False,
+                                    description='''Select a distance threshold from where clusters are coloured.
+                                    E.g. 70 would colour the branches that split under a distance of 70 in the same colour.'''),
+            'dpi': pn.widgets.IntInput(name="DPI (Resolution)",
+                                    value=200, step=10, start=100, disabled=False,
+                                    description='Set the resolution of figure'),
+        }
+        self.controls = pn.Param(self,
+                                 parameters=['dist_metric', 'link_metric', 'fig_text', 'fig_x', 'fig_y', 'col_threshold','dpi'],
+                                 widgets=widgets, name='Parameters for HCA')
+
+# Initializes HCA Store
+HCA_params = HCA_Storage()
+
+# Plots the HCA function
+def _plot_HCA():
+    f, ax = plt.subplots(1, 1, figsize=(HCA_params.fig_x, HCA_params.fig_y), constrained_layout=True)
+    iaf.plot_dendogram(HCA_params.Z,
+                   target_list.target, ax=ax,
+                   label_colors=target_list.color_classes,
+                   x_axis_len=HCA_params.fig_x,
+                   color_threshold=HCA_params.col_threshold)
+    return f
+
+
+# Widget to save HCA plot (needed since it is a matplotlib plot instead of a plotly plot)
+download_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-download" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+   <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+   <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"></path>
+   <path d="M7 11l5 5l5 -5"></path>
+   <path d="M12 4l0 12"></path>
+</svg>'''
+save_HCA_plot_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+                                         icon=download_icon)
+# When pressing the button, downloads the figure
+def _save_HCA_plot_button(event):
+    HCA_params.HCA_plot[0].savefig('HCA_plot.png', dpi=HCA_params.dpi)
+save_HCA_plot_button.on_click(_save_HCA_plot_button)
+
+# Organization for the HCA page
+page_HCA = pn.GridSpec(mode='override')
+page_HCA[0:5,0] = HCA_params.controls
+page_HCA[0:6,1:4] = HCA_params.HCA_plot[0]
+page_HCA[5,0] = save_HCA_plot_button
 
 # Page with PCA and HCA analysis
 unsup_analysis_page = pn.Tabs(('PCA', page_PCA), ('HCA', page_HCA))
