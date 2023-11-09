@@ -9,7 +9,6 @@ import seaborn as sns
 import holoviews as hv
 import plotly.express as px
 import plotly.graph_objects as go
-from aux_metsta_functions import plot_confidence_ellipse
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as hier
 import matplotlib.pyplot as plt
@@ -354,6 +353,7 @@ def _update_confirm_column_selection(event):
     target_widget.disabled = False # Make you able to type in the target
     
     checkbox_samples.value = sample_cols # Update the samples checkbox
+    target_list.sample_cols = sample_cols # Save the sample cols
     # Attempt to make 'an automatic target'
     if checkbox_samples.value != '':
         tg = [i.split('_')[0] for i in checkbox_samples.value]
@@ -367,8 +367,7 @@ confirm_button_column_selection.on_click(_update_confirm_column_selection)
 # Make the target widget
 target_placeholder = "A,A,A,A,A,B,B,B,B,B"
 target_widget = pn.widgets.TextAreaInput(name='Target - Class Labels', placeholder=target_placeholder, 
-                                         max_length=5000, height=100,
-                                        disabled=True)
+                                         max_length=5000, height=100, disabled=True)
 target_tooltip = pn.widgets.TooltipIcon(value="Provide the class labels of your samples. No spaces between labels.")
 
 # Make button be pressable when you have a target
@@ -388,7 +387,7 @@ confirm_button_next_step_1_1 = pn.widgets.Button(icon=img_confirm_button,
 # Make sure that target makes sense in comparison to the number of sample columns
 def _update_confirm_target(event):
     target = target_widget.value.split(',')
-    sample_cols = checkbox_samples.value
+    sample_cols = target_list.sample_cols
     if len(sample_cols) != len(target):
         pn.state.notifications.error(
             f'Number of class labels ({len(target)}) is different than the number of sample columns ({len(sample_cols)}).')
@@ -471,7 +470,7 @@ def initial_filtering(df, sample_cols, target=None, filt_method='total_samples',
 
 # Call filtering function and extend the page with data characteristics and results of filtering
 def _confirm_button_initial_filtering(event):
-    sample_cols = checkbox_samples.value
+    sample_cols = target_list.sample_cols
     target = target_widget.value.split(',')
     initial_filtering(DataFrame_Store.read_df,
                       sample_cols, target=target, filt_method=filt_method.value, filt_kw=filt_kw.value)
@@ -862,7 +861,7 @@ class PreTreatment(param.Parameterized):
     # Function to confirm Pre-Treatment Selection and Updating DataFrames
     # TODO: Make Metadata appear in a more clean way
     def _confirm_button_press(self, event):
-        performing_pretreatment(self, DataFrame_Store, target_widget, checkbox_samples)
+        performing_pretreatment(self, DataFrame_Store, target_widget, target_list.sample_cols)
         page3[:5,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
             ('Metadata', DataFrame_Store.metadata_df.T),
             ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
@@ -933,7 +932,7 @@ def _update_options_norm(norm_method):
         PreTreatment_Method.controls.widgets['norm_kw'].disabled = False
     elif norm_method == 'PQN':
         PreTreatment_Method.controls.widgets['norm_kw'].value = []
-        PreTreatment_Method.controls.widgets['norm_kw'].options = options_norm[norm_method] + list(checkbox_samples.value)
+        PreTreatment_Method.controls.widgets['norm_kw'].options = options_norm[norm_method] + list(target_list.sample_cols)
         PreTreatment_Method.controls.widgets['norm_kw'].placeholder = ''
         PreTreatment_Method.controls.widgets['norm_kw'].disabled = False
 
@@ -956,7 +955,7 @@ def _update_options_scaling(scaling_method):
 # Click button to confirm Pre-Treatment
 PreTreatment_Method.controls.widgets['confirm_button'].on_click(PreTreatment_Method._confirm_button_press)
 
-def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target_widget, checkbox_samples):
+def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target_widget, sample_cols):
     "Putting keywords to pass to filtering_pretreatment function and performing pre-treatment."
 
     # Missing Value Imputation
@@ -997,7 +996,6 @@ def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target_widget,
     # Data to pass, target and sample columns
     data = DataFrame_Store.original_df
     target = target_widget.value.split(',')
-    sample_cols = checkbox_samples.value
 
     a,b,c,d,e = metsta.filtering_pretreatment(data, target, sample_cols,
                       filt_method=None, filt_kw=2, # Filtering based on number of times features appear
@@ -1020,6 +1018,7 @@ def _confirm_button_next_step_4(event):
 
     # Filling the target storage with the correct target and default colours
     target_list.target = target_widget.value.split(',')
+    target_list.classes = list(pd.unique(target_list.target))
     target_list(target_widget.value.split(','), colours)
 
     # Setting up the layout of page 4
@@ -1087,7 +1086,9 @@ class TargetStorage(param.Parameterized):
 
     # Setting up parameters
     target = param.List(default=target_widget.value.split(','))
+    classes = param.List(default=[])
     color_classes = param.Dict(default={})
+    sample_cols = param.List(default=checkbox_samples.value)
 
     def __init__(self, **params):
         super().__init__(**params)
@@ -1203,7 +1204,185 @@ transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, Dat
 
 
 # Page for Common and Exclusive Compounds
-comexc_page = pn.Column()
+# Param Class to store parameters and data regarding Common and Exclusive Compounds
+class ComExc_Storage(param.Parameterized):
+
+    # Dictionaries to group information
+    groups = param.Dict(default={})
+    group_dfs = param.Dict(default={})
+    group_dfs_ids = param.Dict(default={})
+    groups_description = param.String(default='')
+
+    # DataFrame with the common metabolites
+    common_all = param.DataFrame()
+    common_all_id = param.DataFrame()
+
+    # Dictionary with DataFrames for exclusive compounds
+    exclusives = param.Dict(default={})
+    exclusives_id = param.Dict(default={})
+
+    com_exc_desc = param.String(default='')
+
+    # Parameters and DataFrame of chosen sub-section of classes
+    class_subset = param.List(default=list())
+    df_type = param.String(default='Metabolites in chosen classes')
+    annot = param.String(default='See annotated and non-annotated compounds')
+    specific_cl_df = param.DataFrame()
+    class_specific_cl_desc = param.Number(default=0)
+
+    # Storing figure
+    Venn_plot = param.List(default=['Pane for Venn Diagram'])
+    UpSetPlot = param.List(default=['Pane for UpSetPlot'])
+
+    # Update the subset df plot based on specifications chosen
+    @param.depends('class_subset', 'df_type', 'annot', watch=True)
+    def _update_specific_cl_df(self):
+
+        df_list = []
+
+        # All features of the dataset
+        if self.annot == 'See annotated and non-annotated compounds':
+            for cl in self.class_subset: # See the DataFrames of each class considered
+                df_list.append(self.group_dfs[cl])
+            # Calculate common features between them
+            if len(df_list) != 0:
+                df_common = metsta.common(df_list)
+
+                if self.df_type == 'Metabolites in chosen classes and no other class':
+                    # For this specific case
+                    # Remove common compounds that also appear in other not selected classes
+                    for s in self.group_dfs:
+                        if s not in self.class_subset:
+                            exclude = self.group_dfs[s]
+                            df_common = df_common.loc[~(df_common.index.isin(exclude.index))]
+
+            else:
+                df_common = pd.DataFrame()
+
+
+        # Only annotated features of the dataset
+        else:
+            for cl in self.class_subset: # See the DataFrames of each class considered
+                df_list.append(self.group_dfs_ids[cl])
+            # Calculate common features between them
+            if len(df_list) != 0:
+                df_common = metsta.common(df_list)
+
+                if self.df_type == 'Metabolites in chosen classes and no other class':
+                    # For this specific case
+                    # Remove common compounds that also appear in other not selected classes
+                    for s in self.group_dfs_ids:
+                        if s not in self.class_subset:
+                            exclude = self.group_dfs_ids[s]
+                            df_common = df_common.loc[~(df_common.index.isin(exclude.index))]
+
+            else:
+                df_common = pd.DataFrame()
+
+        # Updating information on class and panel sections
+        self.specific_cl_df = df_common
+        self.specific_cl_desc = len(df_common.index)
+        subsetdf_comexc_section_page[0:4,1:3] = pn.widgets.DataFrame(self.specific_cl_df)
+        subsetdf_comexc_section_page[3,0].value = self.specific_cl_desc
+
+    def _update_widgets(self):
+        "Update widgets to consider the update list of classes in the target."
+        widgets = {
+            'class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=[], options=target_list.classes,
+                                inline=False, disabled=False),
+            'df_type': pn.widgets.RadioBoxGroup(name='Type of DataFrame', value='Metabolites in chosen classes',
+                                options=['Metabolites in chosen classes',
+                                         'Metabolites in chosen classes and no other class'],
+                                inline=False, disabled=False),
+            'annot': pn.widgets.RadioBoxGroup(name='Annotated', value='See annotated and non-annotated compounds',
+                                options=['See annotated and non-annotated compounds',
+                                         'Only see annotated compounds'],
+                                inline=False, disabled=False),
+        }
+        return pn.Param(self, parameters=['class_subset', 'df_type', 'annot'],
+                        widgets=widgets, name='Subset of Data to See')
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=[], options=target_list.classes,
+                                inline=False, disabled=False),
+            'df_type': pn.widgets.RadioBoxGroup(name='Type of DataFrame', value='Metabolites in chosen classes',
+                                options=['Metabolites in chosen classes',
+                                         'Metabolites in chosen classes and no other class'],
+                                inline=False, disabled=False),
+            'annot': pn.widgets.RadioBoxGroup(name='Annotated', value='See annotated and non-annotated compounds',
+                                options=['See annotated and non-annotated compounds',
+                                         'Only see annotated compounds'],
+                                inline=False, disabled=False),
+        }
+        self.controls = pn.Param(self,
+                                 parameters=['class_subset', 'df_type', 'annot'],
+                                 widgets=widgets, name='Subset of Data to See')
+
+
+# Initialize common and exclusive compound storage
+com_exc_compounds = ComExc_Storage()
+
+# Widgets for the page
+compute_ComExc_button = pn.widgets.Button(name='Compute', button_type='success', height=50)
+checkbox_com_exc = pn.widgets.CheckBoxGroup(name='Include:', value=['Venn Diagram', 'UpSetPlot'],
+                                            options=['Venn Diagram', 'UpSetPlot'], inline=True)
+
+# When pressing the button, performs common and exclusive compound calculations, and sets up the different pages in the tabs section
+def _compute_ComExc_button(event):
+    com_exc_compounds.controls = com_exc_compounds._update_widgets() # Update Widgets
+    subsetdf_comexc_section_page[0:3,0] = com_exc_compounds.controls
+
+    iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
+    iaf._compute_com_exc_compounds(com_exc_compounds) # Add common to all and exclusive to each class compounds dfs
+
+    # Setting up the overview page
+    if len(overview_page) == 0:
+        overview_page.append(pn.pane.Markdown(com_exc_compounds.groups_description))
+        overview_page.append(pn.pane.Markdown(com_exc_compounds.com_exc_desc))
+        overview_page.append(subsetdf_comexc_section_page)
+    else:
+        overview_page[0] = pn.pane.Markdown(com_exc_compounds.groups_description)
+        overview_page[1] = pn.pane.Markdown(com_exc_compounds.com_exc_desc)
+        overview_page[2] = subsetdf_comexc_section_page
+
+    # Organizing the tabs
+    end_page_comexc.clear()
+    end_page_comexc.append(('Overview', overview_page))
+
+    com_exc_compounds._update_specific_cl_df() # Update the DataFrame shown in the overview tab
+
+# Action when pressing the button
+compute_ComExc_button.on_click(_compute_ComExc_button)
+
+# First section of the page
+initial_page_comexc = pn.GridSpec(mode='override')
+initial_page_comexc[0,0] = '### Compute Common and Exclusive Compound Calculations'
+initial_page_comexc[1,0] = pn.Row(pn.widgets.StaticText(name='Include', value='', styles={'font-size': 'large'}),
+                                  checkbox_com_exc)
+initial_page_comexc[:2,1] = compute_ComExc_button
+
+# 1st Tab
+overview_page = pn.Column()
+
+# Create specific subset df section of the page  for the overview Tab
+subsetdf_comexc_section_page = pn.GridSpec(mode='override')
+subsetdf_comexc_section_page[0:3,0] = com_exc_compounds.controls
+subsetdf_comexc_section_page[3,0] = pn.indicators.Number(name='Nº of Metabolites', font_size='14pt', title_size='14pt',
+                                                         value=com_exc_compounds.class_specific_cl_desc)
+subsetdf_comexc_section_page[0:4,1:3] = pn.widgets.DataFrame(com_exc_compounds.specific_cl_df)
+
+#venn_page = pn.Column()
+#upstplot_page = pn.Column()
+end_page_comexc = pn.Tabs()
+
+comexc_page = pn.Column(initial_page_comexc, end_page_comexc)
+
+
+
 
 # Page for Unsupervised Analysis
 
@@ -1305,7 +1484,7 @@ def _plot_PCA():
             for lbl in target_list.color_classes.keys():
                 subset_points = PCA_params.pca_scores[PCA_params.pca_scores['Label']==lbl]
                 subset_points = subset_points[[PCA_params.PCx, PCA_params.PCy]]
-                temp = plot_confidence_ellipse(
+                temp = iaf.plot_confidence_ellipse(
                     subset_points, q=PCA_params.confidence, nstd=PCA_params.confidence_std).array()
                 temp = pd.concat((pd.DataFrame(temp), pd.DataFrame([lbl,]*len(temp), columns=['label'])), axis=1)
                 ellipses_df = pd.concat((ellipses_df, temp))
