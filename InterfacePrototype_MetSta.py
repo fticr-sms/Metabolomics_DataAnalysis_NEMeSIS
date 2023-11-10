@@ -13,6 +13,9 @@ import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as hier
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from upsetplot import from_contents
+
+# File with functions to auxiliate the graphical interface
 import interface_aux_functions as iaf
 
 # metanalysis_standard.py file
@@ -1231,14 +1234,20 @@ class ComExc_Storage(param.Parameterized):
     type_of_venn = param.String(default='All Metabolites (Annotated)')
     dpi_venn = param.Number(default=200)
 
+    # UpsetPlot parameters
+    upset_class_subset = param.List(default=list())
+    upset_include_counts_percentages = param.String(default='Show Nº of metabolites')
+    dpi_upset = param.Number(default=200)
+
     # Storing figure
     Venn_plot = param.List(default=['Pane for Venn Diagram'])
-    UpSetPlot = param.List(default=['Pane for UpSetPlot'])
+    UpSetPlot = param.List(default=['Pane for UpSetPlot1', 'Pane for UpSetPlot2'])
 
 
     # Update the subset df plot based on specifications chosen
     @param.depends('class_subset', 'df_type', 'annot', watch=True)
     def _update_specific_cl_df(self):
+        "Update the subset DataFrame based on inputs given."
 
         df_list = []
 
@@ -1290,6 +1299,7 @@ class ComExc_Storage(param.Parameterized):
     # Update the Venn Diagram based on specifications chosen
     @param.depends('venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn', watch=True)
     def _update_Venn_diagram(self):
+        "Update the Venn Diagram based on parameters given."
         if 1 < len(self.venn_class_subset) < 7:
             self.Venn_plot = []
             self.Venn_plot.append(iaf._plot_Venn_diagram(self, target_list))
@@ -1299,6 +1309,35 @@ class ComExc_Storage(param.Parameterized):
             pn.state.notifications.info(f'Venn Diagram can only be made with 2 to 6 different classes. You currently have {len(self.venn_class_subset)} classes.')
         if len(end_page_comexc) >= 2:
             end_page_comexc[1] = venn_page
+
+
+    # Update the UpSetPlot based on specifications chosen
+    @param.depends('upset_class_subset', 'upset_include_counts_percentages', 'dpi_upset', watch=True)
+    def _update_Upsetplot(self):
+        "Update the UpSetPlots based on parameters given."
+        if 1 < len(self.upset_class_subset):
+            self.UpSetPlot = []
+
+            # Select the relevant data - all metabolites and annotated metabolites
+            groups_dict = {}
+            groups_dict_ids = {}
+            for df in self.upset_class_subset:
+                groups_dict[df] = self.group_dfs[df].index
+                groups_dict_ids[df] = self.group_dfs_ids[df].index
+
+            ups = from_contents(groups_dict)
+            self.UpSetPlot.append(iaf._plot_upsetplots(self, groups_dict, ups))
+            upset_page[2] = pn.pane.Matplotlib(self.UpSetPlot[0], height=300)
+            plt.close()
+
+            ups_ids = from_contents(groups_dict_ids)
+
+            self.UpSetPlot.append(iaf._plot_upsetplots(self, groups_dict_ids, ups_ids))
+
+            upset_page[5] = pn.pane.Matplotlib(self.UpSetPlot[1], height=300)
+            plt.close()
+        else:
+            pn.state.notifications.info(f'UpSetPlot can only be made with 2 or more classes. You currently have {len(self.upset_class_subset)} classes.')
 
 
     def _update_widgets(self):
@@ -1324,12 +1363,21 @@ class ComExc_Storage(param.Parameterized):
             'dpi_venn': pn.widgets.IntInput(name="DPI (Resolution)",
                                     value=200, step=10, start=100, disabled=False,
                                     description='Set the resolution of diagram'),
+            'upset_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
+                                options=target_list.classes, inline=False, disabled=False),
+            'upset_include_counts_percentages': pn.widgets.RadioBoxGroup(name='Show:',
+                                value='Show Nº of metabolites', options=['Show Nº and % of metabolites',
+                                'Show Nº of metabolites', 'Show neither'], inline=False, disabled=False),
+            'dpi_upset': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
+                                    description='Set the resolution of UpSetPlots'),
         }
 
-        # Control panel for the overview section, Control panel for the Venn diagram section
+        # Control panel for the overview section, for the Venn diagram section and for the Upsetplot section
         return (pn.Param(self, parameters=['class_subset', 'df_type', 'annot'], widgets=widgets, name='Subset of Data to See'),
                 pn.Param(self, parameters=['venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn'], widgets=widgets,
-                         name='Parameters to draw Venn Diagram'))
+                         name='Parameters to draw Venn Diagram'),
+                pn.Param(self, parameters=['upset_class_subset', 'upset_include_counts_percentages','dpi_upset'],
+                         widgets=widgets, name='Parameters to draw UpSetPlots', default_layout=pn.Row))
 
 
     def __init__(self, **params):
@@ -1357,6 +1405,13 @@ class ComExc_Storage(param.Parameterized):
             'dpi_venn': pn.widgets.IntInput(name="DPI (Resolution)",
                                     value=200, step=10, start=100, disabled=False,
                                     description='Set the resolution of diagram'),
+            'upset_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
+                                options=target_list.classes, inline=False, disabled=False),
+            'upset_include_counts_percentages': pn.widgets.RadioBoxGroup(name='Show:',
+                                value='Show Nº of metabolites', options=['Show Nº and % of metabolites',
+                                'Show Nº of metabolites', 'Show neither'], inline=False, disabled=False),
+            'dpi_upset': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
+                                    description='Set the resolution of UpSetPlots'),
         }
         # Control panel for the overview section
         self.controls = pn.Param(self,
@@ -1366,6 +1421,10 @@ class ComExc_Storage(param.Parameterized):
         self.venn_controls = pn.Param(self,
                                  parameters=['venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn'],
                                  widgets=widgets, name='Parameters to draw Venn Diagram')
+        # Control panel for the UpSetPlots section
+        self.upsetplot_controls = pn.Param(self, parameters=['upset_class_subset', 'upset_include_counts_percentages',
+                                                             'dpi_upset'],
+                                 widgets=widgets, name='Parameters to draw UpSetPlots', default_layout=pn.Row)
 
 
 # Initialize common and exclusive compound storage
@@ -1378,9 +1437,10 @@ checkbox_com_exc = pn.widgets.CheckBoxGroup(name='Include:', value=['Venn Diagra
 
 # When pressing the button, performs common and exclusive compound calculations, and sets up the different pages in the tabs section
 def _compute_ComExc_button(event):
-    com_exc_compounds.controls, com_exc_compounds.venn_controls = com_exc_compounds._update_widgets() # Update Widgets
+    com_exc_compounds.controls, com_exc_compounds.venn_controls, com_exc_compounds.upsetplot_controls = com_exc_compounds._update_widgets() # Update Widgets
     subsetdf_comexc_section_page[0:3,0] = com_exc_compounds.controls
     venn_page[0,0][0] = com_exc_compounds.venn_controls
+    upset_page[0] = com_exc_compounds.upsetplot_controls
 
     iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
     iaf._compute_com_exc_compounds(com_exc_compounds) # Add common to all and exclusive to each class compounds dfs
@@ -1396,17 +1456,21 @@ def _compute_ComExc_button(event):
         overview_page[2] = subsetdf_comexc_section_page
 
     # Organizing the Accordion
+
     if len(end_page_comexc) == 0:
         end_page_comexc.append(('Overview', overview_page))
-    if len(end_page_comexc) >= 2:
-        if 'Venn Diagram' not in checkbox_com_exc.value:
-            end_page_comexc.pop(1)
-    else:
-        if 'Venn Diagram' in checkbox_com_exc.value:
-            end_page_comexc.append(('Venn Diagram', venn_page))
+
+    while len(end_page_comexc) > 1:
+        end_page_comexc.pop(1)
+
+    if 'Venn Diagram' in checkbox_com_exc.value:
+        end_page_comexc.append(('Venn Diagram', venn_page))
+    if 'UpSetPlot' in checkbox_com_exc.value:
+        end_page_comexc.append(('UpSetPlot', upset_page))
 
     com_exc_compounds._update_specific_cl_df() # Update the DataFrame shown in the overview tab
     com_exc_compounds.venn_class_subset = com_exc_compounds.venn_controls[1].value # Updating starting subset value for Venn diagram
+    com_exc_compounds.upset_class_subset = com_exc_compounds.upsetplot_controls[0][1].value # Updating starting subset value for UpSetPlots
 
 
 # Action when pressing the button
@@ -1438,12 +1502,36 @@ def _save_Venn_diag_button(event):
     com_exc_compounds.Venn_plot[0].savefig('Venn_diagram.png', dpi=com_exc_compounds.dpi_venn)
 save_Venn_diag_button.on_click(_save_Venn_diag_button)
 
-# Create specific subset df section of the page  for the overview Tab
+# Create specific section of the page for the Venn Diagram tab
 venn_page = pn.GridSpec(mode='override')
 venn_page[0,0] = pn.Column(com_exc_compounds.venn_controls, save_Venn_diag_button)
 venn_page[0,1:3] = com_exc_compounds.Venn_plot[0]
 
-#upstplot_page = pn.Column()
+
+# Widgets to save UpSetPlots (needed since they are matplotlib plots instead of a plotly plots)
+save_UpSetPlot_allmets_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+                                         icon=iaf.download_icon)
+save_UpSetPlot_annotatedmets_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+                                         icon=iaf.download_icon)
+# When pressing the button, downloads the figures
+def _save_UpSetPlot_allmets_button(event):
+    com_exc_compounds.UpSetPlot[0].savefig('UpSetPlot_all_metabolites.png', dpi=com_exc_compounds.dpi_upset)
+save_UpSetPlot_allmets_button.on_click(_save_UpSetPlot_allmets_button)
+
+def _save_UpSetPlot_annotatedmets_button(event):
+    com_exc_compounds.UpSetPlot[1].savefig('UpSetPlot_annotated_metabolites.png', dpi=com_exc_compounds.dpi_upset)
+save_UpSetPlot_annotatedmets_button.on_click(_save_UpSetPlot_annotatedmets_button)
+
+# Create specific section of the page for the UpSetPlot tab
+upset_page = pn.Column(com_exc_compounds.upsetplot_controls, # Control parameters for UpSetPlot
+                      '## UpSetPlot with all metabolites of the dataset',
+                       com_exc_compounds.UpSetPlot[0],
+                       save_UpSetPlot_allmets_button,
+                       '## UpSetPlot with only annotated metabolites in the dataset',
+                       com_exc_compounds.UpSetPlot[1],
+                       save_UpSetPlot_annotatedmets_button)
+
+
 end_page_comexc = pn.Accordion(toggle=True)
 
 comexc_page = pn.Column(initial_page_comexc, end_page_comexc)

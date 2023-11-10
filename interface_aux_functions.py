@@ -10,6 +10,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np
 import panel as pn
 import venn
+import upsetplot
 
 import holoviews as hv
 
@@ -174,6 +175,24 @@ def _plot_Venn_diagram(com_exc_compounds, target_list):
     else:
         pn.state.notifications.info(f'Venn Diagram can only be made with 2 to 6 different classes. You currently have {n_class} classes.',
                                     duration=2000)
+
+
+def _plot_upsetplots(com_exc_compounds, groups_dict, ups):
+    "Plot an Upsetplot"
+    # Plotting UpSetPlot
+    f,ax = plt.subplots(1,1, constrained_layout=True, dpi=400)
+    if com_exc_compounds.upset_include_counts_percentages == 'Show Nº and % of metabolites':
+        include_counts, include_percentages = True, True
+    elif com_exc_compounds.upset_include_counts_percentages == 'Show Nº of metabolites':
+        include_counts, include_percentages = True, False
+    else:
+        include_counts, include_percentages = False, False
+    ax.axis('Off')
+    upsetplot.plot(ups, f, subset_size='count',
+                   show_counts=include_counts,
+                   show_percentages=include_percentages,
+                   sort_categories_by='input', include_empty_subsets=False)
+    return f
 
 
 ### Functions related to the PCA section of the unsupervised analysis page of the graphical interface
