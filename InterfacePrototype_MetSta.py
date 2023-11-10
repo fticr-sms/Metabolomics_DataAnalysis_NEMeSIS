@@ -265,12 +265,6 @@ def _update_confirm_button_filename(filename):
 # Function happens when you press the button        
 confirm_button_filename.on_click(read_file)
 
-img_confirm_button = '''<svg xmlns="http://www.w3.org/2000/svg" 
-    class="icon icon-tabler icon-tabler-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2"
-    stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-    <path d="M5 12l5 5l10 -10"></path>
-    </svg>'''
 
 # Enabling button for next step
 def _update_confirm_step1(event):
@@ -292,7 +286,7 @@ def _confirm_step1(event):
     # reset button
 
 # Make button and call the appropriate functions when the buttons are pressed
-confirm_button_step1 = pn.widgets.Button(icon=img_confirm_button, name='Confirm - Next Step', button_type='success',
+confirm_button_step1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm - Next Step', button_type='success',
                                          disabled=True)
 confirm_button_filename.on_click(_update_confirm_step1)
 confirm_button_step1.on_click(_confirm_step1)
@@ -338,7 +332,7 @@ checkbox_arrangement = pn.Column(
           pn.Column(checkbox_samples, scroll=True, height=400)))
 
 # Button to confirm the selection in checkboxes and function detailing what happens when you press it
-confirm_button_column_selection = pn.widgets.Button(icon=img_confirm_button, name='Confirm Columns', button_type='success')
+confirm_button_column_selection = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm Columns', button_type='success')
 
 # Confirm column selection, update sample columns, make target editable while providing a possible target
 def _update_confirm_column_selection(event):
@@ -378,9 +372,9 @@ def _update_read_target_button(target_widget):
     else:
         confirm_button_target.disabled = True
 
-confirm_button_target = pn.widgets.Button(icon=img_confirm_button, name='Confirm Target', button_type='success',
+confirm_button_target = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm Target', button_type='success',
                                          disabled=True)
-confirm_button_next_step_1_1 = pn.widgets.Button(icon=img_confirm_button,
+confirm_button_next_step_1_1 = pn.widgets.Button(icon=iaf.img_confirm_button,
                                                  name='Next Step - Data Filtering and Characteristics',
                                                  button_type='success', disabled=True)
 
@@ -449,11 +443,11 @@ filtered_df = pn.widgets.DataFrame(pd.DataFrame(), name='Filtered DataFrame')
 characteristics_df = pn.widgets.DataFrame(pd.DataFrame(), name='Characteristics DataFrame')
 
 # Button to perform filtering
-confirm_button_initial_filtering = pn.widgets.Button(icon=img_confirm_button, name='Perform Filtering',
+confirm_button_initial_filtering = pn.widgets.Button(icon=iaf.img_confirm_button, name='Perform Filtering',
                                                      button_type='success', disabled=False)
 
 # Button to next step
-confirm_button_next_step_2 = pn.widgets.Button(icon=img_confirm_button, name='Next Step - Annotation',
+confirm_button_next_step_2 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Annotation',
                                                      button_type='success', disabled=False)
 
 # Perform filtering
@@ -527,7 +521,7 @@ n_databases_show = pn.widgets.IntInput(name='Nº of Databases to annotate', valu
 n_databases = pn.widgets.IntInput(name='Nº of Databases to annotate', value=1, step=1, start=0, end=5)
 tooltip_n_databases = pn.widgets.TooltipIcon(value="Select how many (0-5) databases you want to use for annotation.")
 # Button to perform filtering
-confirm_button_n_databases = pn.widgets.Button(icon=img_confirm_button, name='Select Databases',
+confirm_button_n_databases = pn.widgets.Button(icon=iaf.img_confirm_button, name='Select Databases',
                                                      button_type='success', disabled=False)
 
 # Class to organize how a single Database section will be shown and that can be repeated
@@ -656,7 +650,7 @@ confirm_button_n_databases.on_click(_confirm_button_n_databases)
 
 # Initial page layout
 page2 = pn.Column(pn.Row(n_databases_show, tooltip_n_databases, confirm_button_n_databases))
-confirm_button_databases_read = pn.widgets.Button(icon=img_confirm_button, name='Confirm Databases',
+confirm_button_databases_read = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm Databases',
                                                  button_type='success', disabled=False)
 
 # Make button to confirm databases appear after all databases are read
@@ -797,7 +791,7 @@ def _press_confirm_annotation_perform(event):
 confirm_button_annotation_perform.on_click(_press_confirm_annotation_perform)
 
 # Button to next step
-confirm_button_next_step_3 = pn.widgets.Button(icon=img_confirm_button, name='Next Step - Data Pre-Treatment',
+confirm_button_next_step_3 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Data Pre-Treatment',
                                                      button_type='success', disabled=False)
 
 # Go to next step function and calling it
@@ -1009,7 +1003,7 @@ def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target_widget,
     DataFrame_Store.metadata_df, DataFrame_Store.binsim_df = d, e
 
 # Button to next step
-confirm_button_next_step_4 = pn.widgets.Button(icon=img_confirm_button, name='Next Step - Class Colours',
+confirm_button_next_step_4 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Class Colours',
                                                      button_type='success', disabled=True)
 
 # Go to next step function and calling it
@@ -1075,7 +1069,7 @@ def TargetStorage_filling(target_list, colours):
             temp_dict[classes[cl]] = color_in_hex
     return temp_dict
 
-# From Stack Overflow
+# From Stack Overflow (https://stackoverflow.com/questions/29643352/converting-hex-to-rgb-value-in-python)
 def RGB(col): return '#%02x%02x%02x' % (int(col[0]), int(col[1]), int(col[2]))
 
 # Class to store target and to store target colours
@@ -1104,7 +1098,7 @@ target_list = TargetStorage()
 page4 = pn.Column()
 
 # Button to next step and to confirm colours
-confirm_button_next_step_transitionalpage = pn.widgets.Button(icon=img_confirm_button, name='Next Step - Analysis',
+confirm_button_next_step_transitionalpage = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Analysis',
                                                      button_type='success', disabled=False)
 # Confirm colours, go to next step function and calling it, enabling all buttons for analysis and performing initial computations for each analysis
 def _confirm_button_next_step_5(event):
@@ -1206,6 +1200,7 @@ transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, Dat
 # Page for Common and Exclusive Compounds
 # Param Class to store parameters and data regarding Common and Exclusive Compounds
 class ComExc_Storage(param.Parameterized):
+    "Class to store all information on common and exclusive compounds and to plot Venn diagrams and UpSetPlots."
 
     # Dictionaries to group information
     groups = param.Dict(default={})
@@ -1230,9 +1225,16 @@ class ComExc_Storage(param.Parameterized):
     specific_cl_df = param.DataFrame()
     class_specific_cl_desc = param.Number(default=0)
 
+    # Venn Diagram parameters
+    venn_class_subset = param.List(default=list())
+    venn_alpha = param.Number(default=0.3, bounds=(0,1.0))
+    type_of_venn = param.String(default='All Metabolites (Annotated)')
+    dpi_venn = param.Number(default=200)
+
     # Storing figure
     Venn_plot = param.List(default=['Pane for Venn Diagram'])
     UpSetPlot = param.List(default=['Pane for UpSetPlot'])
+
 
     # Update the subset df plot based on specifications chosen
     @param.depends('class_subset', 'df_type', 'annot', watch=True)
@@ -1259,7 +1261,6 @@ class ComExc_Storage(param.Parameterized):
             else:
                 df_common = pd.DataFrame()
 
-
         # Only annotated features of the dataset
         else:
             for cl in self.class_subset: # See the DataFrames of each class considered
@@ -1285,6 +1286,21 @@ class ComExc_Storage(param.Parameterized):
         subsetdf_comexc_section_page[0:4,1:3] = pn.widgets.DataFrame(self.specific_cl_df)
         subsetdf_comexc_section_page[3,0].value = self.specific_cl_desc
 
+
+    # Update the Venn Diagram based on specifications chosen
+    @param.depends('venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn', watch=True)
+    def _update_Venn_diagram(self):
+        if 1 < len(self.venn_class_subset) < 7:
+            self.Venn_plot = []
+            self.Venn_plot.append(iaf._plot_Venn_diagram(self, target_list))
+            venn_page[0,1:3] = pn.pane.Matplotlib(self.Venn_plot[0], height=800)
+            plt.close()
+        else:
+            pn.state.notifications.info(f'Venn Diagram can only be made with 2 to 6 different classes. You currently have {len(self.venn_class_subset)} classes.')
+        if len(end_page_comexc) >= 2:
+            end_page_comexc[1] = venn_page
+
+
     def _update_widgets(self):
         "Update widgets to consider the update list of classes in the target."
         widgets = {
@@ -1298,9 +1314,23 @@ class ComExc_Storage(param.Parameterized):
                                 options=['See annotated and non-annotated compounds',
                                          'Only see annotated compounds'],
                                 inline=False, disabled=False),
+            'venn_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
+                                options=target_list.classes, inline=False, disabled=False),
+            'venn_alpha': pn.widgets.FloatInput(name='Transparency of Venn Diagram Circles', value=0.3, start=0.0, end=1.0,
+                                step = 0.01),
+            'type_of_venn': pn.widgets.Select(name='Consider what type of metabolites',
+                                value='All Metabolites (Annotated)',
+                                options=['All Metabolites (Annotated)', 'All Metabolites','Annotated Metabolites']),
+            'dpi_venn': pn.widgets.IntInput(name="DPI (Resolution)",
+                                    value=200, step=10, start=100, disabled=False,
+                                    description='Set the resolution of diagram'),
         }
-        return pn.Param(self, parameters=['class_subset', 'df_type', 'annot'],
-                        widgets=widgets, name='Subset of Data to See')
+
+        # Control panel for the overview section, Control panel for the Venn diagram section
+        return (pn.Param(self, parameters=['class_subset', 'df_type', 'annot'], widgets=widgets, name='Subset of Data to See'),
+                pn.Param(self, parameters=['venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn'], widgets=widgets,
+                         name='Parameters to draw Venn Diagram'))
+
 
     def __init__(self, **params):
 
@@ -1317,10 +1347,25 @@ class ComExc_Storage(param.Parameterized):
                                 options=['See annotated and non-annotated compounds',
                                          'Only see annotated compounds'],
                                 inline=False, disabled=False),
+            'venn_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
+                                options=target_list.classes, inline=False, disabled=False),
+            'venn_alpha': pn.widgets.FloatInput(name='Transparency of Venn Diagram Circles', value=0.3, start=0.0, end=1.0,
+                                step = 0.01),
+            'type_of_venn': pn.widgets.Select(name='Consider what type of metabolites',
+                                value='All Metabolites (Annotated)',
+                                options=['All Metabolites (Annotated)', 'All Metabolites','Annotated Metabolites']),
+            'dpi_venn': pn.widgets.IntInput(name="DPI (Resolution)",
+                                    value=200, step=10, start=100, disabled=False,
+                                    description='Set the resolution of diagram'),
         }
+        # Control panel for the overview section
         self.controls = pn.Param(self,
                                  parameters=['class_subset', 'df_type', 'annot'],
                                  widgets=widgets, name='Subset of Data to See')
+        # Control panel for the Venn diagram section
+        self.venn_controls = pn.Param(self,
+                                 parameters=['venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn'],
+                                 widgets=widgets, name='Parameters to draw Venn Diagram')
 
 
 # Initialize common and exclusive compound storage
@@ -1333,8 +1378,9 @@ checkbox_com_exc = pn.widgets.CheckBoxGroup(name='Include:', value=['Venn Diagra
 
 # When pressing the button, performs common and exclusive compound calculations, and sets up the different pages in the tabs section
 def _compute_ComExc_button(event):
-    com_exc_compounds.controls = com_exc_compounds._update_widgets() # Update Widgets
+    com_exc_compounds.controls, com_exc_compounds.venn_controls = com_exc_compounds._update_widgets() # Update Widgets
     subsetdf_comexc_section_page[0:3,0] = com_exc_compounds.controls
+    venn_page[0,0][0] = com_exc_compounds.venn_controls
 
     iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
     iaf._compute_com_exc_compounds(com_exc_compounds) # Add common to all and exclusive to each class compounds dfs
@@ -1349,11 +1395,19 @@ def _compute_ComExc_button(event):
         overview_page[1] = pn.pane.Markdown(com_exc_compounds.com_exc_desc)
         overview_page[2] = subsetdf_comexc_section_page
 
-    # Organizing the tabs
-    end_page_comexc.clear()
-    end_page_comexc.append(('Overview', overview_page))
+    # Organizing the Accordion
+    if len(end_page_comexc) == 0:
+        end_page_comexc.append(('Overview', overview_page))
+    if len(end_page_comexc) >= 2:
+        if 'Venn Diagram' not in checkbox_com_exc.value:
+            end_page_comexc.pop(1)
+    else:
+        if 'Venn Diagram' in checkbox_com_exc.value:
+            end_page_comexc.append(('Venn Diagram', venn_page))
 
     com_exc_compounds._update_specific_cl_df() # Update the DataFrame shown in the overview tab
+    com_exc_compounds.venn_class_subset = com_exc_compounds.venn_controls[1].value # Updating starting subset value for Venn diagram
+
 
 # Action when pressing the button
 compute_ComExc_button.on_click(_compute_ComExc_button)
@@ -1375,9 +1429,22 @@ subsetdf_comexc_section_page[3,0] = pn.indicators.Number(name='Nº of Metabolite
                                                          value=com_exc_compounds.class_specific_cl_desc)
 subsetdf_comexc_section_page[0:4,1:3] = pn.widgets.DataFrame(com_exc_compounds.specific_cl_df)
 
-#venn_page = pn.Column()
+
+# Widget to save Venn Diagram (needed since it is a matplotlib plot instead of a plotly plot)
+save_Venn_diag_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+                                         icon=iaf.download_icon)
+# When pressing the button, downloads the figure
+def _save_Venn_diag_button(event):
+    com_exc_compounds.Venn_plot[0].savefig('Venn_diagram.png', dpi=com_exc_compounds.dpi_venn)
+save_Venn_diag_button.on_click(_save_Venn_diag_button)
+
+# Create specific subset df section of the page  for the overview Tab
+venn_page = pn.GridSpec(mode='override')
+venn_page[0,0] = pn.Column(com_exc_compounds.venn_controls, save_Venn_diag_button)
+venn_page[0,1:3] = com_exc_compounds.Venn_plot[0]
+
 #upstplot_page = pn.Column()
-end_page_comexc = pn.Tabs()
+end_page_comexc = pn.Accordion(toggle=True)
 
 comexc_page = pn.Column(initial_page_comexc, end_page_comexc)
 
@@ -1424,7 +1491,7 @@ class PCA_Storage(param.Parameterized):
     @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', watch=True)
     def _update_PCA_plot(self):
         self.PCA_plot[0] = _plot_PCA()
-        middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot',}})
+        middle_page_PCA[0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot',}})
 
     def __init__(self, **params):
 
@@ -1724,14 +1791,8 @@ def _plot_HCA():
 
 
 # Widget to save HCA plot (needed since it is a matplotlib plot instead of a plotly plot)
-download_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-download" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-   <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-   <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"></path>
-   <path d="M7 11l5 5l5 -5"></path>
-   <path d="M12 4l0 12"></path>
-</svg>'''
 save_HCA_plot_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
-                                         icon=download_icon)
+                                         icon=iaf.download_icon)
 # When pressing the button, downloads the figure
 def _save_HCA_plot_button(event):
     HCA_params.HCA_plot[0].savefig('HCA_plot.png', dpi=HCA_params.dpi)

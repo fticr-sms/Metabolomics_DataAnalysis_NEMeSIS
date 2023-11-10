@@ -8,11 +8,36 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np
+import panel as pn
+import venn
 
 import holoviews as hv
 
 # metanalysis_standard.py file
 import metanalysis_standard as metsta
+
+# The initial pages, especially the read file one does not have the nomenclature that I started using later on
+# for the different widgets as well as organization
+pn.extension('plotly', 'floatpanel', notifications=True)
+hv.extension('plotly')
+pn.config.sizing_mode="stretch_width"
+
+
+### SVG Icons for buttons in the interface
+
+img_confirm_button = '''<svg xmlns="http://www.w3.org/2000/svg"
+    class="icon icon-tabler icon-tabler-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2"
+    stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+    <path d="M5 12l5 5l10 -10"></path>
+    </svg>'''
+
+download_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-download" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+   <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+   <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"></path>
+   <path d="M7 11l5 5l5 -5"></path>
+   <path d="M12 4l0 12"></path>
+</svg>'''
 
 
 ### Functions related to the common and exclusive compound page of the graphical interface
@@ -71,6 +96,84 @@ def _compute_com_exc_compounds(com_exc_compounds):
 
     com_exc_compounds.com_exc_desc = '<br />'.join(desc_string)
 
+
+# From Stack Overflow (https://stackoverflow.com/questions/29643352/converting-hex-to-rgb-value-in-python)
+def RGB(col): return '#%02x%02x%02x' % (int(col[0]), int(col[1]), int(col[2]))
+def hex_to_rgb(value):
+    value = value.lstrip('#')
+    size = len(value)
+    return tuple(int(value[i:i + size // 3], 16) for i in range(0, size, size // 3))
+
+
+def _plot_Venn_diagram(com_exc_compounds, target_list):
+    "Plot Venn diagrams using the venn package."
+
+    # Calculate different intersections on all features and considering only annotated features
+    labels = venn.get_labels([com_exc_compounds.group_dfs[i].index for i in com_exc_compounds.venn_class_subset],
+                             fill=['number'])
+    labels_ids = venn.get_labels([com_exc_compounds.group_dfs_ids[i].index for i in com_exc_compounds.venn_class_subset],
+                                 fill=['number'])
+
+    if com_exc_compounds.type_of_venn == 'All Metabolites (Annotated)': # Show the metabolites (and annotated) numbers
+        # Join the labels of all features and considering only annotated features
+        labels_all = {}
+        for i, j in labels.items():
+            labels_all[i] = j + f' ({labels_ids[i]})'
+        x_label = 'Nº of peaks (Nº of matched compounds)'
+    elif com_exc_compounds.type_of_venn == 'All Metabolites': # Only show the metabolite numbers
+        labels_all = labels
+        x_label = 'Nº of peaks'
+    else: # Only show the annotated numbers
+        labels_all = labels_ids
+        x_label = 'Nº of matched compounds'
+
+    # Get the colours in RGB format to draw the Venn
+    colours = []
+    for c in com_exc_compounds.venn_class_subset:
+        rgb_c = hex_to_rgb(target_list.color_classes[c])
+        colours.append((rgb_c[0]/255, rgb_c[1]/255, rgb_c[2]/255, com_exc_compounds.venn_alpha))
+
+    n_class = len(com_exc_compounds.venn_class_subset)
+
+    # Draw the Venn based on the number of classes you have
+    if n_class == 2:
+        fig, ax = venn.venn2(labels_all, names=com_exc_compounds.venn_class_subset, figsize=(8,8), fontsize=11,
+                             colors=colours, dpi=com_exc_compounds.dpi_venn, constrained_layout=True) # 2 Classes
+        plt.text(0.5,0, x_label, fontsize=12, horizontalalignment='center')
+        leg = ax.legend(com_exc_compounds.venn_class_subset, loc='upper center', bbox_to_anchor=(0,1.1),
+                        fancybox=True, framealpha=0.5)
+        return fig
+    elif n_class == 3:
+        fig, ax = venn.venn3(labels_all, names=com_exc_compounds.venn_class_subset, figsize=(8,8), fontsize=11,
+                             colors=colours, dpi=com_exc_compounds.dpi_venn, constrained_layout=True) # 3 Classes
+        leg = ax.legend(com_exc_compounds.venn_class_subset, loc='upper center', bbox_to_anchor=(0,1.1),
+                        fancybox=True, framealpha=0.5)
+        plt.text(0.5,-0.05, x_label, fontsize=12, horizontalalignment='center')
+        return fig
+    elif n_class == 4:
+        fig, ax = venn.venn4(labels_all, names=com_exc_compounds.venn_class_subset, figsize=(8,8), fontsize=11,
+                             colors=colours, dpi=com_exc_compounds.dpi_venn, constrained_layout=True) # 4 Classes
+        leg = ax.legend(com_exc_compounds.venn_class_subset, loc='upper center', bbox_to_anchor=(0,1.1),
+                        fancybox=True, framealpha=0.5)
+        plt.text(0.5,0.05, x_label, fontsize=12, horizontalalignment='center')
+        return fig
+    elif n_class == 5:
+        fig, ax = venn.venn5(labels_all, names=com_exc_compounds.venn_class_subset, figsize=(8,8), fontsize=11,
+                             colors=colours, dpi=com_exc_compounds.dpi_venn, constrained_layout=True) # 5 Classes
+        leg = ax.legend(com_exc_compounds.venn_class_subset, loc='upper center', bbox_to_anchor=(0,1.1),
+                        fancybox=True, framealpha=0.5)
+        plt.text(0.5,0, x_label, fontsize=12, horizontalalignment='center')
+        return fig
+    elif n_class == 6:
+        fig, ax = venn.venn6(labels_all, names=com_exc_compounds.venn_class_subset, figsize=(8,8), fontsize=11,
+                             colors=colours, dpi=com_exc_compounds.dpi_venn, constrained_layout=True) # 6 Classes
+        plt.text(0.5,0.2, x_label, fontsize=12, horizontalalignment='center')
+        leg = ax.legend(com_exc_compounds.venn_class_subset, loc='upper center', bbox_to_anchor=(0,1.1),
+                        fancybox=True, framealpha=0.5)
+        return fig
+    else:
+        pn.state.notifications.info(f'Venn Diagram can only be made with 2 to 6 different classes. You currently have {n_class} classes.',
+                                    duration=2000)
 
 
 ### Functions related to the PCA section of the unsupervised analysis page of the graphical interface
