@@ -1,8 +1,10 @@
 
 # Needed Imports
 import itertools
+import pandas as pd
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as hier
+import random
 from scipy.stats import norm, chi2
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -46,6 +48,181 @@ download_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabl
    <path d="M7 11l5 5l5 -5"></path>
    <path d="M12 4l0 12"></path>
 </svg>'''
+
+
+# Functions related to Data pre-processing and pre-treatment that needed to be adapted for the graphical interface
+
+def initial_filtering(df, sample_cols, target=None, filt_method='total_samples', filt_kw=2):
+    "Performs feature filtering"
+    meta_cols = [i for i in df.columns if i not in sample_cols]
+    temp = metsta.basic_feat_filtering(df[sample_cols].T, target=target,
+                                filt_method=filt_method, # Method
+                                filt_kw=filt_kw) # Make a sample have to appear
+    df = pd.concat((df[meta_cols].reindex(temp.columns), temp.T), axis=1)
+    data_characteristics = metsta.characterize_data(df[sample_cols].T, target=target)
+
+    return df, pd.DataFrame(pd.Series(data_characteristics)).iloc[1:]
+
+
+# Read the database function
+def read_database(filename, abv, ID_col, name_col, formula_col):
+    # If the file has the right terminations
+    if filename.endswith('.csv'):
+        try:
+            db = pd.read_csv(filename)
+        except:
+            pn.state.notifications.error(f'Database {abv} could not be read. File could not be found. Check if all parameters given are correct.',
+                                     duration=5000)
+            raise ValueError(f'Database {abv} could not be read. File could not be found. Check if all parameters given are correct.')
+    elif filename.endswith('.xlsx'):
+        try:
+            db = pd.read_excel(filename)
+        except:
+            pn.state.notifications.error(f'Database {abv} could not be read. File could not be found. Check if all parameters given are correct.',
+                                     duration=5000)
+            raise ValueError(f'Database {abv} could not be read. File could not be found. Check if all parameters given are correct.')
+    else:
+        pn.state.notifications.error(f'Database {abv} could not be read. File Format not accepted. Only csv and xlsx files are accepted.',
+                                    duration=5000)
+        raise ValueError(f'Database {abv} could not be read. File Format not accepted. Only csv and xlsx files are accepted.')
+
+    if abv == '': # If abbreviation was set
+        pn.state.notifications.error(f'Database could not be read. Abbreviation was not set.',
+                                    duration=5000)
+        raise ValueError(f'Database could not be read. Abbreviation was not set.')
+
+    if ID_col in db.columns: # If ID col is found
+        db = db.set_index(ID_col)
+        if abv == 'HMDB':
+            db[name_col] = db[name_col].str.replace("b'", "")
+            db[name_col] = db[name_col].str.replace("'", "")
+    else:
+        pn.state.notifications.error(f'Database {abv} could not be read. DB ID - Index Column given was not found.',
+                                    duration=5000)
+        f'Database {abv} could not be read. DB ID - Index Column given was not found.'
+
+    if name_col not in db.columns: # If DB name col is not found
+        pn.state.notifications.error(f'Database {abv} could not be read. DB Annotation Column given was not found.',
+                                    duration=5000)
+        raise ValueError(f'Database {abv} could not be read. DB Annotation Column given was not found.')
+    elif formula_col not in db.columns: # If formula col is not found
+        pn.state.notifications.error(f'Database {abv} could not be read. DB Formula Column given was not found.',
+                                    duration=5000)
+        raise ValueError(f'Database {abv} could not be read. DB Formula Column given was not found.')
+    ##
+    # Calculate Mass based on Formula column
+    db['Mass'] = db[formula_col].dropna().apply(metsta.calculate_monoisotopic_mass)
+    return db
+
+
+def creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation):
+    "Creating the has match column to be used later (common/exclusive compounds)."
+
+    # If annotation was not performed in this software
+    if n_databases.value == 0:
+        for i in DataFrame_Store.original_df.index:
+            df = DataFrame_Store.original_df.loc[[i]]
+            hasmatch = df[checkbox_annotation.value].notnull().values.any()
+            DataFrame_Store.original_df.at[i, 'Has Match?'] = hasmatch
+
+    # If annotation was performed in this software
+    else:
+        # Join columns with annotations not made by this software with the ones made by this software
+        cols_to_see = checkbox_annotation.value + list(DataFrame_Store.original_df.columns[-n_databases.value*4:])
+
+        DataFrame_Store.original_df['Has Match?'] = np.nan # Creating the column
+        for i in DataFrame_Store.original_df.index:
+            df = DataFrame_Store.original_df.loc[[i]]
+            hasmatch = df[cols_to_see].notnull().values.any()
+            DataFrame_Store.original_df.at[i, 'Has Match?'] = hasmatch
+
+
+def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target, sample_cols):
+    "Putting keywords to pass to filtering_pretreatment function and performing pre-treatment."
+
+    # Missing Value Imputation
+    mvi_translation = {'Minimum of Sample':'min_sample', 'Minimum of Feature':'min_feat', 'Minimum of Data':'min_data',
+                      'Zero':'zero'}
+    mvi = mvi_translation[PreTreatment_Method.mvi_method]
+    mvi_kw = PreTreatment_Method.mvi_kw
+
+    # Normalization
+    norm_translation = {'Reference Feature':'ref_feat', 'Total Intensity Sum':'total_sum', 'PQN':'PQN',
+                      'Quantile':'Quantile', 'None': None}
+    norm = norm_translation[PreTreatment_Method.norm_method]
+
+    norm_kw = PreTreatment_Method.norm_kw
+    if norm in ['PQN', 'Quantile']:
+        norm_kw = norm_kw[0]
+    if norm_kw == 'Mean':
+        norm_kw = 'mean'
+    elif norm_kw == 'Median':
+        norm_kw = 'median'
+
+    # Transformation
+    tf_translation = {'Generalized Logarithmic Transformation (glog)':'glog', None: None}
+    tf = tf_translation[PreTreatment_Method.tf_method]
+
+    tf_kw = PreTreatment_Method.tf_kw
+
+    # Scaling
+    scaling_translation = {'Pareto Scaling':'pareto', 'Auto Scaling':'auto', 'Mean Centering':'mean_center',
+                      'Range Scaling':'range', 'Vast Scaling': 'vast', 'Level Scaling': 'level', None: None}
+    scaling = scaling_translation[PreTreatment_Method.scaling_method]
+
+    if PreTreatment_Method.scaling_kw == 'Average':
+        scaling_kw = True
+    else:
+        scaling_kw = False
+
+    # Data to pass
+    data = DataFrame_Store.original_df
+
+    a,b,c,d,e = metsta.filtering_pretreatment(data, target, sample_cols,
+                      filt_method=None, filt_kw=2, # Filtering based on number of times features appear
+                      extra_filt=None, # Filtering based on annotation of features ('Formula' or 'Name')
+                      mvi=mvi, mvi_kw=mvi_kw, # Missing value imputation
+                      norm=norm, norm_kw=norm_kw, # Normalization
+                      tf=tf, tf_kw=tf_kw, # Transformation
+                      scaling=scaling, scaling_kw=scaling_kw) # Scaling
+
+    return a, b, c, d, e
+
+
+# Functions to convert RGB colours to hex code and vice-versa
+# From Stack Overflow (https://stackoverflow.com/questions/29643352/converting-hex-to-rgb-value-in-python)
+def RGB(col): return '#%02x%02x%02x' % (int(col[0]), int(col[1]), int(col[2]))
+
+def hex_to_rgb(value):
+    value = value.lstrip('#')
+    size = len(value)
+    return tuple(int(value[i:i + size // 3], 16) for i in range(0, size, size // 3))
+
+
+# Function to fill the target and colours of the above class
+def TargetStorage_filling(target_list, colours):
+    "Create target and assign default colours to the classes."
+
+    temp_dict = {}
+    target = target_list
+    classes = pd.unique(target)
+    for cl in range(len(classes)):
+
+        # The first 10 different targets will follow the tab10 default colours
+        if cl < len(colours):
+            temp_dict[classes[cl]] = RGB(np.array(colours[cl])*255)
+
+        # Generate random colours after the first 10
+        else:
+            # From https://www.geeksforgeeks.org/create-random-hex-color-code-using-python/
+            # Generating a random number in between 0 and 2^24
+            color = random.randrange(0, 2**24)
+            # Converting that number from base-10 (decimal) to base-16 (hexadecimal)
+            hex_color = hex(color)
+            color_in_hex = "#" + hex_color[2:]
+            temp_dict[classes[cl]] = color_in_hex
+    return temp_dict
+
 
 
 ### Functions related to the common and exclusive compound page of the graphical interface
@@ -104,13 +281,6 @@ def _compute_com_exc_compounds(com_exc_compounds):
 
     com_exc_compounds.com_exc_desc = '<br />'.join(desc_string)
 
-
-# From Stack Overflow (https://stackoverflow.com/questions/29643352/converting-hex-to-rgb-value-in-python)
-def RGB(col): return '#%02x%02x%02x' % (int(col[0]), int(col[1]), int(col[2]))
-def hex_to_rgb(value):
-    value = value.lstrip('#')
-    size = len(value)
-    return tuple(int(value[i:i + size // 3], 16) for i in range(0, size, size // 3))
 
 
 def _plot_Venn_diagram(com_exc_compounds, target_list):

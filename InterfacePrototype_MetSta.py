@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import panel as pn
 import param
-import random
 import seaborn as sns
 import holoviews as hv
 import plotly.express as px
@@ -28,7 +27,7 @@ hv.extension('plotly')
 pn.config.sizing_mode="stretch_width"
 
 # Define pages as classes
-# Initial Pages class building
+# Initial Pages class building with barebones for each class
 class OpeningPage:
     def __init__(self):
         self.content = pn.Column("# Welcome to MetsTA!", acronym_section,
@@ -39,7 +38,8 @@ class OpeningPage:
 
 class DataReading:
     def __init__(self):
-        self.content = pn.Column("# Section 1: Data Input", "Inputting your Excel or csv MetaboScape file.",
+        self.content = pn.Column("# Section 1: Data Input", """Inputting your Excel or csv MetaboScape file.
+                                 If your file is not from MetaboScape, it should have the _m/z_ peak column be called 'Bucket Label'.""",
                                 section1page)
 
     def view(self):
@@ -47,7 +47,7 @@ class DataReading:
 
 class DataMetadata:
     def __init__(self):
-        self.content = pn.Column("# Section 1.1: Selecting MetaData",
+        self.content = pn.Column("# Section 1.1: Selecting Metadata columns and defining your target",
                                 page1_1)
 
     def view(self):
@@ -62,7 +62,6 @@ class DataFiltering:
         return self.content
 
 
-# Define pages as classes
 class DataAnnotation:
     def __init__(self):
         self.content = pn.Column("# Section 2: Data Annotation", 
@@ -76,7 +75,7 @@ class DataAnnotation:
     def view(self):
         return self.content
 
-# Define pages as classes
+
 class DataPreTreatment:
     def __init__(self):
         
@@ -86,17 +85,17 @@ class DataPreTreatment:
     def view(self):
         return self.content
 
-# Define pages as classes
+
 class ClassColours:
     def __init__(self):
 
-        self.content = pn.Column("# Section 3.1: Select Colours for each Class", "To maintain consistency in the plots.",
-                                 "### Choose the colors for each class", page4)
+        self.content = pn.Column("# Section 3.1: Select Colours for each Class", "These colours will be used in the different figures made hereafter.",
+                                 "### Choose the colours for each class", page4)
 
     def view(self):
         return self.content
 
-# Define pages as classes
+
 class TransitionalPage:
     def __init__(self):
 
@@ -109,6 +108,8 @@ class CommonExclusivePage:
     def __init__(self):
 
         self.content = pn.Column("# Seeing Common and Exclusive Compounds Between Biological Classes",
+                                 "This includes an overview analysis as well as Venn Diagrams and UpSetPlots",
+                                 "##### Known problem: Repeating IDs leading to problems in Venn Diagrams and UpSetPlots appearing at the same time.",
                                  comexc_page)
 
     def view(self):
@@ -117,21 +118,23 @@ class CommonExclusivePage:
 class UnsupervisedAnalysisPage:
     def __init__(self):
 
-        self.content = pn.Column("# Performing Unsupervised Analysis", "Including PCA and Hierarchical Clustering",
+        self.content = pn.Column("# Performing Unsupervised Analysis", "Principal Component Analysis (PCA) and Hierarchical Clustering Analysis (HCA)",
                                  "##### Known problem: Changing HCA plot characteristics many many times can lead to memory issues.",
                                  unsup_analysis_page)
 
     def view(self):
         return self.content
 
+
 class SupervisedAnalysisPage:
     def __init__(self):
 
-        self.content = pn.Column("# Performing Supervised Analysis", "Including Random Forest and PLS-DA",
+        self.content = pn.Column("# Performing Supervised Analysis", "Random Forest and PLS-DA classifiers and important feature extraction",
                                  sup_analysis_page)
 
     def view(self):
         return self.content
+
 
 class UnivariateAnalysisPage:
     def __init__(self):
@@ -142,6 +145,7 @@ class UnivariateAnalysisPage:
     def view(self):
         return self.content
 
+
 class DataVisualizationPage:
     def __init__(self):
 
@@ -150,6 +154,7 @@ class DataVisualizationPage:
 
     def view(self):
         return self.content
+
 
 class BinSimPage:
     def __init__(self):
@@ -161,6 +166,7 @@ class BinSimPage:
     def view(self):
         return self.content
 
+
 class CompoundFinderPage:
     def __init__(self):
 
@@ -169,6 +175,7 @@ class CompoundFinderPage:
 
     def view(self):
         return self.content
+
 
 # Homepage
 # This section only includes a short HTML description of the software
@@ -228,6 +235,7 @@ main_area = OpeningPage().content
 
 # Contains before treatment data, treated_data, processed_data, univariate_data, meta_data, bin_data
 class DataFrame_Storage(param.Parameterized):
+    "Class to contain all the more relevant DataFrames for statistical analysis."
 
     # Read DataFrame
     read_df = param.DataFrame()
@@ -257,6 +265,7 @@ class DataFrame_Storage(param.Parameterized):
         self.controls = pn.Param(self, parameters=['treated_df'], name='Pre-Treatment Selection')
 
     def concat_annots(_, MS_df, annot_df):
+        "Joins m/z peak data with annotation data in a single DataFrame."
         return pd.concat((MS_df, annot_df), axis=1)
 
 # Initializing the Store
@@ -273,8 +282,10 @@ DataFrame_Store = DataFrame_Storage()
 filename = pn.widgets.FileInput(name='Choose file', accept='.csv,.xlsx,.xls')
 
 confirm_button_filename = pn.widgets.Button(name='Read File', button_type='primary', disabled=True)
-tooltip_file = pn.widgets.TooltipIcon(value="Provided file must come from MetaboScape.")
+tooltip_file = pn.widgets.TooltipIcon(value="""Provided file must come from MetaboScape. Alternatively, the column with the _m/z_ peaks should be labelled 'Bucket label'.""")
 dataframe_to_show = pn.widgets.DataFrame(pd.DataFrame(), name='Data')
+confirm_button_step1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm - Next Step', button_type='success',
+                                         disabled=True)
 
 def read_file(event):
     "Function to read the file given."
@@ -283,7 +294,7 @@ def read_file(event):
     elif filename.filename.endswith('.csv'):
         file = pd.read_csv(filename.filename)
         file.insert(1, 'Neutral Mass', file['Bucket label'].str.replace('Da', '').astype('float'))
-        #important for database match
+        # Important for database match
         file = file.set_index('Bucket label')
 
         # Replaces zeros with numpy nans. Essential for data processing
@@ -324,22 +335,26 @@ def _update_confirm_step1(event):
 
 # Confirm file, show next page, disable reading files, update columns of the dataset read
 def _confirm_step1(event):
+    # Enabling/Disabling appropriate Widgets
     page1_1_button.disabled = False
     confirm_button_filename.disabled = True
     filename.disabled = True
-    DataFrame_Store.read_df = dataframe_to_show.value
+
+    DataFrame_Store.read_df = dataframe_to_show.value # Update DataFrame store
+
+    # Update all the options for the Data Metadata Step - CheckBox and RadioBox Widgets
     checkbox_formula.options = list(DataFrame_Store.read_df.columns)
     checkbox_annotation.options = list(DataFrame_Store.read_df.columns)
     radiobox_neutral_mass.options = ['None'] + list(DataFrame_Store.read_df.columns)
     checkbox_others.options = list(DataFrame_Store.read_df.columns)
     checkbox_samples.options = list(DataFrame_Store.read_df.columns)
+
+    # Update the Main page
     main_area.clear()
     show_page(pages["Data Metadata"])
-    # reset button
 
-# Make button and call the appropriate functions when the buttons are pressed
-confirm_button_step1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm - Next Step', button_type='success',
-                                         disabled=True)
+
+# Call the appropriate functions when the buttons are pressed
 confirm_button_filename.on_click(_update_confirm_step1)
 confirm_button_step1.on_click(_confirm_step1)
 
@@ -361,7 +376,7 @@ checkbox_annotation = pn.widgets.CheckBoxGroup(
     name='Annotation', value=['Name'], options=list(dataframe_to_show.value.columns),
     inline=False, disabled=False)
 
-# Select only one instead of multiple
+# Select only one instead of multiple - RadioBox Widget
 radiobox_neutral_mass = pn.widgets.RadioBoxGroup(
     name='Neutral Mass', value='Neutral Mass', options=['None'] + list(dataframe_to_show.value.columns),
     inline=False, disabled=False)
@@ -388,6 +403,7 @@ confirm_button_column_selection = pn.widgets.Button(icon=iaf.img_confirm_button,
 
 # Confirm column selection, update sample columns, make target editable while providing a possible target
 def _update_confirm_column_selection(event):
+    # Deduce sample columns
     sample_cols = []
     cols = list(DataFrame_Store.read_df.columns)
     for col in cols:
@@ -400,7 +416,8 @@ def _update_confirm_column_selection(event):
     
     checkbox_samples.value = sample_cols # Update the samples checkbox
     target_list.sample_cols = sample_cols # Save the sample cols
-    # Attempt to make 'an automatic target'
+
+    # Attempt to make 'an automatic target' as a suggestion
     if checkbox_samples.value != '':
         tg = [i.split('_')[0] for i in checkbox_samples.value]
         target_widget.placeholder = ','.join(tg)
@@ -415,6 +432,13 @@ target_placeholder = "A,A,A,A,A,B,B,B,B,B"
 target_widget = pn.widgets.TextAreaInput(name='Target - Class Labels', placeholder=target_placeholder, 
                                          max_length=5000, height=100, disabled=True)
 target_tooltip = pn.widgets.TooltipIcon(value="Provide the class labels of your samples. No spaces between labels.")
+# Create button widgets
+confirm_button_target = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm Target', button_type='success',
+                                         disabled=True)
+confirm_button_next_step_1_1 = pn.widgets.Button(icon=iaf.img_confirm_button,
+                                                 name='Next Step - Data Filtering and Characteristics',
+                                                 button_type='success', disabled=True)
+
 
 # Make button be pressable when you have a target
 @pn.depends(target_widget.param.value, watch=True)
@@ -424,11 +448,6 @@ def _update_read_target_button(target_widget):
     else:
         confirm_button_target.disabled = True
 
-confirm_button_target = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm Target', button_type='success',
-                                         disabled=True)
-confirm_button_next_step_1_1 = pn.widgets.Button(icon=iaf.img_confirm_button,
-                                                 name='Next Step - Data Filtering and Characteristics',
-                                                 button_type='success', disabled=True)
 
 # Make sure that target makes sense in comparison to the number of sample columns
 def _update_confirm_target(event):
@@ -455,7 +474,6 @@ confirm_button_next_step_1_1.on_click(_confirm_button_next_step_1_1)
 
 # Organizing the page layout
 page1_1 = pn.Column()
-
 page1_1.append(checkbox_arrangement)
 page1_1.append(confirm_button_column_selection)
 page1_1.append(pn.Row(target_widget, target_tooltip))
@@ -473,6 +491,7 @@ filt_method = pn.widgets.Select(name="Feature Filter Method", value="total_sampl
 filt_kw = pn.widgets.IntSlider(name="Feature Filter Keyword", value=2, start=0, end=len(target_widget.value.split(',')))
 limits_filt = {"total_samples": len(target_widget.value.split(',')), 
                "class_samples": pd.Series(target_widget.value.split(',')).value_counts().min(), None: 1}
+
 # Change the IntSlider limits based on the number of class labels
 @pn.depends(target = target_widget.param.value,
             method = filt_method.param.value, watch=True)
@@ -502,25 +521,19 @@ confirm_button_initial_filtering = pn.widgets.Button(icon=iaf.img_confirm_button
 confirm_button_next_step_2 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Annotation',
                                                      button_type='success', disabled=False)
 
-# Perform filtering
-def initial_filtering(df, sample_cols, target=None, filt_method='total_samples', filt_kw=2):
-    meta_cols = [i for i in df.columns if i not in sample_cols]
-    temp = metsta.basic_feat_filtering(df[sample_cols].T, target=target,
-                                filt_method=filt_method, # Method
-                                filt_kw=filt_kw) # Make a sample have to appear
-    df = pd.concat((df[meta_cols].reindex(temp.columns), temp.T), axis=1)
-    data_characteristics = metsta.characterize_data(df[sample_cols].T, target=target)
-    
-    filtered_df.value = df
-    characteristics_df.value = pd.DataFrame(pd.Series(data_characteristics)).iloc[1:]
 
 # Call filtering function and extend the page with data characteristics and results of filtering
 def _confirm_button_initial_filtering(event):
-    sample_cols = target_list.sample_cols
-    target = target_widget.value.split(',')
-    initial_filtering(DataFrame_Store.read_df,
-                      sample_cols, target=target, filt_method=filt_method.value, filt_kw=filt_kw.value)
+    "Perform feature filtering."
+
+    sample_cols = target_list.sample_cols # Select sample columns
+    target = target_widget.value.split(',') # See target
+    # Perform filtering
+    filtered_df.value, characteristics_df.value = iaf.initial_filtering(DataFrame_Store.read_df,
+                                    sample_cols, target=target, filt_method=filt_method.value, filt_kw=filt_kw.value)
+
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
+    # Setup the page if not setup yet
     if len(page1_2) == 3:
         page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',filtered_df,
                        confirm_button_next_step_2])
@@ -530,6 +543,7 @@ confirm_button_initial_filtering.on_click(_confirm_button_initial_filtering)
 
 # Go to next step function and calling it
 def _confirm_button_next_step_1_2(event):
+    "Ends step 1-2 and goes to Data Annotation page."
     page2_button.disabled = False
     main_area.clear()
     show_page(pages["Data Annotation"])
@@ -543,30 +557,6 @@ page1_2 = pn.Column(pn.Row(filt_method, filt_method_tooltip), pn.Row(filt_kw, fi
 
 
 # Page 2 - Annotation of Metabolites
-# TODO: Call notification error when database reading does not go well - highlight which filled space 
-# caused it to not go well (should be on the easy side)
-
-# Read the database function
-def read_database(filename, abv, ID_col, name_col, formula_col):
-    try:
-        if filename.endswith('.csv'):
-            db = pd.read_csv(filename).set_index(ID_col)
-            if abv == 'HMDB':
-                db[name_col] = db[name_col].str.replace("b'", "")
-                db[name_col] = db[name_col].str.replace("'", "")
-        elif filename.endswith('.xlsx'):
-            db = pd.read_excel(filename).set_index(ID_col)
-            if abv == 'HMDB':
-                db[name_col] = db[name_col].str.replace("b'", "")
-                db[name_col] = db[name_col].str.replace("'", "")
-        else:
-            raise ValueError('File Format not accepted. Only csv and xlsx files are accepted.')
-        ##
-        db['Mass'] = db[formula_col].dropna().apply(metsta.calculate_monoisotopic_mass)
-        return db
-    except:
-        pn.state.notifications.error('Database could not be read. Check if all parameters given are correct.',
-                                     duration=5000)
 
 # Widgets for selecting number of databases
 n_databases_show = pn.widgets.IntInput(name='Nº of Databases to annotate', value=1, step=1, start=0, end=5)
@@ -578,6 +568,8 @@ confirm_button_n_databases = pn.widgets.Button(icon=iaf.img_confirm_button, name
 
 # Class to organize how a single Database section will be shown and that can be repeated
 class DatabaseSection():
+    "Set up the parameters needed to read one metabolite database."
+
     def __init__(self):
         # Setting up the relevant widgets
         static_db_file = pn.widgets.StaticText(name='Database File', value='', styles={'align':'center'})
@@ -600,7 +592,7 @@ class DatabaseSection():
         
         confirm_button_db = pn.widgets.Button(name='Read Database', button_type='success', disabled=True)
         
-        db = pn.widgets.DataFrame(pd.DataFrame(), name='Database')
+        db = pn.widgets.DataFrame(pd.DataFrame(), name='Database') # Store the database
         
         # Make the button pressable when every field has something
         @pn.depends(a=db_file_input.param.value,
@@ -628,6 +620,7 @@ class DatabaseSection():
                     watch=True)
         def _press_confirm_button_db(a,b,c,d,e,button):
             if button != 0:
+                # Adjust the names
                 filename=a
                 abv=b
                 ID_col=c
@@ -639,14 +632,20 @@ class DatabaseSection():
                 self.IDcol = db_IDcol_input.value
                 self.annotation = db_annotation_input.value
                 self.formula = db_formula_input.value
-                db.value = read_database(filename, abv, ID_col, name_col, formula_col)
+
+                # Read the database
+                db.value = iaf.read_database(filename, abv, ID_col, name_col, formula_col)
                 confirm_button_db.param.clicks = 0
                 self.db = db
+
+                # Description of the database and indication of successful database reading
                 if len(self.content) == 6:
                     self.content.append(f'Database {self.abv} has {len(self.db.value)} metabolites.')
                 else:
                     self.content[6] = f'Database {self.abv} has {len(self.db.value)} metabolites.'
                 self.read.value = True
+
+                # If re-reading the databases, eliminate elements after database reading from the page to re-run them after.
                 while len(page2)>4:
                     page2.pop(-1)
                 confirm_button_databases_read.disabled = False
@@ -694,7 +693,7 @@ def _confirm_button_n_databases(event):
         page2[1] = pn.Row(titles)
         page2[2] = dbs_arrangement
 
-    if n_databases.value == 0:
+    if n_databases.value == 0: # Case where no database is going to be used for annotation
         page2.append(confirm_button_databases_read)
         confirm_button_databases_read.disabled = False
 
@@ -742,7 +741,8 @@ def _annotation_margin_method(method):
         annotation_param_selection[1][0] = annotation_ppm_deviation
     else:
         annotation_param_selection[1][0] = annotation_Da_deviation
-        
+
+# Organizing section of parameters for annotation
 annotation_param_selection = pn.Column(annotation_margin_method_radio, 
                                        pn.Row(annotation_ppm_deviation, tooltip_annotation),
                                        confirm_button_annotation_perform)
@@ -751,7 +751,7 @@ annotation_param_selection = pn.Column(annotation_margin_method_radio,
 def _confirm_button_databases_read(event):
     confirm_button_databases_read.disabled = True
     confirm_button_annotation_perform.disabled = False
-    annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
+    annotated_df.value = pd.DataFrame(index=filtered_df.value.index) # Setup the annotation df
     
     page2.append(annotation_param_selection)
 confirm_button_databases_read.on_click(_confirm_button_databases_read)
@@ -764,6 +764,8 @@ annotated_df = pn.widgets.DataFrame(pd.DataFrame(index=filtered_df.value.index))
 
 # Function to perform metabolite annotation (also contributes to updating the page)
 def metabolite_annotation():
+    "Perform metabolite annotation for every database loaded."
+
     # For each database, perform annotation adding a section with 4 columns (ID, metabolite name, formula and number of matches)
     for i in range(n_databases.value):
         # Get the correct database
@@ -833,10 +835,12 @@ def metabolite_annotation():
 
 # Perform annotation, update page layout
 def _press_confirm_annotation_perform(event):
+    "Perform metabolite annotation and update the page layout accordingly."
     while len(performing_annotation_arrangement)>0:
         performing_annotation_arrangement.pop(-1)
     page2.append(performing_annotation_arrangement)
     confirm_button_annotation_perform.disabled=True
+    # Perform metabolite annotation
     metabolite_annotation()
     page2.append(confirm_button_next_step_3)
 
@@ -849,28 +853,16 @@ confirm_button_next_step_3 = pn.widgets.Button(icon=iaf.img_confirm_button, name
 # Go to next step function and calling it
 def _confirm_button_next_step_3(event):
     page3_button.disabled = False
+    # Join Filtered and Annotated dfs to make the original DataFrame for pre-treatment
     DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
-    creating_has_match_column()
+    # Creates in the DataFrame a column ('Has Match?') that indicates if a feature was annotated either previously to being
+    # inputted in this software or using the data annotation of this software
+    iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
+
+    # Update to show the Data Pre-Treatment page
     main_area.clear()
     show_page(pages["Data Pre-Treatment"])
 confirm_button_next_step_3.on_click(_confirm_button_next_step_3)
-
-def creating_has_match_column():
-    "Creating the has match column to be used later (common/exclusive compounds)."
-    if n_databases.value == 0:
-        for i in DataFrame_Store.original_df.index:
-            df = DataFrame_Store.original_df.loc[[i]]
-            hasmatch = df[checkbox_annotation.value].notnull().values.any()
-            DataFrame_Store.original_df.at[i, 'Has Match?'] = hasmatch
-
-    else:
-        cols_to_see = checkbox_annotation.value + list(DataFrame_Store.original_df.columns[-n_databases.value*4:])
-
-        DataFrame_Store.original_df['Has Match?'] = np.nan
-        for i in DataFrame_Store.original_df.index:
-            df = DataFrame_Store.original_df.loc[[i]]
-            hasmatch = df[cols_to_see].notnull().values.any()
-            DataFrame_Store.original_df.at[i, 'Has Match?'] = hasmatch
 
 
 
@@ -878,11 +870,16 @@ def creating_has_match_column():
 #### This marks the separation to use mainly param instead of only panel
 
 # Page 3 - Data Pre-Treatment
-# TODO: There is currently an error when running the pre-treatment due to the layout, it does not seem to affect functionality though
 
 # Param to encompass the choice of Pre-Treatment methods
 # TODO: Introduce way to read reference sample for PQN normalization
 class PreTreatment(param.Parameterized):
+    """Class to store as attributes the parameters chosen to perform pre-treatments.
+
+       Each type of pre-treatment has 2 main parameters:
+        '_method': indicates the methodology to be used in each pre-treatment step.
+        '_kw': indicates a keyword parameter to use relative to the methodology chosen in each pre-treatment step."""
+
     # Update the keyword slider based on methodology chosen
 
     # Missing Value Imputation
@@ -905,14 +902,18 @@ class PreTreatment(param.Parameterized):
     confirm_button = param.Boolean(default=False)
 
     # Function to confirm Pre-Treatment Selection and Updating DataFrames
-    # TODO: Make Metadata appear in a more clean way
+    # TODO: Make Metadata appear in a cleaner way
     def _confirm_button_press(self, event):
-        performing_pretreatment(self, DataFrame_Store, target_widget, target_list.sample_cols)
+        "Perform pre-treatment and update page layout."
+        treat, proc, uni, meta, bin = iaf.performing_pretreatment(self, DataFrame_Store, target_list.target, target_list.sample_cols)
+        DataFrame_Store.treated_df, DataFrame_Store.processed_df, DataFrame_Store.univariate_df = treat, proc, uni
+        DataFrame_Store.metadata_df, DataFrame_Store.binsim_df = meta, bin
+
         page3[:5,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
             ('Metadata', DataFrame_Store.metadata_df.T),
             ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
         confirm_button_next_step_4.disabled = False
-        #page3[5, :] = confirm_button_next_step_4
+
 
     def __init__(self, **params):
 
@@ -927,14 +928,15 @@ class PreTreatment(param.Parameterized):
 
             'norm_method': pn.widgets.Select(name="Normalization Method", value = 'Write reference feature here',
                             options=['Reference Feature', 'Total Intensity Sum', 'PQN', 'Quantile', 'None']),
-            'norm_kw': pn.widgets.MultiChoice(name="Normalization Keyword", max_items=1,
+            'norm_kw': pn.widgets.MultiChoice(name="Normalization Reference Sample or Feature", max_items=1,
                                               option_limit=8, search_option_limit=8, disabled=True,
-                        description="""If you do not find your reference feature (Norm. by Ref. Feat.) or your sample (if you are choosing a sample for PQN), start writing it in the box below until it appears."""),
+                        description="""If you do not find your reference feature (Norm. by Ref. Feat.) or your sample (if you are choosing a sample for PQN), start writing it in the box below until it appears.
+                        Mean or Median use the mean or median of every sample as reference, respectively."""),
 
             'tf_method': pn.widgets.Select(name="Transformation Method",
                                            value = 'Generalized Logarithmic Transformation (glog)',
                             options=['Generalized Logarithmic Transformation (glog)', None]),
-            'tf_kw': pn.widgets.FloatInput(name="Transformation Keyword", value=None,
+            'tf_kw': pn.widgets.FloatInput(name="Transformation Lambda Parameter", value=None,
                     description="""Lambda value in glog transformation. Leave empty or 0 for usual log transformation.
                     Ignored if Transformation Method is None.
             glog equation is: log\N{SUBSCRIPT TWO}((y + \u221A(y\N{SUPERSCRIPT TWO} + lambda\N{SUPERSCRIPT TWO}) ) /2)
@@ -943,8 +945,8 @@ class PreTreatment(param.Parameterized):
             'scaling_method': pn.widgets.Select(name="Scaling Method", value = 'Pareto Scaling',
                             options=['Pareto Scaling', 'Auto Scaling', 'Mean Centering', 'Range Scaling',
                                      'Vast Scaling', 'Level Scaling', None]),
-            'scaling_kw': pn.widgets.Select(name="Scaling Keyword for Level Scaling only", value='', disabled=True,
-                                           options=['Average', 'Median']),
+            'scaling_kw': pn.widgets.Select(name="Scaling Factor (for Level Scaling only)", value='', disabled=True,
+                                           options=['Average', 'Median'], description='After mean-centering, divide each value by its respective feature average or median.'),
 
             'confirm_button': pn.widgets.Button(name="Confirm Pre-Treatment", button_type='primary'),
         }
@@ -971,11 +973,13 @@ def _update_options_norm(norm_method):
         PreTreatment_Method.controls.widgets['norm_kw'].disabled = True
         PreTreatment_Method.controls.widgets['norm_kw'].placeholder = ''
         PreTreatment_Method.controls.widgets['norm_kw'].value = []
+
     elif norm_method == 'Reference Feature':
         PreTreatment_Method.controls.widgets['norm_kw'].value = []
         PreTreatment_Method.controls.widgets['norm_kw'].options = list(filtered_df.value.index)
         PreTreatment_Method.controls.widgets['norm_kw'].placeholder = 'Reference Feature'
         PreTreatment_Method.controls.widgets['norm_kw'].disabled = False
+
     elif norm_method == 'PQN':
         PreTreatment_Method.controls.widgets['norm_kw'].value = []
         PreTreatment_Method.controls.widgets['norm_kw'].options = options_norm[norm_method] + list(target_list.sample_cols)
@@ -994,6 +998,7 @@ def _update_options_scaling(scaling_method):
     if scaling_method == 'Level Scaling':
         PreTreatment_Method.controls.widgets['scaling_kw'].disabled = False
         PreTreatment_Method.controls.widgets['scaling_kw'].value = 'Average'
+
     else:
         PreTreatment_Method.controls.widgets['scaling_kw'].disabled = True
         PreTreatment_Method.controls.widgets['scaling_kw'].value = ''
@@ -1001,58 +1006,6 @@ def _update_options_scaling(scaling_method):
 # Click button to confirm Pre-Treatment
 PreTreatment_Method.controls.widgets['confirm_button'].on_click(PreTreatment_Method._confirm_button_press)
 
-def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target_widget, sample_cols):
-    "Putting keywords to pass to filtering_pretreatment function and performing pre-treatment."
-
-    # Missing Value Imputation
-    mvi_translation = {'Minimum of Sample':'min_sample', 'Minimum of Feature':'min_feat', 'Minimum of Data':'min_data',
-                      'Zero':'zero'}
-    mvi = mvi_translation[PreTreatment_Method.mvi_method]
-    mvi_kw = PreTreatment_Method.mvi_kw
-
-    # Normalization
-    norm_translation = {'Reference Feature':'ref_feat', 'Total Intensity Sum':'total_sum', 'PQN':'PQN',
-                      'Quantile':'Quantile', 'None': None}
-    norm = norm_translation[PreTreatment_Method.norm_method]
-
-    norm_kw = PreTreatment_Method.norm_kw
-    if norm in ['PQN', 'Quantile']:
-        norm_kw = norm_kw[0]
-    if norm_kw == 'Mean':
-        norm_kw = 'mean'
-    elif norm_kw == 'Median':
-        norm_kw = 'median'
-
-    # Transformation
-    tf_translation = {'Generalized Logarithmic Transformation (glog)':'glog', None: None}
-    tf = tf_translation[PreTreatment_Method.tf_method]
-
-    tf_kw = PreTreatment_Method.tf_kw
-
-    # Scaling
-    scaling_translation = {'Pareto Scaling':'pareto', 'Auto Scaling':'auto', 'Mean Centering':'mean_center',
-                      'Range Scaling':'range', 'Vast Scaling': 'vast', 'Level Scaling': 'level', None: None}
-    scaling = scaling_translation[PreTreatment_Method.scaling_method]
-
-    if PreTreatment_Method.scaling_kw == 'Average':
-        scaling_kw = True
-    else:
-        scaling_kw = False
-
-    # Data to pass, target and sample columns
-    data = DataFrame_Store.original_df
-    target = target_widget.value.split(',')
-
-    a,b,c,d,e = metsta.filtering_pretreatment(data, target, sample_cols,
-                      filt_method=None, filt_kw=2, # Filtering based on number of times features appear
-                      extra_filt=None, # Filtering based on annotation of features ('Formula' or 'Name')
-                      mvi=mvi, mvi_kw=mvi_kw, # Missing value imputation
-                      norm=norm, norm_kw=norm_kw, # Normalization
-                      tf=tf, tf_kw=tf_kw, # Transformation
-                      scaling=scaling, scaling_kw=scaling_kw) # Scaling
-
-    DataFrame_Store.treated_df, DataFrame_Store.processed_df, DataFrame_Store.univariate_df = a, b, c
-    DataFrame_Store.metadata_df, DataFrame_Store.binsim_df = d, e
 
 # Button to next step
 confirm_button_next_step_4 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Class Colours',
@@ -1078,6 +1031,7 @@ def _confirm_button_next_step_4(event):
         page4.append(new_row)
     page4.append(confirm_button_next_step_transitionalpage)
 
+    # Update the main area
     main_area.clear()
     show_page(pages["Class Colours"])
 confirm_button_next_step_4.on_click(_confirm_button_next_step_4)
@@ -1098,43 +1052,19 @@ page3[5, :] = confirm_button_next_step_4
 # Default colours - 10 possible colours
 colours = sns.color_palette('tab10', 10)
 
-# Function to fill the target and colours of the above class
-def TargetStorage_filling(target_list, colours):
-
-    temp_dict = {}
-    target = target_list
-    classes = pd.unique(target)
-    for cl in range(len(classes)):
-
-        # The first 10 different targets will follow the tab10 default colours
-        if cl < len(colours):
-            temp_dict[classes[cl]] = RGB(np.array(colours[cl])*255)
-
-        # Generate random colours after the first 10
-        else:
-            # From https://www.geeksforgeeks.org/create-random-hex-color-code-using-python/
-            # Generating a random number in between 0 and 2^24
-            color = random.randrange(0, 2**24)
-            # Converting that number from base-10 (decimal) to base-16 (hexadecimal)
-            hex_color = hex(color)
-            color_in_hex = "#" + hex_color[2:]
-            temp_dict[classes[cl]] = color_in_hex
-    return temp_dict
-
-# From Stack Overflow (https://stackoverflow.com/questions/29643352/converting-hex-to-rgb-value-in-python)
-def RGB(col): return '#%02x%02x%02x' % (int(col[0]), int(col[1]), int(col[2]))
 
 # Class to store target and to store target colours
 class TargetStorage(param.Parameterized):
+    "Class to store information regarding target, classes and colours associated with the classes."
 
     # Function to do when calling the function
-    updater = param.Callable(TargetStorage_filling)
+    updater = param.Callable(iaf.TargetStorage_filling)
 
-    # Setting up parameters
-    target = param.List(default=target_widget.value.split(','))
-    classes = param.List(default=[])
-    color_classes = param.Dict(default={})
-    sample_cols = param.List(default=checkbox_samples.value)
+    # Setting up parameters/attributes
+    target = param.List(default=target_widget.value.split(',')) # Target List
+    classes = param.List(default=[]) # Classes List
+    color_classes = param.Dict(default={}) # Colours assigned to classes
+    sample_cols = param.List(default=checkbox_samples.value) # Columns related to samples
 
     def __init__(self, **params):
         super().__init__(**params)
@@ -1144,21 +1074,23 @@ class TargetStorage(param.Parameterized):
 
         return self
 
+# Initialize the target store
 target_list = TargetStorage()
-
-# Setting up empty page
-page4 = pn.Column()
 
 # Button to next step and to confirm colours
 confirm_button_next_step_transitionalpage = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Analysis',
                                                      button_type='success', disabled=False)
 # Confirm colours, go to next step function and calling it, enabling all buttons for analysis and performing initial computations for each analysis
 def _confirm_button_next_step_5(event):
+
+    # Pass the colours picked to the target storage
     n_classes = len(target_list.color_classes)
     for row in range(0, n_classes, 5):
         for col in range(5):
             key = list(target_list.color_classes.keys())[row+col]
             target_list.color_classes[key] = page4[row//5][col].value
+
+    # Enable all statistical analysis related buttons
     page5_button.disabled = False
     page6_button.disabled = False
     page7_button.disabled = False
@@ -1187,21 +1119,27 @@ def _confirm_button_next_step_5(event):
     HCA_params.HCA_plot[0] = _plot_HCA()
     page_HCA[0:6,1:4] = HCA_params.HCA_plot[0]
 
+    # Updating the layout for the transitional page
     main_area.clear()
     show_page(pages["Transitional Page"])
 confirm_button_next_step_transitionalpage.on_click(_confirm_button_next_step_5)
 
+# Setting up empty page
+page4 = pn.Column()
 
 
 
+
+# Transitional Page Layout
+
+# Buttons for the main analyses steps
 ComExc_A = pn.widgets.Button(name='Common/Exclusive Comp.', button_type='primary')
 Unsup_A = pn.widgets.Button(name='Unsupervised Analysis', button_type='default')
 Sup_A = pn.widgets.Button(name='Supervised Analysis', button_type='success')
 Univariate_A = pn.widgets.Button(name='Univariate Analysis', button_type='warning')
 DataViz_A = pn.widgets.Button(name='Data Visualization', button_type='danger')
 
-pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, DataViz_A)
-
+# Buttons for the secondary analyses steps
 BinSim_A = pn.widgets.Button(name='BinSim Specific Analysis', button_type='success')
 CompFinder_A = pn.widgets.Button(name='Compound Finder', button_type='warning')
 ToBeAdded_A = pn.widgets.Button(name='More to be added', button_type='danger', disabled=True)
@@ -1242,8 +1180,9 @@ def _confirm_button_CompFinder_A(event):
     show_page(pages["Compound Finder"])
 CompFinder_A.on_click(_confirm_button_CompFinder_A)
 
+# Transitional page Layout
 transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, DataViz_A),
-                             '### Other Options:',
+                             '## Other Options:',
                              pn.Row(BinSim_A, CompFinder_A, ToBeAdded_A))
 
 
