@@ -93,7 +93,7 @@ However, in the future, these databases will have corresponding python files tha
 - Updated package installation instructions.
 - Changed HMDB database to be a xlsx file (smaller file) and minor bugfix in database reading.
 
-#### V2.1 - Git-hub Repository (06/06/2023)
+#### V2.1 - Permutation Tests, Volcano Plots and Loadings in PCA (06/06/2023)
 
 - Updated and added PCA function to metanalysis.py (now retrieves loadings).
 - Added Permutation Testing for Random Forest and PLS-DA supervised analysis that can accept one of multiple metrics.
@@ -102,9 +102,17 @@ However, in the future, these databases will have corresponding python files tha
 - Added PCA and Loading plot (biplot) based on the counts of each chemical composition series in each sample.
 - Some minor changes and additions in comments.
 
+#### V2.2 - HMDB Compound Pathway Assignment (17/11/2023)
+
+- Added possibility of reading target directly from the excel or csv file with your data (changed initial filtering place to account for this).
+- Added section that allows to see pathways related to HMDB compounds annotated.
+- Fixed 'Normalized Intensity' position (y axis) in compound finder plots.
+- Fixed deprecation issue in Kendrick Mass Defect plots.
+
 #### In Future Patches:
 
 - Add sMDiN analysis to notebooks.
 - Add XGBoost analysis.
 - Add customization of fonts in figures.
-- (Long term) provide graphical user interface as notebook alternative
+- Grant possiblity of extracting more dataframes.
+- (Long term) provide graphical user interface as notebook alternative.
