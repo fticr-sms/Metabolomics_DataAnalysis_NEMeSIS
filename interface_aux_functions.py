@@ -15,6 +15,7 @@ import venn
 import upsetplot
 
 import holoviews as hv
+import plotly.express as px
 
 # metanalysis_standard.py file
 import metanalysis_standard as metsta
@@ -137,7 +138,7 @@ def creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
             DataFrame_Store.original_df.at[i, 'Has Match?'] = hasmatch
 
 
-def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target, sample_cols):
+def performing_pretreatment(PreTreatment_Method, original_df, target, sample_cols):
     "Putting keywords to pass to filtering_pretreatment function and performing pre-treatment."
 
     # Missing Value Imputation
@@ -176,7 +177,7 @@ def performing_pretreatment(PreTreatment_Method, DataFrame_Store, target, sample
         scaling_kw = False
 
     # Data to pass
-    data = DataFrame_Store.original_df
+    data = original_df
 
     a,b,c,d,e = metsta.filtering_pretreatment(data, target, sample_cols,
                       filt_method=None, filt_kw=2, # Filtering based on number of times features appear
@@ -508,3 +509,146 @@ def plot_dendogram(Z, leaf_names, label_colors, title='', ax=None, x_axis_len=4,
 
     axins.pcolor(cols, cmap=cmap, edgecolors='w', linewidths=1)
     axins.axis('off')
+
+
+
+### Functions related to the Univariate analysis page of the graphical interface
+
+def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list, filt_method, filt_kw):
+    "Performs Univariate Analysis."
+
+    # See if a T-Test or Mann-Whitney test will be made
+    if UnivarA_Store.univariate_test == 'T-Test (Non-Parametric)':
+        use_MW = False
+    else:
+        use_MW = True
+
+    # Transform fold change (FC) threshold into logarithm
+    abs_log2FC_threshold = np.log2(UnivarA_Store.fold_change_threshold)
+
+    # If you have 2 classes
+    if len(target_list.classes) == 2:
+        univariate_df = DataFrame_Store.univariate_df
+
+        # Perform Univariate Analysis
+        univariate_results = metsta.compute_FC_pvalues_2groups(normalized=univariate_df, # Used for Fold-Change Computation
+                                      processed=DataFrame_Store.treated_df, # Used for p-value computation
+                                      labels=target_list.target, # Labels of the samples
+                                      control_class=UnivarA_Store.control_class, # Control class
+                                      test_class=UnivarA_Store.test_class, # Non-control class
+                                      equal_var=UnivarA_Store.expected_equal_variance, # Consider variance between groups as equal
+                                      useMW=use_MW) # Use Mann-Whitney Test or standard T-test
+
+        # Select only Features considered significant (below a certain p-value threshold)
+        filt_uni_results = univariate_results[univariate_results['FDR adjusted p-value'] < UnivarA_Store.p_value_threshold].copy()
+
+        # Select features that have an absolute fold change (in log2) greater than abs_log2FC_threshold
+        # Calculate absolute Log2 Fold-Change
+        filt_uni_results['abs_log2FC'] = abs(filt_uni_results['log2FC'])
+        # Select
+        filt_uni_results = filt_uni_results[filt_uni_results['abs_log2FC'] > abs_log2FC_threshold]
+        filt_uni_results = filt_uni_results.drop(columns='abs_log2FC')
+
+        # Returns results (for 2 classes, there is no comprehensive dictionary of results)
+        return univariate_df, {}, filt_uni_results, univariate_results, {}
+
+
+    # More than 2 classes
+    else:
+        # To store results
+        test_classes = [cl for cl in target_list.classes if cl != UnivarA_Store.control_class]
+        univariate_results = {}
+        filt_uni_results = {}
+        univariate_df = {}
+
+        for test_class in test_classes: # For each non-control class
+            # Select only the samples of the control and current test class
+            selection = [i in [UnivarA_Store.control_class, test_class] for i in target_list.target]
+            target_temp = list(np.array(target_list.target)[selection])
+            # Select only samples in the control and test classes
+            file_temp = DataFrame_Store.original_df[target_list.sample_cols].copy()
+            file_temp = file_temp.loc[:, selection]
+
+            # Perform the same filtering and pre-treatments steps but using only the control and test class samples
+            if filt_method.value == 'Total Samples':
+                f_meth = 'total_samples'
+            elif filt_method.value == 'Class Samples':
+                f_meth = 'class_samples'
+            filt_df, _ = initial_filtering(file_temp, file_temp.columns, target=target_list.target,
+                                               filt_method=f_meth, filt_kw=filt_kw.value)
+            t_data,_,filt_data,_,_  = performing_pretreatment(UnivarA_Store, filt_df,
+                                                                 target_temp, file_temp.columns)
+
+            univariate_df[test_class] = t_data
+
+            # Perform Univariate Analysis on this newly acquired data
+            univariate_results[test_class] = metsta.compute_FC_pvalues_2groups(
+                                      normalized=filt_data, # Used for Fold-Change Computation
+                                      processed=t_data, # Used for p-value computation
+                                      labels=target_temp, # Labels of the samples
+                                      control_class=UnivarA_Store.control_class, # Control class
+                                      test_class=test_class, # Non-control class
+                                      equal_var=UnivarA_Store.expected_equal_variance, # Consider variance between groups as equal
+                                      useMW=use_MW) # Use Mann-Whitney Test if True or standard T-test if False
+
+            # Select only Features considered significant
+            filt_uni_results[test_class] = univariate_results[test_class][univariate_results[test_class][
+                    'FDR adjusted p-value'] < UnivarA_Store.p_value_threshold].copy()
+
+            # Select features that have an absolute fold change (in log2) greater than abs_log2FC_threshold
+            # Calculate absolute Log2 Fold-Change
+            filt_uni_results[test_class]['abs_log2FC'] = abs(filt_uni_results[test_class]['log2FC'])
+            # Select
+            filt_uni_results[test_class] = filt_uni_results[test_class][
+                filt_uni_results[test_class]['abs_log2FC'] > abs_log2FC_threshold]
+            filt_uni_results[test_class] = filt_uni_results[test_class].drop(columns='abs_log2FC')
+
+        # Returns results
+        return (univariate_df[UnivarA_Store.test_class], univariate_df,
+                filt_uni_results[UnivarA_Store.test_class], univariate_results[UnivarA_Store.test_class], filt_uni_results)
+
+
+def _plot_Volcano_plot(results_df, UnivarA_Store):
+    "Plots Volcano Plots with plotly express."
+
+    # Main Volcano Plot
+    fig = px.scatter(results_df, x=results_df.log2FC, y=results_df['-log10(Adj. p-value)'],
+          color=results_df.Expression, opacity=0.6,
+          color_discrete_map={'Non-Significant': UnivarA_Store.color_non_sig,
+                              'Downregulated': UnivarA_Store.color_down_sig,
+                              'Upregulated': UnivarA_Store.color_up_sig},
+          width=600, height=600,
+          labels={'log2FC': f'log2 (Fold Change))',
+               '-log10(Adj. p-value)': '- log10 (Adjusted (Benjamini-Hochberg) p-value)'})
+
+    # Set Threshold lines
+    fig.add_vline(x=np.log2(UnivarA_Store.fold_change_threshold), line_width=2, line_dash="dash", line_color="black")
+    fig.add_vline(x=-np.log2(UnivarA_Store.fold_change_threshold), line_width=2, line_dash="dash", line_color="black")
+    fig.add_hline(y=-np.log10(UnivarA_Store.p_value_threshold), line_width=2, line_dash="dash", line_color="black")
+
+    fig.update_layout(title_text=f'Volcano Plot - {UnivarA_Store.test_class}/{UnivarA_Store.control_class}', title_x=0.45)
+
+    return fig
+
+
+def _univariate_intersections(UnivarA_Store, DataFrame_Store):
+    "Filter metadata DF to include only features of the control class significant to all test classes chosen."
+
+    idxs = DataFrame_Store.metadata_df.index # Start with all metabolites
+    for cl in UnivarA_Store.test_class_subset: # For each test class chosen
+        idxs = np.intersect1d(idxs, UnivarA_Store.univariate_results_set[cl].index) # Keep only the common features
+
+    UnivarA_Store.specific_cl_df = DataFrame_Store.metadata_df.loc[idxs]
+    n_inter_sig_feats = len(idxs) # Nº of features that are significant versus all selected test classes
+    sig_annots_df = UnivarA_Store.specific_cl_df[UnivarA_Store.specific_cl_df['Has Match?']]
+    n_inter_sig_annots = len(sig_annots_df) # Nº of annotated features that are significant versus all selected test classes
+    # Select DataFrame with only annotated metabolites if this was chosen
+    if UnivarA_Store.show_annots_only:
+        UnivarA_Store.specific_cl_df = sig_annots_df
+
+    # Building the string description to put in the page
+    string = f'**{n_inter_sig_feats}** metabolites are significant against all the chosen test classes ('
+    for cl in UnivarA_Store.test_class_subset:
+        string = string+cl+', '
+    string = string[:-2] + f'), **{n_inter_sig_annots}** of which are annotated.'
+    UnivarA_Store.inter_description = string

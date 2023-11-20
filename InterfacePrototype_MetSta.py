@@ -486,26 +486,26 @@ page1_1.append(confirm_button_next_step_1_1)
 # Page 1-2 - Feature Filtering and Data Characteristics
 
 # Widgets for feature filtering
-filt_method = pn.widgets.Select(name="Feature Filter Method", value="total_samples", 
-                                       options=['total_samples', 'class_samples', None])
+filt_method = pn.widgets.Select(name="Feature Filter Method", value="Total Samples",
+                                       options=['Total Samples', 'Class Samples', None])
 filt_kw = pn.widgets.IntSlider(name="Feature Filter Keyword", value=2, start=0, end=len(target_widget.value.split(',')))
-limits_filt = {"total_samples": len(target_widget.value.split(',')), 
-               "class_samples": pd.Series(target_widget.value.split(',')).value_counts().min(), None: 1}
+limits_filt = {"Total Samples": len(target_widget.value.split(',')),
+               "Class Samples": pd.Series(target_widget.value.split(',')).value_counts().min(), None: 1}
 
 # Change the IntSlider limits based on the number of class labels
 @pn.depends(target = target_widget.param.value,
             method = filt_method.param.value, watch=True)
 def _update_filt_kw_limits(target, method):
-    if method == 'total_samples':
+    if method == 'Total Samples':
         filt_kw.end = len(target.split(','))
-    elif method == 'class_samples':
+    elif method == 'Class Samples':
         filt_kw.end = pd.Series(target.split(',')).value_counts().min()
     else:
         filt_kw.end = 1
 
 filt_method_tooltip = pn.widgets.TooltipIcon(value=
-    """'total_samples' requires a feature to appear in at least x samples in the whole dataset to be retained.
-    'class_samples' requires a feature to appear in at least x samples of at least 1 class to be retained.""")
+    """'Total Samples' requires a feature to appear in at least x samples in the whole dataset to be retained.
+    'Class Samples' requires a feature to appear in at least x samples of at least 1 class to be retained.""")
 filt_kw_tooltip = pn.widgets.TooltipIcon(value=
     """How many samples a feature has to appear to be retained based on the method chosen before.""")
 
@@ -529,10 +529,18 @@ def _confirm_button_initial_filtering(event):
     sample_cols = target_list.sample_cols # Select sample columns
     target = target_widget.value.split(',') # See target
     # Perform filtering
+    if filt_method.value == 'Total Samples':
+        f_meth = 'total_samples'
+    elif filt_method.value == 'Class Samples':
+        f_meth = 'class_samples'
     filtered_df.value, characteristics_df.value = iaf.initial_filtering(DataFrame_Store.read_df,
-                                    sample_cols, target=target, filt_method=filt_method.value, filt_kw=filt_kw.value)
+                                    sample_cols, target=target, filt_method=f_meth, filt_kw=filt_kw.value)
 
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
+
+    # Locking in the parameters used for feature filtering
+    UnivarA_Store.locking_filtering_params(filt_method, filt_kw)
+
     # Setup the page if not setup yet
     if len(page1_2) == 3:
         page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',filtered_df,
@@ -905,9 +913,13 @@ class PreTreatment(param.Parameterized):
     # TODO: Make Metadata appear in a cleaner way
     def _confirm_button_press(self, event):
         "Perform pre-treatment and update page layout."
-        treat, proc, uni, meta, bin = iaf.performing_pretreatment(self, DataFrame_Store, target_list.target, target_list.sample_cols)
+        treat, proc, uni, meta, bin = iaf.performing_pretreatment(self, DataFrame_Store.original_df,
+                                                                   target_list.target, target_list.sample_cols)
         DataFrame_Store.treated_df, DataFrame_Store.processed_df, DataFrame_Store.univariate_df = treat, proc, uni
         DataFrame_Store.metadata_df, DataFrame_Store.binsim_df = meta, bin
+
+        # Locking in pre-treatment parameters chosen
+        UnivarA_Store.locking_pretreatment_params(self)
 
         page3[:5,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
             ('Metadata', DataFrame_Store.metadata_df.T),
@@ -1107,17 +1119,20 @@ def _confirm_button_next_step_5(event):
     PCA_params.explained_variance = var
     PCA_params.pca_loadings = pd.DataFrame(loadings)
     PCA_params.PCA_plot[0] = _plot_PCA()
-    middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot',}})
+    middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot', 'scale':4,}})
     PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
-    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot',}})
+    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot', 'scale':4,}})
     PCA_params.scatter_PCA_plot[0] = _scatter_PCA_plot()
-    end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot',}})
+    end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
 
     # Initial calculations for HCA and storing initial plots
     HCA_params.dists = dist.pdist(DataFrame_Store.treated_df, metric=HCA_params.dist_metric)
     HCA_params.Z = hier.linkage(HCA_params.dists, method=HCA_params.link_metric)
     HCA_params.HCA_plot[0] = _plot_HCA()
     page_HCA[0:6,1:4] = HCA_params.HCA_plot[0]
+
+    # Updating Widgets for Unsupervised Analysis
+    UnivarA_Store._update_widgets()
 
     # Updating the layout for the transitional page
     main_area.clear()
@@ -1298,8 +1313,8 @@ class ComExc_Storage(param.Parameterized):
             plt.close()
         else:
             pn.state.notifications.info(f'Venn Diagram can only be made with 2 to 6 different classes. You currently have {len(self.venn_class_subset)} classes.')
-        if len(end_page_comexc) >= 2:
-            end_page_comexc[1] = venn_page
+        #if len(end_page_comexc) >= 2:
+        #    end_page_comexc[1] = venn_page
 
 
     # Update the UpSetPlot based on specifications chosen
@@ -1362,6 +1377,9 @@ class ComExc_Storage(param.Parameterized):
             'dpi_upset': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
                                     description='Set the resolution of UpSetPlots'),
         }
+        self.class_subset = []
+        self.venn_class_subset = target_list.classes
+        self.upset_class_subset = target_list.classes
 
         # Control panel for the overview section, for the Venn diagram section and for the Upsetplot section
         return (pn.Param(self, parameters=['class_subset', 'df_type', 'annot'], widgets=widgets, name='Subset of Data to See'),
@@ -1574,7 +1592,7 @@ class PCA_Storage(param.Parameterized):
     @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', watch=True)
     def _update_PCA_plot(self):
         self.PCA_plot[0] = _plot_PCA()
-        middle_page_PCA[0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot',}})
+        middle_page_PCA[0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot', 'scale':4}})
 
     def __init__(self, **params):
 
@@ -1741,15 +1759,15 @@ def _update_PC_options(components):
     PCA_params.controls.widgets['PCz'].options = ['PC '+str(i+1) for i in range(components)]
 
     PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
-    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot',}})
+    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot', 'scale':4,}})
 
     if len(PCA_params.scatter_PCA_plot[0].data[0]['dimensions']) < 4:
         PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
-        end_page_PCA[1] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot',}})
+        end_page_PCA[1] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
     else:
         if components < 4:
             PCA_params.scatter_PCA_plot[0] = _scatter_PCA_plot()
-            end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot',}})
+            end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
 
 # Function enabling/disabling the confidence level parameters for ellipses
 @pn.depends(PCA_params.controls.widgets['ellipse_draw'].param.value,
@@ -1896,8 +1914,314 @@ unsup_analysis_page = pn.Tabs(('PCA', page_PCA), ('HCA', page_HCA))
 # Page for Supervised Analysis
 sup_analysis_page = pn.Column()
 
+
+
+
 # Page for Univariate Analysis
-univar_analysis_page = pn.Column()
+univ_opening_string = '''In this section, both Univariate Analysis and Fold-Change analysis are performed.
+<br>
+<br>
+The Fold change is calculated in a dataset with missing values imputed and normalized after. <strong>This means that with
+our very high number of missing values in FT-ICR-MS data, it affects the calculation of the fold change a lot. Thus, take
+this fold changes values with a grain (or multiple grains that are actually more like rocks than grains) of salt.</strong>
+<br>
+<br>
+Choose between the parametric <strong>t-test</strong> and non-parametric <strong>Mann-Whitney test</strong>.
+<br>
+<br>
+<strong>Warning</strong>: This type of analysis is only done between 2 classes. If you have more than 2 classes, you can
+also choose one as the control class and one as the test class to perform univariate analysis in the 1st tab.
+<br>
+<br>
+Finally, when you have more than 2 classes, each unsueprvised analysis will select the samples respective to the 2 classes,
+filter and pre-treatment them the same way it was done on the full dataset before performing unsupervised analysis.
+'''
+
+class UnivariateAnalysis_Store(param.Parameterized):
+    """Class to store the unsupervised analysis and the locked in parameters used in data filtering and pre-treatment."""
+
+    # Locked in attributes
+    # Filtering
+    filt_method = param.Selector(default="Total Samples")
+    filt_kw = param.Number(default=2)
+
+    # Pre-Treatment
+    # Missing Value Imputation
+    mvi_method = param.Selector(default="Minimum of Sample")
+    mvi_kw = param.Number(default=0.2, bounds=(0,1))
+
+    # Normalization
+    norm_method = param.Selector(default="Reference Feature")
+    norm_kw = param.Selector(default=None)
+
+    # Transformation
+    tf_method = param.Selector(default="Generalized Logarithmic Transformation (glog)")
+    tf_kw = param.Number(default=None)
+
+    # Scaling
+    scaling_method = param.Selector(default="Pareto Scaling")
+    scaling_kw = param.String(default="")
+
+    # Unsupervised Analysis Main Parameters
+    control_class = param.Selector(default='')
+    test_class = param.Selector(default='')
+    univariate_test_str = param.String('What Univariate Test to perform')
+    univariate_test = param.Selector(default='T-Test (Non-Parametric)')
+    expected_equal_variance = param.Boolean(default=True)
+    p_value_threshold = param.Number(default=0.05)
+    fold_change_threshold = param.Number(default=2)
+    univariate_df = param.DataFrame()
+    univariate_df_set = param.Dict()
+
+    # Store Univariate results
+    univariate_results = param.DataFrame()
+    univariate_results_non_filt = param.DataFrame()
+    univariate_results_set = param.Dict()
+
+    # Confirm Univariate Test to Perform
+    confirm_button_univariate = param.Boolean(default=False)
+
+    # Volcano Plot Parameters
+    color_non_sig = param.Color(default=mpl.colors.CSS4_COLORS['silver'])
+    color_down_sig = param.Color(default=mpl.colors.CSS4_COLORS['deepskyblue'])
+    color_up_sig = param.Color(default=mpl.colors.CSS4_COLORS['lightcoral'])
+    Volcano_fig = param.List(default=['To Plot a Volcano Plot'])
+
+    # Parameters and DataFrame of chosen sub-section of test_classes
+    test_class_subset = param.List(default=list())
+    show_annots_only = param.Boolean(default=False)
+    specific_cl_df = param.DataFrame()
+    inter_description = param.String(default='')
+
+
+    def locking_filtering_params(self, filt_method_widget, filt_kw_widget):
+        "Locking in parameters regarding to the data filtering made."
+        self.filt_method = filt_method_widget.value
+        self.filt_kw = filt_kw_widget.value
+
+
+    def locking_pretreatment_params(self, PreTreatment_Method):
+        "Locking in parameters regarding the data pre-treatment made."
+        # Missing Value Imputation
+        self.mvi_method = PreTreatment_Method.mvi_method
+        self.mvi_kw = PreTreatment_Method.mvi_kw
+
+        # Normalization
+        self.norm_method = PreTreatment_Method.norm_method
+        self.norm_kw = PreTreatment_Method.norm_kw
+
+        # Transformation
+        self.tf_method = PreTreatment_Method.tf_method
+        self.tf_kw = PreTreatment_Method.tf_kw
+
+        # Scaling
+        self.scaling_method = PreTreatment_Method.scaling_method
+        self.scaling_kw = PreTreatment_Method.scaling_kw
+
+
+    def _update_widgets(self):
+        "Update the needed widget values."
+        self.controls.widgets['control_class'].options = target_list.classes
+        self.controls.widgets['test_class'].options = target_list.classes
+        if 'control' in target_list.classes:
+            self.controls.widgets['control_class'].value = 'control'
+            self.control_class = 'control'
+        else:
+            self.controls.widgets['control_class'].value = target_list.classes[0]
+            self.control_class = target_list.classes[0]
+        self.controls.widgets['test_class'].value = target_list.classes[1]
+        self.test_class = target_list.classes[1]
+
+
+    # Function to confirm and perform Univariate Analysis
+    def _confirm_button_univariate(self, event):
+        "Perform Univariate Analysis."
+        # Performing and storing results from Univariate Analysis
+        a,b,c,d,e = iaf._perform_univariate_analysis(self, DataFrame_Store, target_list, filt_method, filt_kw)
+        self.univariate_df, self.univariate_df_set = a, b
+        self.univariate_results, self.univariate_results_non_filt, self.univariate_results_set = c, d, e
+
+        # Joining the results of the univariate analysis to the metadata available
+        self.univariate_results = pd.concat((self.univariate_results,
+                                             DataFrame_Store.metadata_df.loc[self.univariate_results.index]),
+                                            axis=1)
+
+        # Updating the page layout
+        _updating_univariate_analysis_page_layout()
+
+
+    # Update the Volcano plot
+    @param.depends('color_non_sig', 'color_down_sig', 'color_up_sig', watch=True)
+    def _update_Volcano_plot(self):
+        "Update the Volcano plot based on change in colours."
+        # Repeated content from the main function to not add another attribute to the class
+        results_df = UnivarA_Store.univariate_results_non_filt.copy()
+        results_df['-log10(Adj. p-value)'] = -np.log10(results_df['FDR adjusted p-value'])
+
+        expression = []
+        for i in results_df.index:
+            if i not in UnivarA_Store.univariate_results.index:
+                expression.append('Non-Significant')
+            elif results_df.loc[i, 'log2FC'] < 0:
+                expression.append('Downregulated')
+            else:
+                expression.append('Upregulated')
+        results_df['Expression'] = expression
+
+        self.Volcano_fig[0] = iaf._plot_Volcano_plot(results_df, UnivarA_Store, )
+        # Update the layout
+        layout_volcano[0,1:3] = pn.pane.Plotly(UnivarA_Store.Volcano_fig[0], config={'toImageButtonOptions': {
+                   'filename': f'VolcanoPlot - {UnivarA_Store.test_class}/{UnivarA_Store.control_class}', 'scale':4}})
+
+
+    @param.depends('test_class_subset', 'show_annots_only', watch=True)
+    def _update_intersections(self):
+        "Update the intersections DataFrame and description."
+        iaf._univariate_intersections(self, DataFrame_Store)
+        layout_final_section[0][1] = UnivarA_Store.inter_description
+        layout_final_section[1] = pn.pane.DataFrame(UnivarA_Store.specific_cl_df, height=600)
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'control_class': pn.widgets.Select(name='Control Class', options=target_list.classes),
+            'test_class': pn.widgets.Select(name='Test Class', options=target_list.classes),
+            'univariate_test_str': pn.widgets.StaticText(value='What Univariate Test to perform',
+                                                         styles={'font-size': 'medium', 'font-weight': 'bold'}),
+            'univariate_test': pn.widgets.RadioBoxGroup(name='What Univariate Test to perform',
+                    value = 'T-Test (Non-Parametric)',
+                    options=['T-Test (Non-Parametric)', 'Mann-Whitney Test (Parametric)']),
+            'expected_equal_variance': pn.widgets.Checkbox(name='Consider Variance between classes as equal (only affects T-Test)', value=True),
+            'p_value_threshold': pn.widgets.EditableFloatSlider(name='P-value threshold', start=0, end=1, value=0.05,
+                    step=0.001),
+            'fold_change_threshold': pn.widgets.FloatInput(name='Fold Change Threshold', value=2, step=0.1, start=1,
+                    description='''The threshold is set so as only selecting features as significant if either the control class or the test class average is "chosen" threhold times higher than the opposing class.
+                    0 will essentially skip this threshold and use only the p-value threshold. Setting 1 for p-value threshold has the same effect for the p-value step.
+                    E.g: if 2, the average of a feature in control class samples has to be double or more that of the test class or vice-versa.'''),
+            'confirm_button_univariate': pn.widgets.Button(name="Perform Univariate Analysis", button_type='primary'),
+            'color_non_sig': pn.widgets.ColorPicker(name='Color Non Significant Metabolites',
+                                                    value=mpl.colors.CSS4_COLORS['silver']),
+            'color_down_sig': pn.widgets.ColorPicker(name='Color Downregulated Sig. Metabolites',
+                                                    value=mpl.colors.CSS4_COLORS['deepskyblue']),
+            'color_up_sig': pn.widgets.ColorPicker(name='Color Upregulated Sig. Metabolites',
+                                                    value=mpl.colors.CSS4_COLORS['lightcoral']),
+        }
+
+        widgets2 = {'test_class_subset': pn.widgets.CheckBoxGroup(name='Test Classes', value=[],
+                options=target_list.classes,inline=False),
+                    'show_annots_only': pn.widgets.Checkbox(
+                name='Only show annotated metabolites from the analysis', value=False),}
+
+        self.controls = pn.Param(self, parameters=['control_class', 'test_class', 'univariate_test_str', 'univariate_test',
+                                'expected_equal_variance', 'p_value_threshold','fold_change_threshold', 'univariate_test',
+                                'confirm_button_univariate'],
+                                 widgets=widgets, name='Univariate Analysis Parameters')
+        self.volcano_colors = pn.Param(self, parameters=['color_non_sig', 'color_down_sig', 'color_up_sig'],
+                                 widgets=widgets, name='Parameters for Volcano Plot')
+        self.specific_df_controls = pn.Param(self, parameters=['test_class_subset', 'show_annots_only'],
+                                 widgets=widgets2, name='Choose test classes to test against')
+
+
+# Initializing Store for Univariate Analysis
+UnivarA_Store = UnivariateAnalysis_Store()
+
+# Click button to confirm Univariate Analysis
+UnivarA_Store.controls.widgets['confirm_button_univariate'].on_click(UnivarA_Store._confirm_button_univariate)
+
+# Specific Widget for middle section of the page, shows DataFrame with only annotated metabolites or all metabolites
+univar_results_show_annots_only = pn.widgets.Checkbox(name='Only show annotated metabolites from the analysis', value=False)
+
+# Change the DataFrame shown based on checkbox
+@pn.depends(univar_results_show_annots_only.param.value, watch=True)
+def _layout_df_dataframe(univar_results_show_annots_only):
+    "Update the layout based on if we are showing all metabolites or only annotated ones."
+    # Select DataFrame
+    if univar_results_show_annots_only:
+        df_to_show = UnivarA_Store.univariate_results[UnivarA_Store.univariate_results['Has Match?']]
+    else:
+        df_to_show = UnivarA_Store.univariate_results
+
+    # Update the layout
+    if len(layout_df) > 1:
+        layout_df[2] = pn.pane.DataFrame(df_to_show, height=600)
+
+# Set up the different sections of the univariate analysis page
+layout_df = pn.Column(univar_results_show_annots_only) # For DataFrame section
+# For Volcano Plot section
+layout_volcano = pn.GridSpec(mode='override')
+layout_volcano[0,0] = UnivarA_Store.volcano_colors
+layout_volcano[0,1:3] = UnivarA_Store.Volcano_fig[0]
+# For intersection section
+layout_final_section = pn.Row(pn.Column(UnivarA_Store.specific_df_controls, UnivarA_Store.inter_description),
+       pn.pane.DataFrame(UnivarA_Store.specific_cl_df, height=600))
+
+# Setting up the different pages
+middle_page_univar = pn.Column('## DataFrame from the Univariate Analysis:',
+                              layout_df,
+                              '## Volcano Plot of the Univariate Analysis:',
+                              layout_volcano,
+                              '## Control Class versus all possible Test Classes (Intersections)',
+                              layout_final_section)
+
+
+def _updating_univariate_analysis_page_layout():
+    "Updated the analysis of the univariate analysis page after unviariate analysis."
+
+    # Updating the DataFrame section of the layout
+    univar_results_show_annots_only.value = False
+
+    n_sig_met = UnivarA_Store.univariate_results.shape[0]
+    n_sig_annotated = UnivarA_Store.univariate_results[UnivarA_Store.univariate_results['Has Match?']].shape[0]
+    if len(layout_df) == 1:
+        layout_df.append(f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated.')
+        layout_df.append(pn.pane.DataFrame(UnivarA_Store.univariate_results, height=600))
+    else:
+        layout_df[1] = f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated.'
+        layout_df[2] = pn.pane.DataFrame(UnivarA_Store.univariate_results, height=600)
+
+
+    # Update the Volcano plot section of the layout
+    # Generate and the Volcano plot data
+    results_df = UnivarA_Store.univariate_results_non_filt.copy()
+    results_df['-log10(Adj. p-value)'] = -np.log10(results_df['FDR adjusted p-value'])
+
+    expression = []
+    for i in results_df.index:
+        if i not in UnivarA_Store.univariate_results.index:
+            expression.append('Non-Significant')
+        elif results_df.loc[i, 'log2FC'] < 0:
+            expression.append('Downregulated')
+        else:
+            expression.append('Upregulated')
+    results_df['Expression'] = expression
+
+    # Plot the Volcano plot
+    UnivarA_Store.Volcano_fig[0] = iaf._plot_Volcano_plot(results_df, UnivarA_Store)
+    layout_volcano[0,1:3] = pn.pane.Plotly(UnivarA_Store.Volcano_fig[0], config={'toImageButtonOptions': {
+                   'filename': f'VolcanoPlot - {UnivarA_Store.test_class}/{UnivarA_Store.control_class}', 'scale':4}})
+
+    # Update the specific DF section of the layout
+    UnivarA_Store.specific_df_controls.widgets['test_class_subset'].options = [
+        i for i in target_list.classes if i != UnivarA_Store.control_class]
+    UnivarA_Store.specific_df_controls.widgets['test_class_subset'].value = [UnivarA_Store.test_class,]
+    UnivarA_Store.test_class_subset = [UnivarA_Store.test_class,]
+    # See the intersections and update layout
+    iaf._univariate_intersections(UnivarA_Store, DataFrame_Store)
+    layout_final_section[0][1] = UnivarA_Store.inter_description
+    layout_final_section[1] = pn.pane.DataFrame(UnivarA_Store.specific_cl_df, height=600)
+
+    # Add the analysis section of the page in case it was not added yet
+    if len(univar_analysis_page) == 2:
+        univar_analysis_page.append(middle_page_univar)
+
+# Setting up the initial univariate analysis page
+univar_analysis_page = pn.Column(pn.pane.HTML(univ_opening_string), UnivarA_Store.controls)
+
+
+
 
 # Page for Data Visualization
 data_viz_page = pn.Column()
