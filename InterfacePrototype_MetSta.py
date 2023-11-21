@@ -921,10 +921,11 @@ class PreTreatment(param.Parameterized):
         # Locking in pre-treatment parameters chosen
         UnivarA_Store.locking_pretreatment_params(self)
 
-        page3[:5,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
+        page3[:2,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
             ('Metadata', DataFrame_Store.metadata_df.T),
             ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
         confirm_button_next_step_4.disabled = False
+        save_data_dataframes_button.disabled = False
 
 
     def __init__(self, **params):
@@ -1048,13 +1049,30 @@ def _confirm_button_next_step_4(event):
     show_page(pages["Class Colours"])
 confirm_button_next_step_4.on_click(_confirm_button_next_step_4)
 
+# Widget to save dataframes in .csv format (specifically annotated data, treated data and metadata)
+save_data_dataframes_button = pn.widgets.Button(name='Save representative Dataframes as .csv files (in current folder)',
+                                                button_type='warning', icon=iaf.download_icon, disabled=True)
+
+# When pressing the button, downloads the dataframes
+def _save_data_dataframes_button(event):
+    DataFrame_Store.original_df.to_csv('annotated_df.csv')
+    DataFrame_Store.treated_df.to_csv('treated_df.csv')
+    pd.concat((DataFrame_Store.metadata_df, DataFrame_Store.treated_df.T), axis=1).to_csv('complete_treated_df.csv')
+    pn.state.notifications.success(f'DataFrames successfully saved.')
+
+save_data_dataframes_button.on_click(_save_data_dataframes_button)
+
 # Organize Page Layout
 page3 = pn.GridSpec(mode='override')
-page3[:5,0:2] = PreTreatment_Method.controls
-page3[:5,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
+page3[:2,0:2] = PreTreatment_Method.controls
+page3[:2,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
         ('Metadata', DataFrame_Store.metadata_df),
        ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
-page3[5, :] = confirm_button_next_step_4
+page3[2, :] = pn.Column(confirm_button_next_step_4,
+                        '## Optionally save data as .csv files',
+                        '''The button saves data after annotation (without pre-treatment), the treated intensity data without metadata and with the metadata.
+                        These files are saved in the current folder as annotated_df.csv, treated_df.csv, complete_treated_df.csv.''',
+                        save_data_dataframes_button)
 
 
 
@@ -1299,7 +1317,7 @@ class ComExc_Storage(param.Parameterized):
         self.specific_cl_df = df_common
         self.specific_cl_desc = len(df_common.index)
         subsetdf_comexc_section_page[0:4,1:3] = pn.widgets.DataFrame(self.specific_cl_df)
-        subsetdf_comexc_section_page[3,0].value = self.specific_cl_desc
+        subsetdf_comexc_section_page[2,0].value = self.specific_cl_desc
 
 
     # Update the Venn Diagram based on specifications chosen
@@ -1447,27 +1465,31 @@ checkbox_com_exc = pn.widgets.CheckBoxGroup(name='Include:', value=['Venn Diagra
 
 # When pressing the button, performs common and exclusive compound calculations, and sets up the different pages in the tabs section
 def _compute_ComExc_button(event):
+    "Actions after pressing the button"
+
+    iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
+    iaf._compute_com_exc_compounds(com_exc_compounds) # Add common to all and exclusive to each class compounds dfs
+
     new_controls = com_exc_compounds._update_widgets() # Update Widgets
     com_exc_compounds.controls = new_controls[0]
     com_exc_compounds.venn_controls = new_controls[1]
     com_exc_compounds.upsetplot_controls = new_controls[2]
 
-    subsetdf_comexc_section_page[0:3,0] = com_exc_compounds.controls
+    subsetdf_comexc_section_page[0:2,0] = com_exc_compounds.controls
     venn_page[0,0][0] = com_exc_compounds.venn_controls
     upset_page[0] = com_exc_compounds.upsetplot_controls
-
-    iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
-    iaf._compute_com_exc_compounds(com_exc_compounds) # Add common to all and exclusive to each class compounds dfs
 
     # Setting up the overview page
     if len(overview_page) == 0:
         overview_page.append(pn.pane.Markdown(com_exc_compounds.groups_description))
         overview_page.append(pn.pane.Markdown(com_exc_compounds.com_exc_desc))
+        overview_page.append(pn.Row(save_comexc_dfs_button, tooltip_comexc_dfs))
         overview_page.append(subsetdf_comexc_section_page)
     else:
         overview_page[0] = pn.pane.Markdown(com_exc_compounds.groups_description)
         overview_page[1] = pn.pane.Markdown(com_exc_compounds.com_exc_desc)
-        overview_page[2] = subsetdf_comexc_section_page
+        overview_page[2] = pn.Row(save_comexc_dfs_button, tooltip_comexc_dfs)
+        overview_page[3] = subsetdf_comexc_section_page
 
     # Organizing the Accordion
     if len(end_page_comexc) == 0:
@@ -1499,11 +1521,64 @@ initial_page_comexc[:2,1] = compute_ComExc_button
 # 1st Tab
 overview_page = pn.Column()
 
+# Widget related to creating and saving the common and exclusive compound Excel
+save_comexc_dfs_button = pn.widgets.Button(name='Save Excel with annotated comp. common to all or exclusive to each class',
+                                           button_type='warning', icon=iaf.download_icon)
+tooltip_comexc_dfs = pn.widgets.TooltipIcon(value="""File is created only considering **Annotated** compounds by this software or previously.
+    Excel created has n+1 sheets where n is the number of classes.
+    One sheet is for the compounds common to all classes. The rest is one per class showing their exclusive compounds.""")
+
+# When pressing the button, creates and saves the common and exclusive compound Excel
+def _save_comexc_dfs_button(event):
+    "Creates and saves to Excelthe common and exclusive annotated compound dataframes."
+    # Building the common and exclusive dataframes
+    common_df, exclusive_dfs = iaf.build_common_exclusive_dfs_to_save(com_exc_compounds, target_list, checkbox_annotation,
+                                                              checkbox_formula, radiobox_neutral_mass, checkbox_others)
+    iaf.common_exclusive_compound_excel_writer(common_df, exclusive_dfs)
+
+    pn.state.notifications.success(f'Common and Exclusive Ann. Compound Excel successfully saved.')
+
+save_comexc_dfs_button.on_click(_save_comexc_dfs_button)
+
+
+# Widget to save dataframe (with characteristics chosen) in .csv format
+save_comexc_df_button = pn.widgets.Button(name='Save shown Dataframe as .csv (in current folder)',
+                                                button_type='warning', icon=iaf.download_icon)
+
+# When pressing the button, downloads the dataframe
+def _save_comexc_df_button(event):
+    # Building the datafile name
+    # Based on what type of metabolites were chosen
+    if com_exc_compounds.annot == 'See annotated and non-annotated compounds':
+        annot_string = 'All_metabolites'
+    else:
+        annot_string = 'Annotated_metabolites'
+
+    # Based on type of dataframe chosen
+    if com_exc_compounds.df_type == 'Metabolites in chosen classes':
+        df_type_string = '_in_all_chosen'
+    else:
+        df_type_string = '_only_in_all_chosen'
+
+    # Based on the biological classes chosen
+    class_subset_string = ''
+    for cl in com_exc_compounds.class_subset:
+        class_subset_string = class_subset_string + '_'+cl
+
+    # Final name
+    filename_string = annot_string + df_type_string + class_subset_string + '_classes.csv'
+    # Saving the file
+    com_exc_compounds.specific_cl_df.to_csv(filename_string)
+    pn.state.notifications.success(f'{filename_string} successfully saved.')
+
+save_comexc_df_button.on_click(_save_comexc_df_button)
+
 # Create specific subset df section of the page  for the overview Tab
 subsetdf_comexc_section_page = pn.GridSpec(mode='override')
-subsetdf_comexc_section_page[0:3,0] = com_exc_compounds.controls
-subsetdf_comexc_section_page[3,0] = pn.indicators.Number(name='Nº of Metabolites', font_size='14pt', title_size='14pt',
+subsetdf_comexc_section_page[0:2,0] = com_exc_compounds.controls
+subsetdf_comexc_section_page[2,0] = pn.indicators.Number(name='Nº of Metabolites', font_size='14pt', title_size='14pt',
                                                          value=com_exc_compounds.class_specific_cl_desc)
+subsetdf_comexc_section_page[3,0] = save_comexc_df_button
 subsetdf_comexc_section_page[0:4,1:3] = pn.widgets.DataFrame(com_exc_compounds.specific_cl_df)
 
 
@@ -2036,6 +2111,12 @@ class UnivariateAnalysis_Store(param.Parameterized):
     # Function to confirm and perform Univariate Analysis
     def _confirm_button_univariate(self, event):
         "Perform Univariate Analysis."
+
+        # Initial check to see if control and test classes are different
+        if self.control_class == self.test_class:
+            pn.state.notifications.error('Test class is the same as Control class. Thus, analysis cannot be made.')
+            return
+
         # Performing and storing results from Univariate Analysis
         a,b,c,d,e = iaf._perform_univariate_analysis(self, DataFrame_Store, target_list, filt_method, filt_kw)
         self.univariate_df, self.univariate_df_set = a, b
@@ -2148,6 +2229,70 @@ def _layout_df_dataframe(univar_results_show_annots_only):
     if len(layout_df) > 1:
         layout_df[2] = pn.pane.DataFrame(df_to_show, height=600)
 
+# Widget to save dataframe of univariate analysis performed in .csv format
+save_univariate_results_button = pn.widgets.Button(name='Save univariate analysis results as .csv (in current folder)',
+                                                button_type='warning', icon=iaf.download_icon)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_univariate_results_button(event):
+    "Save univariate results performed"
+    # Building the datafile name
+    test_performed = UnivarA_Store.univariate_test.split(' ')[0]
+    filename_string = f'Univar_res_{UnivarA_Store.test_class}_vs_{UnivarA_Store.control_class}_{test_performed}'
+    filename_string = filename_string + f'_pvalue{UnivarA_Store.p_value_threshold}_FC{UnivarA_Store.fold_change_threshold}'
+    if test_performed == 'T-Test':
+        if UnivarA_Store.expected_equal_variance:
+            filename_string = filename_string + f'_equalvariance.csv'
+        else:
+            filename_string = filename_string + f'_notequalvariance.csv'
+    else:
+        filename_string = filename_string + f'.csv'
+
+    # Saving the file
+    UnivarA_Store.univariate_results.to_csv(filename_string)
+    pn.state.notifications.success(f'{filename_string} successfully saved.')
+
+save_univariate_results_button.on_click(_save_univariate_results_button)
+
+# Widget button to save dataframe shown when seeing intersections of multiple univariate analysis of
+# different chosen test classes against a chosen control class
+save_multiple_univariate_button = pn.widgets.Button(name='Save shown Dataframe with int. values as .csv file (in current folder)',
+                                                button_type='warning', icon=iaf.download_icon)
+
+# When pressing the button, downloads the dataframe (filename quite big)
+def _save_multiple_univariate_button(event):
+    # Building the datafile name
+    # Based on what type of metabolites were chosen
+    if UnivarA_Store.show_annots_only:
+        annot_string = 'Annotated_metabolites'
+    else:
+        annot_string = 'All_metabolites'
+
+    # Based on the test classes chosen
+    class_subset_string = ''
+    for cl in UnivarA_Store.test_class_subset:
+        class_subset_string = class_subset_string + '_'+cl
+
+    # Final name
+    test_performed = UnivarA_Store.univariate_test.split(' ')[0]
+    filename_string = annot_string + '_significant_in_testing_each_chosen_test_class' + class_subset_string + 'against'
+    filename_string = filename_string + f'_control_{UnivarA_Store.control_class}_{test_performed}'
+    filename_string = filename_string + f'_pvalue{UnivarA_Store.p_value_threshold}_FC{UnivarA_Store.fold_change_threshold}'
+    if test_performed == 'T-Test':
+        if UnivarA_Store.expected_equal_variance:
+            filename_string = filename_string + f'_equalvariance.csv'
+        else:
+            filename_string = filename_string + f'_notequalvariance.csv'
+    else:
+        filename_string = filename_string + f'.csv'
+
+    # Saving the file
+    pd.concat((UnivarA_Store.specific_cl_df, DataFrame_Store.original_df[target_list.sample_cols]), join='inner', axis=1).to_csv(filename_string)
+    pn.state.notifications.success(f'{filename_string} successfully saved.')
+
+save_multiple_univariate_button.on_click(_save_multiple_univariate_button)
+
+
 # Set up the different sections of the univariate analysis page
 layout_df = pn.Column(univar_results_show_annots_only) # For DataFrame section
 # For Volcano Plot section
@@ -2155,7 +2300,7 @@ layout_volcano = pn.GridSpec(mode='override')
 layout_volcano[0,0] = UnivarA_Store.volcano_colors
 layout_volcano[0,1:3] = UnivarA_Store.Volcano_fig[0]
 # For intersection section
-layout_final_section = pn.Row(pn.Column(UnivarA_Store.specific_df_controls, UnivarA_Store.inter_description),
+layout_final_section = pn.Row(pn.Column(UnivarA_Store.specific_df_controls, UnivarA_Store.inter_description, save_multiple_univariate_button),
        pn.pane.DataFrame(UnivarA_Store.specific_cl_df, height=600))
 
 # Setting up the different pages
@@ -2178,6 +2323,7 @@ def _updating_univariate_analysis_page_layout():
     if len(layout_df) == 1:
         layout_df.append(f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated.')
         layout_df.append(pn.pane.DataFrame(UnivarA_Store.univariate_results, height=600))
+        layout_df.append(save_univariate_results_button) # Button does not change - only needs to be added once
     else:
         layout_df[1] = f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated.'
         layout_df[2] = pn.pane.DataFrame(UnivarA_Store.univariate_results, height=600)

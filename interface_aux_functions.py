@@ -283,6 +283,118 @@ def _compute_com_exc_compounds(com_exc_compounds):
     com_exc_compounds.com_exc_desc = '<br />'.join(desc_string)
 
 
+def build_common_exclusive_dfs_to_save(com_exc_compounds, target_list, checkbox_annotation, checkbox_formula,
+                                      radiobox_neutral_mass, checkbox_others):
+    "Builds the common to all and exclusive to each dataframe annotated compounds of all classes to save as excel."
+
+    # Setting the excel files for common compounds
+    # Start creating the DataFrame
+    common_df = pd.DataFrame(index=com_exc_compounds.common_all_id.index)
+    # In how many samples and what percentage of samples of the dataset each annotated compound appears
+    common_df['Appear in Samples'] = com_exc_compounds.common_all_id.loc[:, target_list.sample_cols].notnull().sum(axis=1)
+    common_df['% of Samples'] = (com_exc_compounds.common_all_id.loc[
+        :, target_list.sample_cols].notnull().sum(axis=1)) / len(target_list.target) * 100
+
+    # Annotation information
+    for col in com_exc_compounds.common_all_id.columns:
+        if col not in target_list.sample_cols:
+            # Annotations made in the dataset previous to using this software
+            if col in checkbox_annotation.value:
+                common_df[f'Prev. Annotation Match - {col}'] = com_exc_compounds.common_all_id[col]
+            elif col in checkbox_formula.value:
+                common_df[f'Prev. Annotation Formula - {col}'] = com_exc_compounds.common_all_id[col]
+
+            # Annotations made with this software
+            elif col not in ['Has Match?', radiobox_neutral_mass.value,] + checkbox_others.value:
+                common_df[col] = com_exc_compounds.common_all_id[col]
+
+    #common_df.index = com_exc_compounds.common_all_id['Neutral Mass']
+
+    # Setting the excel files for exclusive compounds
+    exclusive_dfs = {}
+    for i in com_exc_compounds.exclusives_id.keys(): # For each class
+        # Start creating the DataFrame
+        current_exc_df = com_exc_compounds.exclusives_id[i]
+        df_temp = pd.DataFrame(index=current_exc_df.index)
+        # In how many samples and what percentage of samples of the exclusive class each annotated compound appears
+        df_temp['Appear in Class Samples'] = current_exc_df.loc[:, target_list.sample_cols].notnull().sum(axis=1)
+        df_temp['% of Class Samples'] = (
+            current_exc_df.loc[:, target_list.sample_cols].notnull().sum(axis=1)) / target_list.target.count(i) * 100
+
+        # Annotation information
+        for col in current_exc_df.columns:
+            if col not in target_list.sample_cols:
+                # Annotations made in the dataset previous to using this software
+                if col in checkbox_annotation.value:
+                    df_temp[f'Prev. Annotation Match - {col}'] = current_exc_df[col]
+                elif col in checkbox_formula.value:
+                    df_temp[f'Prev. Annotation Formula - {col}'] = current_exc_df[col]
+
+                # Annotations made with this software
+                elif col not in ['Has Match?', radiobox_neutral_mass.value,] + checkbox_others.value:
+                    df_temp[col] = current_exc_df[col]
+
+        #df_temp.index = current_exc_df[radiobox_neutral_mass.value]
+        exclusive_dfs[i] = df_temp # Storing the data
+
+    return common_df, exclusive_dfs
+
+
+def common_exclusive_compound_excel_writer(common_df, exclusive_dfs):
+    "Writes to an excel the common and exclusive dataframes made with `build_common_exclusive_dfs_to_save`."
+
+    # Initiate Excel File
+    writer = pd.ExcelWriter('Common_Exclusive_Compounds.xlsx', engine='xlsxwriter')
+
+    # For the common compounds DataFrame
+    common_df.to_excel(writer, sheet_name='Common')
+
+    # Format the columns based on the type of columns
+    text_format = writer.book.add_format({'text_wrap' : True, 'valign': 'top'})
+    for i in range(1, len(common_df.columns)+1):
+        width=18
+        if i in [1,2]:
+            width=8
+        elif common_df.columns[i-1].endswith('IDs'):
+            width=15
+        elif common_df.columns[i-1].endswith('count'):
+            width=8
+        elif common_df.columns[i-1].endswith('names') or common_df.columns[i-1].startswith('Prev. Annotation Match'):
+            width=40
+        writer.sheets['Common'].set_column(i,i,width,text_format)
+
+    # Header formatting
+    header_format = writer.book.add_format({'bold': True, 'text_wrap': True, 'valign': 'top'})
+    # Overwrite both the value and the format of each header cell
+    for col_num, value in enumerate(common_df.columns.values):
+        writer.sheets['Common'].write(0, col_num + 1, value, header_format)
+
+    # Same process repeated for each class for exclusive compounds DataFrame
+    for a in exclusive_dfs.keys():
+        exclusive_dfs[a].to_excel(writer, sheet_name=a+' Exclusive')
+
+        # Format the columns based on the type of columns
+        text_format = writer.book.add_format({'text_wrap' : True, 'valign': 'top'})
+        for i in range(1, len(exclusive_dfs[a].columns)+1):
+            width=18
+            if i in [1,2]:
+                width=8
+            elif exclusive_dfs[a].columns[i-1].endswith('IDs'):
+                width=15
+            elif exclusive_dfs[a].columns[i-1].endswith('count'):
+                width=8
+            elif exclusive_dfs[a].columns[i-1].endswith('names') or exclusive_dfs[a].columns[i-1].startswith('Prev. Annotation Match'):
+                width=40
+            writer.sheets[a+' Exclusive'].set_column(i,i,width,text_format)
+
+        # Header formatting
+        header_format = writer.book.add_format({'bold': True, 'text_wrap': True, 'valign': 'top'})
+        # Overwrite both the value and the format of each header cell
+        for col_num, value in enumerate(exclusive_dfs[a].columns.values):
+            writer.sheets[a+' Exclusive'].write(0, col_num + 1, value, header_format)
+
+    writer.close()
+
 
 def _plot_Venn_diagram(com_exc_compounds, target_list):
     "Plot Venn diagrams using the venn package."
