@@ -1060,13 +1060,14 @@ def permutation_RF(df, labels, iter_num=100, n_trees=200, cv=None, n_fold=3, ran
     return CV, Perm[1:], pvalue
 
 
-def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=15, kf=None, n_fold=5, scale=False):
+def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=15, min_comp=1, kf=None, n_fold=5, scale=False):
     """Searches for an optimum number of components to use in PLS-DA.
 
        df: DataFrame; X equivalent in PLS-DA (training vectors).
        labels: labels to target
        encode2as1vector: bool (default: True); when you have two classes encode them in a vector.
        max_comp: integer (default: 15); upper limit for the number of components used.
+       min_comp: integer (default: 1); lower limit for the number of components used.
        kf: default None; pass a specific cross validation method from 
         https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators (3.1.2)
        n_fold: int (default: 5); number of groups to divide dataset in (max = min. number of samples belonging to one group)
@@ -1089,7 +1090,7 @@ def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=15, kf=
         target1D = matrix.copy()
 
     # Repeating for each component from 1 to max_comp
-    for i in range(1, max_comp + 1):
+    for i in range(min_comp, max_comp + 1):
         cv = []
         cvr2 = []
 
@@ -1249,7 +1250,7 @@ def PLSDA_model_CV(df, labels, n_comp=10,
             if feat_type == 'VIP':
                 Imp_Feat[f, :] = _calculate_vips(plsda)
             elif feat_type == 'Coef':
-                Imp_Feat[f, :] = abs(plsda.coef_).sum(axis=1)
+                Imp_Feat[f, :] = abs(plsda.coef_).sum()
             elif feat_type == 'Weights':
                 Imp_Feat[f, :] = abs(plsda.x_weights_).sum(axis=1)
             else:
@@ -1277,6 +1278,10 @@ def PLSDA_model_CV(df, labels, n_comp=10,
     Imp_sum = Imp_Feat.sum(axis=0) / (iter_num * n_fold)
     imp_features = sorted(enumerate(Imp_sum), key=lambda x: x[1], reverse=True)
     if iter_num == 1:
+        #results_dict = {'accuracy': accuracies[0], 'F1-scores':f1_scores[0], 'precision': precision[0], 'recall':recall[0],
+        #        'Q2': CVR2[0], 'imp_feat': imp_features}
+        #if accuracy in metrics:
+        #    results_dict.pop('accuracy')
         return {'accuracy': accuracies[0], 'F1-scores':f1_scores[0], 'precision': precision[0], 'recall':recall[0],
                 'Q2': CVR2[0], 'imp_feat': imp_features}
     else:

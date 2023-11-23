@@ -4,6 +4,7 @@ import itertools
 import pandas as pd
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as hier
+import seaborn as sns
 import random
 from scipy.stats import norm, chi2
 import matplotlib.pyplot as plt
@@ -16,6 +17,7 @@ import upsetplot
 
 import holoviews as hv
 import plotly.express as px
+import plotly.graph_objects as go
 
 # metanalysis_standard.py file
 import metanalysis_standard as metsta
@@ -48,6 +50,12 @@ download_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabl
    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"></path>
    <path d="M7 11l5 5l5 -5"></path>
    <path d="M12 4l0 12"></path>
+</svg>'''
+
+hourglass_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hourglass-high" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6.5 7h11" />
+    <path d="M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1z" />
+    <path d="M6 4v2a6 6 0 1 0 12 0v-2a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1z" />
 </svg>'''
 
 
@@ -483,6 +491,123 @@ def _plot_upsetplots(com_exc_compounds, groups_dict, ups):
                    show_percentages=include_percentages,
                    sort_categories_by='input', include_empty_subsets=False)
     return f
+
+
+
+### Functions related to the supervised analysis page of the graphical interface
+
+## Functions for PLS-DA section
+
+def _plot_PLS_optimization_components_fig(pls_scores):
+    "Plot the figure with the optimization of the number of components."
+
+    # Set up the initial line figure
+    fig = px.line(pls_scores, x="Nº of Components", y='Scores', color='Class', title='PLS Optimization Plot',
+             range_y=(0, 1.05), range_x=(0, max(list(pls_scores.index)) + 1))
+
+    # Single out the q2 values and add annotation and marker to the maximum Q2 value found
+    q2_val = pls_scores[pls_scores['Class'] == 'Q2']['Scores']
+    rec_comp = q2_val.idxmax()
+    fig.add_annotation(x=rec_comp,
+                       y=q2_val.max(), text='Max.')
+    fig.add_trace(go.Scatter(x=[rec_comp], y=[q2_val.max()],
+                             marker=dict(color='Black', size=8), hoverinfo='skip', showlegend=False))
+
+    return rec_comp, fig
+
+
+def creating_plsda_importance_feat_table(PLSDA_store, DataFrame_Store, PLSDA_results):
+    "Creates and organizes the DataFrame with the feature importance for the PLS-DA models."
+
+    imp_feat_colname = PLSDA_store.imp_feature_metric + ' Score' # Name of Importance Column
+    imp_feats_plsda = DataFrame_Store.metadata_df.copy() # Starting df
+    imp_feats_plsda.insert(0, DataFrame_Store.metadata_df.index.name, imp_feats_plsda.index) # Include Column
+    imp_feats_plsda.insert(1, imp_feat_colname, '') # Include Column for importance
+    # Fill importance column
+    for n in range(len(PLSDA_results['imp_feat'])):
+        imp_feats_plsda[imp_feat_colname][PLSDA_results['imp_feat'][n][0]] = PLSDA_results['imp_feat'][n][1]
+    # Sort from highes to lowest importance
+    imp_feats_plsda = imp_feats_plsda.sort_values(by=imp_feat_colname, ascending=False)
+    # Make Index be the place/position of each feature in the importance list
+    imp_feats_plsda.index = range(1, len(imp_feats_plsda)+1)
+    imp_feats_plsda.index.name = 'Place'
+
+    return imp_feats_plsda
+
+
+def _plot_PLS(PLSDA_store, target_list):
+    "Function to plot 2- or 3-D PLS projections. Variation of the `_plot_PCA` function."
+
+    # 2 dimensions
+    if PLSDA_store.n_dimensions == '2 Components':
+        # Plot PLS
+        PLS_plot = px.scatter(
+            PLSDA_store.x_scores, x=PLSDA_store.LVx, y=PLSDA_store.LVy, color=PLSDA_store.x_scores['Label'],
+            color_discrete_map=target_list.color_classes, title=f'''PLS Projection''')
+        PLS_plot.update_traces(marker={'size': PLSDA_store.dot_size})
+
+        # Draw ellipses if ellipses wanted
+        if PLSDA_store.ellipse_draw:
+            ellipses_df = pd.DataFrame()
+            for lbl in target_list.color_classes.keys():
+                subset_points = PLSDA_store.x_scores[PLSDA_store.x_scores['Label']==lbl]
+                subset_points = subset_points[[PLSDA_store.LVx, PLSDA_store.LVy]]
+                temp = plot_confidence_ellipse(
+                    subset_points, q=PLSDA_store.confidence, nstd=PLSDA_store.confidence_std).array()
+                temp = pd.concat((pd.DataFrame(temp), pd.DataFrame([lbl,]*len(temp), columns=['label'])), axis=1)
+                ellipses_df = pd.concat((ellipses_df, temp))
+            ellipses = px.line(ellipses_df, x=0, y=1, color='label', color_discrete_map=target_list.color_classes)
+
+            # Final Plot joining the 2
+            final_PLS_plot = go.Figure(data=PLS_plot.data + ellipses.data)
+            final_PLS_plot.update_layout(
+                title=f'''PLS Projection''')
+            final_PLS_plot.update_xaxes(title=PLSDA_store.LVx)
+            final_PLS_plot.update_yaxes(title=PLSDA_store.LVy)
+
+        else:
+            final_PLS_plot = PLS_plot
+
+    # 3 dimensions
+    else:
+        final_PLS_plot = px.scatter_3d(
+            PLSDA_store.x_scores, x=PLSDA_store.LVx, y=PLSDA_store.LVy, z=PLSDA_store.LVz,
+            color=PLSDA_store.x_scores['Label'], color_discrete_map=target_list.color_classes,
+            title=f'''PLS Projection''')
+        final_PLS_plot.update_traces(marker={'size': PLSDA_store.dot_size})
+
+    return final_PLS_plot
+
+
+def _plot_permutation_test(perm_results, DataFrame_Store, n_fold, metric, title='Permutation Test'):
+    "Plots the permutation test results with matplotlib."
+
+    with plt.style.context('seaborn-whitegrid'):
+        fig, ax = plt.subplots(1,1, figsize=(6,6))
+
+        n_labels = len(DataFrame_Store.treated_df.index)
+        tab20bcols = sns.color_palette('tab20b', 20)
+
+        # Histogram with performance of permutated values
+        hist_res = ax.hist(np.array(perm_results[1]), n_labels, range=(0, 1.00001),
+                     edgecolor='black', color=tab20bcols[1], alpha = 1)
+
+        # Plot the non-permutated model performance
+        ylim = [0, hist_res[0].max()*1.2]
+        ax.plot(2 * [perm_results[0]], ylim, '-', linewidth=3, color='darkred', #alpha = 0.5,
+                     label='_p_-value %.5f)' % perm_results[2], solid_capstyle='round')
+        ax.tick_params(labelsize=13)
+        ax.set_xlabel(f'{n_fold}-fold Stratified CV Model {metric}', fontsize=14)
+        ax.set_ylabel('Nº of occurrences', fontsize=14)
+        if perm_results[0] >= 0.5:
+            ax.text(perm_results[0]-0.45, hist_res[0].max()*1.1, 'p-value = %.3f' % perm_results[2], fontsize = 15)
+        else:
+            ax.text(perm_results[0]+0.05, hist_res[0].max()*1.1, 'p-value = %.3f' % perm_results[2], fontsize = 15)
+        ax.set_title(title, size = 15)
+        ax.set_axisbelow(True)
+
+    return fig
+
 
 
 ### Functions related to the PCA section of the unsupervised analysis page of the graphical interface
