@@ -28,6 +28,7 @@ hv.extension('plotly')
 pn.config.sizing_mode="stretch_width"
 
 # TODO: Make a way to choose folder where all figures and tables downloaded go to
+# TODO: Change UpSetPlot name to IntersectionPlot everywhere
 
 # Define pages as classes
 # Initial Pages class building with barebones for each class
@@ -292,13 +293,15 @@ DataFrame_Store = DataFrame_Storage()
 
 
 
-# Page 1 - Reading File
 # TODO: Make Reset button to read other datasets.
+
 
 # Page 1 - Reading File
 
 # Widgets and reacting functions of page 1
 filename = pn.widgets.FileInput(name='Choose file', accept='.csv,.xlsx,.xls')
+target_included_in_file = pn.widgets.Checkbox(name='The first row of the file corresponds to the target (sample class labels).', value=False)
+temp_target = param.Parameter(default={})
 
 confirm_button_filename = pn.widgets.Button(name='Read File', button_type='primary', disabled=True)
 tooltip_file = pn.widgets.TooltipIcon(value="""Provided file must come from MetaboScape. Alternatively, the column with the _m/z_ peaks should be labelled 'Bucket label'.""")
@@ -308,32 +311,58 @@ confirm_button_step1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Conf
 
 def read_file(event):
     "Function to read the file given."
+
+    # Samples names frequently have 00000.
+    def renamer(colname):
+        # Util to optionally remove all those 00000 from sample names
+        return ''.join(colname.split('00000'))
+    target_file = {}
+
+    # No File Inputted
     if filename.value == '':
         dataframe_to_show.value = pd.DataFrame()
+
+    # If it is a .csv file
     elif filename.filename.endswith('.csv'):
-        file = pd.read_csv(filename.filename)
-        file.insert(1, 'Neutral Mass', file['Bucket label'].str.replace('Da', '').astype('float'))
-        # Important for database match
-        file = file.set_index('Bucket label')
 
-        # Replaces zeros with numpy nans. Essential for data processing
-        file = file.replace({0:np.nan})
+        if target_included_in_file.value: # If you have the target in the file
+            file = pd.read_csv(filename.filename, header=[0,1])
+            colnames = [renamer(i) for i in file.columns.get_level_values(0)]
+            target_file = dict(zip(colnames, file.columns.get_level_values(1)))
+            file.columns = colnames
 
-        # Samples names frequently have 00000. Use this code to make them 'cleaner'.
-        # If not needed just skip this part (use #)
-        def renamer(colname):
-            # Util to optionally remove all those 00000 from sample names
-            return ''.join(colname.split('00000'))
-        file.columns = [renamer(i) for i in file.columns]
-        dataframe_to_show.value = file
+        else: # If you do not have the target in the file
+            file = pd.read_csv(filename.filename)
+            file.columns = [renamer(i) for i in file.columns]
 
+    # If it is a .xlsx file
     elif filename.filename.endswith('.xlsx') or filename.filename.endswith('.xls'):
-        file = pd.read_excel(filename.filename)
-        file = file.set_index('Bucket label')
-        dataframe_to_show.value = file
+
+        if target_included_in_file.value: # If you have the target in the file
+            file = pd.read_excel(filename.filename, header=[0,1])
+            colnames = [renamer(i) for i in file.columns.get_level_values(0)]
+            target_file = dict(zip(colnames, file.columns.get_level_values(1)))
+            file.columns = colnames
+
+        else: # If you do not have the target in the file
+            file = pd.read_excel(filename.filename)
+            file.columns = [renamer(i) for i in file.columns]
 
     else:
         pn.state.notifications.error('Provided file is not an Excel or a csv file.')
+
+    # Treated the read file to put them as we want it - # Important for database match
+    try:
+        file.insert(1, 'Neutral Mass', file['Bucket label'].str.replace('Da', '').astype('float'))
+    except:
+        pn.state.notifications.warning('Neutral Mass could not be inferred from Bucket Label. No annotation can be performed.')
+
+    file = file.set_index('Bucket label')
+    # Replaces zeros with numpy nans. Essential for data processing
+    file = file.replace({0:np.nan})
+    # Updating widgetss and parameters
+    dataframe_to_show.value = file
+    temp_target.default = target_file
 
 
 # Update button so it can be pressed after you put something in the filename
@@ -378,8 +407,9 @@ confirm_button_filename.on_click(_update_confirm_step1)
 confirm_button_step1.on_click(_confirm_step1)
 
 # Setting up the page layout
-section1page = pn.Column(filename, pn.Row(confirm_button_filename, tooltip_file),
-                        dataframe_to_show, confirm_button_step1)
+section1page = pn.Column(filename, target_included_in_file,
+                         pn.Row(confirm_button_filename, tooltip_file),
+                         dataframe_to_show, confirm_button_step1)
 
 
 
@@ -436,11 +466,20 @@ def _update_confirm_column_selection(event):
     checkbox_samples.value = sample_cols # Update the samples checkbox
     target_list.sample_cols = sample_cols # Save the sample cols
 
-    # Attempt to make 'an automatic target' as a suggestion
+    # Target widget box
     if checkbox_samples.value != '':
-        tg = [i.split('_')[0] for i in checkbox_samples.value]
-        target_widget.placeholder = ','.join(tg)
-        target_widget.value = ','.join(tg)
+        # If the target was in the first row of the file read, pass it to here
+        if temp_target.default != {}:
+            tg = [temp_target.default[s] for s in sample_cols] # Update to target present in file provided
+            target_widget.placeholder = ','.join(tg)
+            target_widget.value = ','.join(tg)
+
+        # If not, attempt to make 'an automatic target' as a suggestion
+        else:
+            tg = [i.split('_')[0] for i in checkbox_samples.value]
+            target_widget.placeholder = ','.join(tg)
+            target_widget.value = ','.join(tg)
+
     else:
         target_widget.placeholder = target_placeholder
     
@@ -1155,11 +1194,11 @@ def _confirm_button_next_step_5(event):
     PCA_params.pca_scores = principaldf
     PCA_params.explained_variance = var
     PCA_params.pca_loadings = pd.DataFrame(loadings)
-    PCA_params.PCA_plot[0] = _plot_PCA()
+    PCA_params.PCA_plot[0] = iaf._plot_PCA(PCA_params, target_list)
     middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot', 'scale':4,}})
-    PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
+    PCA_params.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(PCA_params)
     end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot', 'scale':4,}})
-    PCA_params.scatter_PCA_plot[0] = _scatter_PCA_plot()
+    PCA_params.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params, target_list)
     end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
 
     # Initial calculations for HCA and storing initial plots
@@ -1188,15 +1227,15 @@ page4 = pn.Column()
 # Transitional Page Layout
 
 # Buttons for the main analyses steps
-ComExc_A = pn.widgets.Button(name='Common/Exclusive Comp.', button_type='primary')
+ComExc_A = pn.widgets.Button(name='Common/Exclusive Comp.', button_type='default')
 Unsup_A = pn.widgets.Button(name='Unsupervised Analysis', button_type='default')
-Sup_A = pn.widgets.Button(name='Supervised Analysis', button_type='success')
-Univariate_A = pn.widgets.Button(name='Univariate Analysis', button_type='warning')
-DataViz_A = pn.widgets.Button(name='Data Visualization', button_type='danger')
+Sup_A = pn.widgets.Button(name='Supervised Analysis', button_type='default')
+Univariate_A = pn.widgets.Button(name='Univariate Analysis', button_type='default')
+DataViz_A = pn.widgets.Button(name='Data Visualization', button_type='default')
 
 # Buttons for the secondary analyses steps
-BinSim_A = pn.widgets.Button(name='BinSim Specific Analysis', button_type='success')
-CompFinder_A = pn.widgets.Button(name='Compound Finder', button_type='warning')
+BinSim_A = pn.widgets.Button(name='BinSim Specific Analysis', button_type='default')
+CompFinder_A = pn.widgets.Button(name='Compound Finder', button_type='default')
 ToBeAdded_A = pn.widgets.Button(name='More to be added', button_type='danger', disabled=True)
 
 # Functions for pressing each button
@@ -1695,7 +1734,7 @@ class PCA_Storage(param.Parameterized):
     # Update the PCA plot
     @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size', watch=True)
     def _update_PCA_plot(self):
-        self.PCA_plot[0] = _plot_PCA()
+        self.PCA_plot[0] = iaf._plot_PCA(PCA_params, target_list)
         middle_page_PCA[0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot', 'scale':4}})
 
     def __init__(self, **params):
@@ -1735,101 +1774,6 @@ class PCA_Storage(param.Parameterized):
 # Running initial param to store PCA details
 PCA_params = PCA_Storage()
 
-def _plot_PCA():
-    "Function to plot 2- or 3-D PCA projections"
-
-    # 2 dimensions
-    if PCA_params.n_dimensions == '2 Components':
-        PCx_var_explained = PCA_params.explained_variance[int(PCA_params.PCx.split(" ")[-1])-1]
-        PCy_var_explained = PCA_params.explained_variance[int(PCA_params.PCy.split(" ")[-1])-1]
-
-        # Plot PCA
-        PCA_plot = px.scatter(
-            PCA_params.pca_scores, x=PCA_params.PCx, y=PCA_params.PCy, color=PCA_params.pca_scores['Label'],
-            color_discrete_map=target_list.color_classes,
-            title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained)*100:.2f}%''',
-            labels={PCA_params.PCx: PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)',
-                   PCA_params.PCy: PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)'})
-        PCA_plot.update_traces(marker={'size': PCA_params.dot_size})
-
-        # Draw ellipses if ellipses wanted
-        if PCA_params.ellipse_draw:
-            ellipses_df = pd.DataFrame()
-            for lbl in target_list.color_classes.keys():
-                subset_points = PCA_params.pca_scores[PCA_params.pca_scores['Label']==lbl]
-                subset_points = subset_points[[PCA_params.PCx, PCA_params.PCy]]
-                temp = iaf.plot_confidence_ellipse(
-                    subset_points, q=PCA_params.confidence, nstd=PCA_params.confidence_std).array()
-                temp = pd.concat((pd.DataFrame(temp), pd.DataFrame([lbl,]*len(temp), columns=['label'])), axis=1)
-                ellipses_df = pd.concat((ellipses_df, temp))
-            ellipses = px.line(ellipses_df, x=0, y=1, color='label', color_discrete_map=target_list.color_classes)
-
-            # Final Plot joining the 2
-            final_PCA_plot = go.Figure(data=PCA_plot.data + ellipses.data)
-            final_PCA_plot.update_layout(
-                title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained)*100:.2f}%''')
-            final_PCA_plot.update_xaxes(title=PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)')
-            final_PCA_plot.update_yaxes(title=PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)')
-
-        else:
-            final_PCA_plot = PCA_plot
-
-    # 3 dimensions
-    else:
-        PCx_var_explained = PCA_params.explained_variance[int(PCA_params.PCx.split(" ")[-1])-1]
-        PCy_var_explained = PCA_params.explained_variance[int(PCA_params.PCy.split(" ")[-1])-1]
-        PCz_var_explained = PCA_params.explained_variance[int(PCA_params.PCz.split(" ")[-1])-1]
-
-        final_PCA_plot = px.scatter_3d(
-            PCA_params.pca_scores, x=PCA_params.PCx, y=PCA_params.PCy, z=PCA_params.PCz,
-            color=PCA_params.pca_scores['Label'],
-            color_discrete_map=target_list.color_classes,
-            title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained + PCz_var_explained)*100:.2f}%''',
-            labels={PCA_params.PCx: PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)',
-                   PCA_params.PCy: PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)',
-                   PCA_params.PCz: PCA_params.PCz + f' ({PCz_var_explained*100:.2f}%)'})
-        final_PCA_plot.update_traces(marker={'size': PCA_params.dot_size})
-
-    return final_PCA_plot
-
-def _plot_PCA_explained_variance():
-    "Function to plot cumulative explained variance"
-
-    exp_var_cumul = np.cumsum(PCA_params.explained_variance)*100
-    exp_var_df = pd.DataFrame((range(1, exp_var_cumul.shape[0] + 1), exp_var_cumul, PCA_params.explained_variance*100),
-                             index=["Number of Components", "Cumulative Explained Variance (%)",
-                                   "Explained Variance of This Component (%)"]).T
-    exp_var_fig = px.area(exp_var_df,
-        x="Number of Components",
-        y="Cumulative Explained Variance (%)",
-                          custom_data=["Explained Variance of This Component (%)"]
-    )
-    # Make the hover list contained the variance explained by the corresponding component
-    exp_var_fig.update_traces(
-        hovertemplate="<br>".join([
-            "Number of Components: %{x}",
-            "Cumulative Explained Variance (%): %{y}",
-            "Explained Variance of This Component (%): %{customdata[0]:.5f}"]))
-    exp_var_fig.update_yaxes(range=(0,100))
-    return exp_var_fig
-
-def _scatter_PCA_plot():
-    "Function plotting a full matrix of PCA projections of the 6 (maximum) first Principal Components."
-
-    columns = [PCA_params.pca_scores.columns[i] for i in range(6) if i < PCA_params.n_components]
-
-    scatter_PCA_plot = px.scatter_matrix(
-        PCA_params.pca_scores,
-        dimensions=columns,
-        color="Label",
-        color_discrete_map=target_list.color_classes,
-        labels={PCA_params.pca_scores.columns[i]: PCA_params.pca_scores.columns[i] +f" ({var:.2f}%)"
-            for i, var in enumerate(PCA_params.explained_variance * 100)},
-        height=800
-    )
-
-    scatter_PCA_plot.update_traces(diagonal_visible=False)
-    return scatter_PCA_plot
 
 # Extra widgets for the page
 compute_PCA_button = pn.widgets.Button(name='Compute', button_type='success')
@@ -1850,6 +1794,7 @@ def _compute_PCA_button(event):
 
 compute_PCA_button.on_click(_compute_PCA_button)
 
+
 # Function to see if Z-axis can be edited (3D) or not (2D)
 @pn.depends(PCA_params.controls.widgets['n_dimensions'].param.value, watch=True)
 def _update_PCz_disabled(dimensions):
@@ -1858,23 +1803,29 @@ def _update_PCz_disabled(dimensions):
     elif dimensions == '3 Components':
         PCA_params.controls.widgets['PCz'].disabled = False
 
+
 # Function updating the possible components to choose based on number of components of the PCA and updating the explained variance plot
 @pn.depends(PCA_params.controls.widgets['n_components'].param.value, watch=True)
 def _update_PC_options(components):
+    "Controlling options and plots based on the number of components PCA was computed with."
+    # Controlling widget options for components to show in the projection plot
     PCA_params.controls.widgets['PCx'].options = ['PC '+str(i+1) for i in range(components)]
     PCA_params.controls.widgets['PCy'].options = ['PC '+str(i+1) for i in range(components)]
     PCA_params.controls.widgets['PCz'].options = ['PC '+str(i+1) for i in range(components)]
 
-    PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
+    # Updating the explained variance figure with thee number of components PCA was computed
+    PCA_params.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(PCA_params)
     end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot', 'scale':4,}})
 
-    if len(PCA_params.scatter_PCA_plot[0].data[0]['dimensions']) < 4:
-        PCA_params.exp_var_fig_plot[0] = _plot_PCA_explained_variance()
-        end_page_PCA[1] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
+    # Control the many PCA scatter plots to include less than 6 components if PCA was computed with less than 6 components
+    if len(PCA_params.scatter_PCA_plot[0].data[0]['dimensions']) < 6:
+        PCA_params.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params, target_list)
+        end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
     else:
-        if components < 4:
-            PCA_params.scatter_PCA_plot[0] = _scatter_PCA_plot()
+        if components < 6:
+            PCA_params.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params, target_list)
             end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
+
 
 # Function enabling/disabling the confidence level parameters for ellipses
 @pn.depends(PCA_params.controls.widgets['ellipse_draw'].param.value,
@@ -1888,6 +1839,7 @@ def _update_ellipse_options(ellipse):
         PCA_params.controls.widgets['confidence'].disabled = True
         PCA_params.controls.widgets['confidence_std'].disabled = True
 
+
 # Function enabling/disabling the confidence level based on std parameter for ellipses
 @pn.depends(PCA_params.controls.widgets['confidence'].param.value,
             watch=True)
@@ -1896,6 +1848,7 @@ def _update_ellipse_std_options(confidence):
         PCA_params.controls.widgets['confidence_std'].disabled = False
     else:
         PCA_params.controls.widgets['confidence_std'].disabled = True
+
 
 # First section of the page
 initial_page_PCA = pn.GridSpec(mode='override')
@@ -2399,7 +2352,7 @@ class PLSDA_Storage(param.Parameterized):
                 Consider using another metric such as the **F1 score**.'''),
             'dpi': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
                                     description='Set the resolution of Permutation Test Figure'),
-            'confirm_button_permutation': pn.widgets.Button(name="Perform Permutation Test (Slow)", button_type='primary'),
+            'confirm_button_permutation': pn.widgets.Button(name="Perform Permutation Test (Slow)", button_type='primary', icon=iaf.hourglass_icon),
             'save_figure_button_permutation': pn.widgets.Button(name="Save as a png (in current folder)",
                 button_type='success', icon=iaf.download_icon, disabled=True),
         }
@@ -3025,18 +2978,18 @@ def show_page(page_instance):
 # Define buttons to navigate between pages
 index_button = pn.widgets.Button(name="Home", button_type="primary", icon=iaf.home_icon, disabled=False)
 page1_button = pn.widgets.Button(name="Data Reading", button_type="primary")
-page1_1_button = pn.widgets.Button(name="Data Metadata", button_type="default", disabled=True)
-page1_2_button = pn.widgets.Button(name="Data Filtering", button_type="default", disabled=True)
+page1_1_button = pn.widgets.Button(name="Data Metadata", button_type="primary", disabled=True)
+page1_2_button = pn.widgets.Button(name="Data Filtering", button_type="primary", disabled=True)
 page2_button = pn.widgets.Button(name="Data Annotation", button_type="primary", disabled=True)
 page3_button = pn.widgets.Button(name="Data Pre-Treatment", button_type="primary", disabled=True)
 page4_button = pn.widgets.Button(name="Class Colours", button_type="primary", disabled=True)
-page5_button = pn.widgets.Button(name="Common/Exclusive Comp.", button_type="primary", disabled=True)
+page5_button = pn.widgets.Button(name="Common/Exclusive Comp.", button_type="default", disabled=True)
 page6_button = pn.widgets.Button(name="Unsupervised Analysis", button_type="default", disabled=True)
-page7_button = pn.widgets.Button(name="Supervised Analysis", button_type="success", disabled=True)
-page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="warning", disabled=True)
-page9_button = pn.widgets.Button(name="Data Visualization", button_type="danger", disabled=True)
-page10_button = pn.widgets.Button(name="BinSim Analysis", button_type="success", disabled=True)
-page11_button = pn.widgets.Button(name="Compound Finder", button_type="warning", disabled=True)
+page7_button = pn.widgets.Button(name="Supervised Analysis", button_type="default", disabled=True)
+page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="default", disabled=True)
+page9_button = pn.widgets.Button(name="Data Visualization", button_type="default", disabled=True)
+page10_button = pn.widgets.Button(name="BinSim Analysis", button_type="default", disabled=True)
+page11_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
 RESET_button = pn.widgets.Button(name="RESET", button_type="danger", disabled=False)
 
 # Set up button click callbacks

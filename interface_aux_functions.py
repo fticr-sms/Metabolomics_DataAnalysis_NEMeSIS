@@ -494,6 +494,242 @@ def _plot_upsetplots(com_exc_compounds, groups_dict, ups):
 
 
 
+### Functions related to the PCA section of the unsupervised analysis page of the graphical interface
+# Functions slightly changed from the elips.py file to be ran with plotly
+
+def plot_confidence_ellipse(points, q=None, nstd=2):
+    """
+    Plots an `nstd` sigma ellipse based on the mean and covariance of a point
+    "cloud" (points, an Nx2 array).
+
+    Parameters
+    ----------
+        points : An Nx2 array of the data points.
+        q : float, optional
+            Confidence level, should be in (0, 1)
+        nstd : int, optional
+            Confidence level in unit of standard deviations.
+        E.g. 1 stands for 68.3% and 2 stands for 95.4%.
+        ax : The axis that the ellipse will be plotted on. Defaults to the
+            current axis.
+        Additional keyword arguments are pass on to the ellipse patch.
+
+    Returns
+    -------
+        A matplotlib ellipse artist
+    """
+    if q != 0:
+        q = np.asarray(q)
+    elif nstd is not None:
+        q = 2 * norm.cdf(nstd) - 1
+    else:
+        raise ValueError('One of `q` and `nsig` should be specified.')
+
+    pos = points.mean(axis=0)
+    cov = np.cov(points, rowvar=False)
+    return plot_cov_ellipse(cov, pos, q)
+
+def plot_cov_ellipse(cov, pos, q):
+    """
+    Plots an `nstd` sigma error ellipse based on the specified covariance
+    matrix (`cov`). Additional keyword arguments are passed on to the
+    ellipse patch artist.
+
+    Parameters
+    ----------
+        cov : The 2x2 covariance matrix to base the ellipse on
+        pos : The location of the center of the ellipse. Expects a 2-element
+            sequence of [x0, y0].
+        q : float, optional
+            Confidence level, should be in (0, 1)
+        ax : The axis that the ellipse will be plotted on. Defaults to the
+            current axis.
+        Additional keyword arguments are pass on to the ellipse patch.
+
+    Returns
+    -------
+        A matplotlib ellipse artist
+    """
+    def eigsorted(cov):
+        vals, vecs = np.linalg.eigh(cov)
+        order = vals.argsort()[::-1]
+        return vals[order], vecs[:,order]
+
+    r2 = chi2.ppf(q, 2)
+
+    vals, vecs = eigsorted(cov)
+    # Width and height are "full" widths, not radius
+    # width, height = 2 * nstd * np.sqrt(vals)
+    width, height = 2 * np.sqrt(vals * r2)
+    theta = np.arctan2(*vecs[:,0][::-1])
+
+    ellip = hv.Ellipse(pos[0], pos[1], (width,height), orientation=theta)
+
+    return ellip
+
+
+def _plot_PCA(PCA_params, target_list):
+    "Function to plot 2- or 3-D PCA projections"
+
+    # 2 dimensions
+    if PCA_params.n_dimensions == '2 Components':
+        PCx_var_explained = PCA_params.explained_variance[int(PCA_params.PCx.split(" ")[-1])-1]
+        PCy_var_explained = PCA_params.explained_variance[int(PCA_params.PCy.split(" ")[-1])-1]
+
+        # Plot PCA
+        PCA_plot = px.scatter(
+            PCA_params.pca_scores, x=PCA_params.PCx, y=PCA_params.PCy, color=PCA_params.pca_scores['Label'],
+            color_discrete_map=target_list.color_classes,
+            title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained)*100:.2f}%''',
+            labels={PCA_params.PCx: PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)',
+                   PCA_params.PCy: PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)'})
+        PCA_plot.update_traces(marker={'size': PCA_params.dot_size})
+
+        # Draw ellipses if ellipses wanted
+        if PCA_params.ellipse_draw:
+            ellipses_df = pd.DataFrame()
+            for lbl in target_list.color_classes.keys():
+                subset_points = PCA_params.pca_scores[PCA_params.pca_scores['Label']==lbl]
+                subset_points = subset_points[[PCA_params.PCx, PCA_params.PCy]]
+                temp = plot_confidence_ellipse(
+                    subset_points, q=PCA_params.confidence, nstd=PCA_params.confidence_std).array()
+                temp = pd.concat((pd.DataFrame(temp), pd.DataFrame([lbl,]*len(temp), columns=['label'])), axis=1)
+                ellipses_df = pd.concat((ellipses_df, temp))
+            ellipses = px.line(ellipses_df, x=0, y=1, color='label', color_discrete_map=target_list.color_classes)
+
+            # Final Plot joining the 2
+            final_PCA_plot = go.Figure(data=PCA_plot.data + ellipses.data)
+            final_PCA_plot.update_layout(
+                title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained)*100:.2f}%''')
+            final_PCA_plot.update_xaxes(title=PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)')
+            final_PCA_plot.update_yaxes(title=PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)')
+
+        else:
+            final_PCA_plot = PCA_plot
+
+    # 3 dimensions
+    else:
+        PCx_var_explained = PCA_params.explained_variance[int(PCA_params.PCx.split(" ")[-1])-1]
+        PCy_var_explained = PCA_params.explained_variance[int(PCA_params.PCy.split(" ")[-1])-1]
+        PCz_var_explained = PCA_params.explained_variance[int(PCA_params.PCz.split(" ")[-1])-1]
+
+        final_PCA_plot = px.scatter_3d(
+            PCA_params.pca_scores, x=PCA_params.PCx, y=PCA_params.PCy, z=PCA_params.PCz,
+            color=PCA_params.pca_scores['Label'],
+            color_discrete_map=target_list.color_classes,
+            title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained + PCz_var_explained)*100:.2f}%''',
+            labels={PCA_params.PCx: PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)',
+                   PCA_params.PCy: PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)',
+                   PCA_params.PCz: PCA_params.PCz + f' ({PCz_var_explained*100:.2f}%)'})
+        final_PCA_plot.update_traces(marker={'size': PCA_params.dot_size})
+
+    return final_PCA_plot
+
+def _plot_PCA_explained_variance(PCA_params):
+    "Function to plot cumulative explained variance"
+
+    exp_var_cumul = np.cumsum(PCA_params.explained_variance)*100
+    exp_var_df = pd.DataFrame((range(1, exp_var_cumul.shape[0] + 1), exp_var_cumul, PCA_params.explained_variance*100),
+                             index=["Number of Components", "Cumulative Explained Variance (%)",
+                                   "Explained Variance of This Component (%)"]).T
+    exp_var_fig = px.area(exp_var_df,
+        x="Number of Components",
+        y="Cumulative Explained Variance (%)",
+                          custom_data=["Explained Variance of This Component (%)"]
+    )
+    # Make the hover list contained the variance explained by the corresponding component
+    exp_var_fig.update_traces(
+        hovertemplate="<br>".join([
+            "Number of Components: %{x}",
+            "Cumulative Explained Variance (%): %{y}",
+            "Explained Variance of This Component (%): %{customdata[0]:.5f}"]))
+    exp_var_fig.update_yaxes(range=(0,100))
+    return exp_var_fig
+
+def _scatter_PCA_plot(PCA_params, target_list):
+    "Function plotting a full matrix of PCA projections of the 6 (maximum) first Principal Components."
+
+    columns = [PCA_params.pca_scores.columns[i] for i in range(6) if i < PCA_params.n_components]
+
+    scatter_PCA_plot = px.scatter_matrix(
+        PCA_params.pca_scores,
+        dimensions=columns,
+        color="Label",
+        color_discrete_map=target_list.color_classes,
+        labels={PCA_params.pca_scores.columns[i]: PCA_params.pca_scores.columns[i] +f" ({var:.2f}%)"
+            for i, var in enumerate(PCA_params.explained_variance * 100)},
+        height=800
+    )
+
+    scatter_PCA_plot.update_traces(diagonal_visible=False)
+    return scatter_PCA_plot
+
+
+
+### Functions related to the HCA section of the unsupervised analysis page of the graphical interface
+
+def color_list_to_matrix_and_cmap(colors, ind, axis=0):
+        if any(issubclass(type(x), list) for x in colors):
+            all_colors = set(itertools.chain(*colors))
+            n = len(colors)
+            m = len(colors[0])
+        else:
+            all_colors = set(colors)
+            n = 1
+            m = len(colors)
+            colors = [colors]
+        color_to_value = dict((col, i) for i, col in enumerate(all_colors))
+
+        matrix = np.array([color_to_value[c]
+                           for color in colors for c in color])
+
+        matrix = matrix.reshape((n, m))
+        matrix = matrix[:, ind]
+        if axis == 0:
+            # row-side:
+            matrix = matrix.T
+
+        cmap = mpl.colors.ListedColormap(all_colors)
+        return matrix, cmap
+
+def plot_dendogram(Z, leaf_names, label_colors, title='', ax=None, x_axis_len=4, no_labels=False, labelsize=12, **kwargs):
+    if ax is None:
+        ax = plt.gca()
+    hier.dendrogram(Z, labels=leaf_names, leaf_font_size=10, above_threshold_color='0.2', orientation='left',
+                    ax=ax, **kwargs)
+    #Coloring labels
+    #ax.set_ylabel('Distance (AU)')
+    ax.set_xlabel('Distance (AU)')
+    ax.set_title(title, fontsize = 15)
+
+    #ax.tick_params(axis='x', which='major', pad=12)
+    ax.tick_params(axis='y', which='major', labelsize=labelsize, pad=x_axis_len*3)
+    ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    #xlbls = ax.get_xmajorticklabels()
+    xlbls = ax.get_ymajorticklabels()
+    rectimage = []
+    for lbl in xlbls:
+        col = label_colors[lbl.get_text()]
+        lbl.set_color(col)
+        #lbl.set_fontweight('bold')
+        if no_labels:
+            lbl.set_color('w')
+        rectimage.append(col)
+
+    cols, cmap = color_list_to_matrix_and_cmap(rectimage, range(len(rectimage)), axis=0)
+
+    axins = inset_axes(ax, width="5%", height="100%",
+                   bbox_to_anchor=(1, 0, 1, 1),
+                   bbox_transform=ax.transAxes, loc=3, borderpad=0)
+
+    axins.pcolor(cols, cmap=cmap, edgecolors='w', linewidths=1)
+    axins.axis('off')
+
+
+
 ### Functions related to the supervised analysis page of the graphical interface
 
 ## Functions for PLS-DA section
@@ -607,145 +843,6 @@ def _plot_permutation_test(perm_results, DataFrame_Store, n_fold, metric, title=
         ax.set_axisbelow(True)
 
     return fig
-
-
-
-### Functions related to the PCA section of the unsupervised analysis page of the graphical interface
-# Functions slightly changed from the elips.py file to be ran with plotly
-
-def plot_confidence_ellipse(points, q=None, nstd=2):
-    """
-    Plots an `nstd` sigma ellipse based on the mean and covariance of a point
-    "cloud" (points, an Nx2 array).
-
-    Parameters
-    ----------
-        points : An Nx2 array of the data points.
-        q : float, optional
-            Confidence level, should be in (0, 1)
-        nstd : int, optional
-            Confidence level in unit of standard deviations.
-        E.g. 1 stands for 68.3% and 2 stands for 95.4%.
-        ax : The axis that the ellipse will be plotted on. Defaults to the
-            current axis.
-        Additional keyword arguments are pass on to the ellipse patch.
-
-    Returns
-    -------
-        A matplotlib ellipse artist
-    """
-    if q != 0:
-        q = np.asarray(q)
-    elif nstd is not None:
-        q = 2 * norm.cdf(nstd) - 1
-    else:
-        raise ValueError('One of `q` and `nsig` should be specified.')
-
-    pos = points.mean(axis=0)
-    cov = np.cov(points, rowvar=False)
-    return plot_cov_ellipse(cov, pos, q)
-
-def plot_cov_ellipse(cov, pos, q):
-    """
-    Plots an `nstd` sigma error ellipse based on the specified covariance
-    matrix (`cov`). Additional keyword arguments are passed on to the
-    ellipse patch artist.
-
-    Parameters
-    ----------
-        cov : The 2x2 covariance matrix to base the ellipse on
-        pos : The location of the center of the ellipse. Expects a 2-element
-            sequence of [x0, y0].
-        q : float, optional
-            Confidence level, should be in (0, 1)
-        ax : The axis that the ellipse will be plotted on. Defaults to the
-            current axis.
-        Additional keyword arguments are pass on to the ellipse patch.
-
-    Returns
-    -------
-        A matplotlib ellipse artist
-    """
-    def eigsorted(cov):
-        vals, vecs = np.linalg.eigh(cov)
-        order = vals.argsort()[::-1]
-        return vals[order], vecs[:,order]
-
-    r2 = chi2.ppf(q, 2)
-
-    vals, vecs = eigsorted(cov)
-    # Width and height are "full" widths, not radius
-    # width, height = 2 * nstd * np.sqrt(vals)
-    width, height = 2 * np.sqrt(vals * r2)
-    theta = np.arctan2(*vecs[:,0][::-1])
-
-    ellip = hv.Ellipse(pos[0], pos[1], (width,height), orientation=theta)
-
-    return ellip
-
-
-
-### Functions related to the HCA section of the unsupervised analysis page of the graphical interface
-
-def color_list_to_matrix_and_cmap(colors, ind, axis=0):
-        if any(issubclass(type(x), list) for x in colors):
-            all_colors = set(itertools.chain(*colors))
-            n = len(colors)
-            m = len(colors[0])
-        else:
-            all_colors = set(colors)
-            n = 1
-            m = len(colors)
-            colors = [colors]
-        color_to_value = dict((col, i) for i, col in enumerate(all_colors))
-
-        matrix = np.array([color_to_value[c]
-                           for color in colors for c in color])
-
-        matrix = matrix.reshape((n, m))
-        matrix = matrix[:, ind]
-        if axis == 0:
-            # row-side:
-            matrix = matrix.T
-
-        cmap = mpl.colors.ListedColormap(all_colors)
-        return matrix, cmap
-
-def plot_dendogram(Z, leaf_names, label_colors, title='', ax=None, x_axis_len=4, no_labels=False, labelsize=12, **kwargs):
-    if ax is None:
-        ax = plt.gca()
-    hier.dendrogram(Z, labels=leaf_names, leaf_font_size=10, above_threshold_color='0.2', orientation='left',
-                    ax=ax, **kwargs)
-    #Coloring labels
-    #ax.set_ylabel('Distance (AU)')
-    ax.set_xlabel('Distance (AU)')
-    ax.set_title(title, fontsize = 15)
-
-    #ax.tick_params(axis='x', which='major', pad=12)
-    ax.tick_params(axis='y', which='major', labelsize=labelsize, pad=x_axis_len*3)
-    ax.spines['left'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-
-    #xlbls = ax.get_xmajorticklabels()
-    xlbls = ax.get_ymajorticklabels()
-    rectimage = []
-    for lbl in xlbls:
-        col = label_colors[lbl.get_text()]
-        lbl.set_color(col)
-        #lbl.set_fontweight('bold')
-        if no_labels:
-            lbl.set_color('w')
-        rectimage.append(col)
-
-    cols, cmap = color_list_to_matrix_and_cmap(rectimage, range(len(rectimage)), axis=0)
-
-    axins = inset_axes(ax, width="5%", height="100%",
-                   bbox_to_anchor=(1, 0, 1, 1),
-                   bbox_transform=ax.transAxes, loc=3, borderpad=0)
-
-    axins.pcolor(cols, cmap=cmap, edgecolors='w', linewidths=1)
-    axins.axis('off')
 
 
 
