@@ -7,6 +7,8 @@ import scipy.cluster.hierarchy as hier
 import seaborn as sns
 import random
 from scipy.stats import norm, chi2
+import sklearn.ensemble as skensemble
+from sklearn.model_selection import GridSearchCV
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -732,6 +734,57 @@ def plot_dendogram(Z, leaf_names, label_colors, title='', ax=None, x_axis_len=4,
 
 ### Functions related to the supervised analysis page of the graphical interface
 
+## Functions for PLS-DA and RF section
+
+def creating_importance_feat_table(imp_feat_metric, DataFrame_Store, model_feat_results):
+    "Creates and organizes the DataFrame with the feature importance for supervised models."
+
+    imp_feat_colname = imp_feat_metric + ' Score' # Name of Importance Column
+    imp_feats = DataFrame_Store.metadata_df.copy() # Starting df
+    imp_feats.insert(0, DataFrame_Store.metadata_df.index.name, imp_feats.index) # Include Column
+    imp_feats.insert(1, imp_feat_colname, '') # Include Column for importance
+    # Fill importance column
+    for n in range(len(model_feat_results)):
+        imp_feats[imp_feat_colname][model_feat_results[n][0]] = model_feat_results[n][1]
+    # Sort from highest to lowest importance
+    imp_feats = imp_feats.sort_values(by=imp_feat_colname, ascending=False)
+    # Make Index be the place/position of each feature in the importance list
+    imp_feats.index = range(1, len(imp_feats)+1)
+    imp_feats.index.name = 'Place'
+
+    return imp_feats
+
+
+def _plot_permutation_test(perm_results, DataFrame_Store, n_fold, metric, title='Permutation Test'):
+    "Plots the permutation test results with matplotlib."
+
+    with plt.style.context('seaborn-whitegrid'):
+        fig, ax = plt.subplots(1,1, figsize=(6,6))
+
+        n_labels = len(DataFrame_Store.treated_df.index)
+        tab20bcols = sns.color_palette('tab20b', 20)
+
+        # Histogram with performance of permutated values
+        hist_res = ax.hist(np.array(perm_results[1]), n_labels, range=(0, 1.00001),
+                     edgecolor='black', color=tab20bcols[1], alpha = 1)
+
+        # Plot the non-permutated model performance
+        ylim = [0, hist_res[0].max()*1.2]
+        ax.plot(2 * [perm_results[0]], ylim, '-', linewidth=3, color='darkred', #alpha = 0.5,
+                     label='_p_-value %.5f)' % perm_results[2], solid_capstyle='round')
+        ax.tick_params(labelsize=13)
+        ax.set_xlabel(f'{n_fold}-fold Stratified CV Model {metric}', fontsize=14)
+        ax.set_ylabel('Nº of occurrences', fontsize=14)
+        if perm_results[0] >= 0.5:
+            ax.text(perm_results[0]-0.45, hist_res[0].max()*1.1, 'p-value = %.3f' % perm_results[2], fontsize = 15)
+        else:
+            ax.text(perm_results[0]+0.05, hist_res[0].max()*1.1, 'p-value = %.3f' % perm_results[2], fontsize = 15)
+        ax.set_title(title, size = 15)
+        ax.set_axisbelow(True)
+
+    return fig
+
+
 ## Functions for PLS-DA section
 
 def _plot_PLS_optimization_components_fig(pls_scores):
@@ -750,25 +803,6 @@ def _plot_PLS_optimization_components_fig(pls_scores):
                              marker=dict(color='Black', size=8), hoverinfo='skip', showlegend=False))
 
     return rec_comp, fig
-
-
-def creating_plsda_importance_feat_table(PLSDA_store, DataFrame_Store, PLSDA_results):
-    "Creates and organizes the DataFrame with the feature importance for the PLS-DA models."
-
-    imp_feat_colname = PLSDA_store.imp_feature_metric + ' Score' # Name of Importance Column
-    imp_feats_plsda = DataFrame_Store.metadata_df.copy() # Starting df
-    imp_feats_plsda.insert(0, DataFrame_Store.metadata_df.index.name, imp_feats_plsda.index) # Include Column
-    imp_feats_plsda.insert(1, imp_feat_colname, '') # Include Column for importance
-    # Fill importance column
-    for n in range(len(PLSDA_results['imp_feat'])):
-        imp_feats_plsda[imp_feat_colname][PLSDA_results['imp_feat'][n][0]] = PLSDA_results['imp_feat'][n][1]
-    # Sort from highes to lowest importance
-    imp_feats_plsda = imp_feats_plsda.sort_values(by=imp_feat_colname, ascending=False)
-    # Make Index be the place/position of each feature in the importance list
-    imp_feats_plsda.index = range(1, len(imp_feats_plsda)+1)
-    imp_feats_plsda.index.name = 'Place'
-
-    return imp_feats_plsda
 
 
 def _plot_PLS(PLSDA_store, target_list):
@@ -815,35 +849,22 @@ def _plot_PLS(PLSDA_store, target_list):
     return final_PLS_plot
 
 
-def _plot_permutation_test(perm_results, DataFrame_Store, n_fold, metric, title='Permutation Test'):
-    "Plots the permutation test results with matplotlib."
+## Functions for RF section
 
-    with plt.style.context('seaborn-whitegrid'):
-        fig, ax = plt.subplots(1,1, figsize=(6,6))
+def _optimization_n_trees_rf(RF_store, data, target):
+    "Performs optimization of number of trees for Random Forest."
 
-        n_labels = len(DataFrame_Store.treated_df.index)
-        tab20bcols = sns.color_palette('tab20b', 20)
+    # Vector with values for the parameter n_estimators
+    values = {'n_estimators': range(RF_store.n_min_max_trees[0], RF_store.n_min_max_trees[1]+1, RF_store.n_interval)}
 
-        # Histogram with performance of permutated values
-        hist_res = ax.hist(np.array(perm_results[1]), n_labels, range=(0, 1.00001),
-                     edgecolor='black', color=tab20bcols[1], alpha = 1)
+    # Setting up the RF model and Grid Search
+    rf = skensemble.RandomForestClassifier(n_estimators=200)
+    clf = GridSearchCV(rf, values, cv=RF_store.n_fold) # Change cv to change cross-validation
 
-        # Plot the non-permutated model performance
-        ylim = [0, hist_res[0].max()*1.2]
-        ax.plot(2 * [perm_results[0]], ylim, '-', linewidth=3, color='darkred', #alpha = 0.5,
-                     label='_p_-value %.5f)' % perm_results[2], solid_capstyle='round')
-        ax.tick_params(labelsize=13)
-        ax.set_xlabel(f'{n_fold}-fold Stratified CV Model {metric}', fontsize=14)
-        ax.set_ylabel('Nº of occurrences', fontsize=14)
-        if perm_results[0] >= 0.5:
-            ax.text(perm_results[0]-0.45, hist_res[0].max()*1.1, 'p-value = %.3f' % perm_results[2], fontsize = 15)
-        else:
-            ax.text(perm_results[0]+0.05, hist_res[0].max()*1.1, 'p-value = %.3f' % perm_results[2], fontsize = 15)
-        ax.set_title(title, size = 15)
-        ax.set_axisbelow(True)
+    # Fitting RF models
+    clf.fit(data, target)
 
-    return fig
-
+    return clf.cv_results_
 
 
 ### Functions related to the Univariate analysis page of the graphical interface

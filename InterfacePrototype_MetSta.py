@@ -1212,6 +1212,7 @@ def _confirm_button_next_step_5(event):
 
     # Updating Widgets for Supervised Analysis
     PLSDA_store.n_folds_limits(target_list)
+    RF_store.n_folds_limits(target_list)
 
     # Updating the layout for the transitional page
     main_area.clear()
@@ -2100,6 +2101,9 @@ class PLSDA_Storage(param.Parameterized):
         pls_optim_section[1] = pn.indicators.LoadingSpinner(value=True, size=90,
                                                             name='Performing Optimization of PLS-DA Components...')
 
+        # Round to integer the values in the range
+        self.n_min_max_components = int(np.round(self.n_min_max_components[0])), int(np.round(self.n_min_max_components[1]))
+
         # Performs optimization
         PLS_optim = metsta.optim_PLSDA_n_components(DataFrame_Store.treated_df, target_list.target, # Data and target
                                 encode2as1vector=True,
@@ -2112,10 +2116,10 @@ class PLSDA_Storage(param.Parameterized):
         # DataFrame with Q2 and R2 values in the same column, a column to identify which value is what and a
         # column with the number of components that led to that result
         pls_optim_values = pd.DataFrame(PLS_optim,
-                                index=range(PLSDA_store.n_min_max_components[0], PLSDA_store.n_min_max_components[1]+1))
+                                index=range(self.n_min_max_components[0], self.n_min_max_components[1]+1))
         pls_joined = pd.DataFrame(pd.concat((pls_optim_values['CVscores'], pls_optim_values['CVR2scores'])),
                                   columns=['Scores']) # Q2 and R2 values in the same column
-        dif_max_min = PLSDA_store.n_min_max_components[1] - PLSDA_store.n_min_max_components[0] + 1
+        dif_max_min = self.n_min_max_components[1] - self.n_min_max_components[0] + 1
         pls_joined['Class'] = ['Q2',]*dif_max_min + ['R2',]*dif_max_min # Identification of Q2 or R2 value
         pls_joined['Nº of Components'] = pls_joined.index # Nº of Components column
 
@@ -2138,30 +2142,30 @@ class PLSDA_Storage(param.Parameterized):
                                                             name='Fitting and Assessing PLS-DA model...')
 
         # Sees what type of feature importance metric will be used
-        if PLSDA_store.imp_feature_metric == 'VIP':
+        if self.imp_feature_metric == 'VIP':
             feat_type = 'VIP'
-        elif PLSDA_store.imp_feature_metric == 'Coefficients':
+        elif self.imp_feature_metric == 'Coefficients':
             feat_type = 'Coef'
         else:
             feat_type = 'Weights'
 
         # Fits a PLS-DA model under a stratified cross validation scheme
         PLSDA_results = metsta.PLSDA_model_CV(DataFrame_Store.treated_df, target_list.target, # Data and target
-                       n_comp=PLSDA_store.n_components, # Number of components of PLS-DA model - very important
-                       kf = None, n_fold=PLSDA_store.n_fold, # Nº of folds
-                       iter_num=PLSDA_store.n_iterations, # Number of iterations of cross-validation to do
+                       n_comp=self.n_components, # Number of components of PLS-DA model - very important
+                       kf = None, n_fold=self.n_fold, # Nº of folds
+                       iter_num=self.n_iterations, # Number of iterations of cross-validation to do
                        encode2as1vector=True,
-                       scale=PLSDA_store.scale, # Set scale to True only if you did not do scaling in pre-treatments
+                       scale=self.scale, # Set scale to True only if you did not do scaling in pre-treatments
                        feat_type=feat_type) # Feature Importance Metric to use, default is VIP scores
 
         # Exclude metrics that were not chosen to be shown
-        if 'Accuracy' not in PLSDA_store.metrics_to_use:
+        if 'Accuracy' not in self.metrics_to_use:
             PLSDA_results.pop('accuracy')
-        if 'F1-Score (weighted)' not in PLSDA_store.metrics_to_use:
+        if 'F1-Score (weighted)' not in self.metrics_to_use:
             PLSDA_results.pop('F1-scores')
-        if 'Precision (weighted)' not in PLSDA_store.metrics_to_use:
+        if 'Precision (weighted)' not in self.metrics_to_use:
             PLSDA_results.pop('precision')
-        if 'Recall (weighted)' not in PLSDA_store.metrics_to_use:
+        if 'Recall (weighted)' not in self.metrics_to_use:
             PLSDA_results.pop('recall')
 
         # Results Table
@@ -2172,7 +2176,7 @@ class PLSDA_Storage(param.Parameterized):
         self.n_results = results_summary
 
         # Important Feature Table
-        self.feat_impor = iaf.creating_plsda_importance_feat_table(PLSDA_store, DataFrame_Store, PLSDA_results)
+        self.feat_impor = iaf.creating_importance_feat_table(self.imp_feature_metric, DataFrame_Store, PLSDA_results['imp_feat'])
 
         # Store Parameters used for the model
         self.current_plsda_params = {'n_components': self.n_components, 'n_folds': self.n_fold,
@@ -2188,8 +2192,8 @@ class PLSDA_Storage(param.Parameterized):
         # Fit a PLS-DA model with all samples and store model and x_scores
         self.models[0], self.x_scores = ma.fit_PLSDA_model(
             DataFrame_Store.treated_df, target_list.target, # Data and target
-            n_comp=PLSDA_store.n_components, return_scores=True,
-            scale=PLSDA_store.scale,
+            n_comp=self.n_components, return_scores=True,
+            scale=self.scale,
             encode2as1vector=True, lv_prefix='LV ', label_name='Label')
 
         # Name of the file
@@ -2204,13 +2208,14 @@ class PLSDA_Storage(param.Parameterized):
         self.PLS_plot[0] = iaf._plot_PLS(self, target_list)
         pls_proj_page[0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
-        pls_results_section.append('### PLS Projection Section')
-        pls_results_section.append(pls_proj_page)
-        pls_results_section.append('### PLS-DA Permutation Test Section')
-        pls_results_section.append(pn.Column(pn.pane.HTML(permutation_test_description),
-                                             pn.pane.LaTeX(pvalue_equation_string, styles={'font-size': '14pt'})))
-        pls_results_section.append(pn.Row(PLSDA_store.controls_permutation,
-                                      PLSDA_store.perm_figure[0]))
+        if len(pls_results_section) == 5:
+            pls_results_section.append('### PLS Projection Section')
+            pls_results_section.append(pls_proj_page)
+            pls_results_section.append('### PLS-DA Permutation Test Section')
+            pls_results_section.append(pn.Column(pn.pane.HTML(permutation_test_description),
+                                                pn.pane.LaTeX(pvalue_equation_string, styles={'font-size': '14pt'})))
+            pls_results_section.append(pn.Row(self.controls_permutation,
+                                        self.perm_figure[0]))
 
 
     # Update the PLS Projection plot
@@ -2268,7 +2273,7 @@ class PLSDA_Storage(param.Parameterized):
 
         # Update the layout
         pls_results_section[9][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
-        PLSDA_store.controls_permutation.widgets['save_figure_button_permutation'].disabled = False
+        self.controls_permutation.widgets['save_figure_button_permutation'].disabled = False
 
 
     def __init__(self, **params):
@@ -2360,11 +2365,14 @@ class PLSDA_Storage(param.Parameterized):
         self.controls = pn.Param(self, parameters=['n_components', 'n_iterations', 'n_fold', 'scale', 'static_text_metrics',
                                                    'metrics_to_use', 'imp_feature_metric', 'confirm_plsda_button'],
                                  widgets=widgets, name='Parameters for PLS-DA model fitting')
+
         self.controls_optim = pn.Param(self, parameters=['n_min_max_components', 'n_fold', 'scale', 'confirm_optim_button'],
                                  widgets=widgets_optim, name='Parameters for optimization of PLS-DA nº of components')
+
         self.controls_projection = pn.Param(self, parameters=['n_components', 'n_dimensions', 'LVx', 'LVy', 'LVz',
                                                              'ellipse_draw', 'confidence', 'confidence_std', 'dot_size'],
                                  widgets=widgets_PLS_proj, name='Parameters for PLS Projection plot')
+
         self.controls_permutation = pn.Param(self, parameters=['n_components', 'n_fold', 'scale', 'n_perm', 'perm_metric',
                                                                'dpi', 'confirm_button_permutation',
                                                                'save_figure_button_permutation'],
@@ -2382,7 +2390,7 @@ PLSDA_store.controls.widgets['confirm_plsda_button'].on_click(PLSDA_store._confi
 # Click button to perform PLS-DA Permutation Test
 PLSDA_store.controls_permutation.widgets['confirm_button_permutation'].on_click(PLSDA_store._confirm_button_permutation)
 # Function to save the Permutation Test figure as png
-def _save_figure_button_permutation(event):
+def _save_figure_button_permutation_PLSDA(event):
     filename_string = f'PLS-DA_permutation_test_{PLSDA_store.current_plsda_params_permutation["n_permutations"]}perm_'
     filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["n_components"]}comp_'
     filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["n_folds"]}-foldstratCV_scale'
@@ -2391,7 +2399,7 @@ def _save_figure_button_permutation(event):
     PLSDA_store.perm_figure[0].savefig(filename_string+'.png', dpi=PLSDA_store.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 # Click button to save the aforementioned figure
-PLSDA_store.controls_permutation.widgets['save_figure_button_permutation'].on_click(_save_figure_button_permutation)
+PLSDA_store.controls_permutation.widgets['save_figure_button_permutation'].on_click(_save_figure_button_permutation_PLSDA)
 
 # Widget to add recommended number of components to page
 rec_comp_indicator_widget = pn.indicators.Number(name='Recommended Components (based on max. Q2)', font_size='14pt', title_size='14pt',
@@ -2421,22 +2429,24 @@ def _layout_plsda_feat_import_dataframe(plsda_feat_imp_show_annots_only):
     # Update the layout
     pls_results_section[3] = pn.pane.DataFrame(df_to_show, height=600)
 
-# Widget to save dataframe of univariate analysis performed in .csv format
+# Widget to save dataframe with features ordered by importance
 save_plsda_feat_imp_button = pn.widgets.Button(name='Save PLS-DA Feature Importance table obtained as .xlsx (in current folder)',
                                                 button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
 def _save_plsda_feat_imp_button(event):
-    "Save PLS-DA Feature Importance results as an Excel"
-    # Building the datafile name
-    test_performed = UnivarA_Store.univariate_test.split(' ')[0]
-    filename_string = f'PLS-DA_FeatImp_{PLSDA_store.imp_feature_metric}_model_params_components{PLSDA_store.n_components}'
-    filename_string = filename_string + f'_{PLSDA_store.n_fold}-foldstratCV_iterations{PLSDA_store.n_iterations}'
-    filename_string = filename_string + f'_scale{PLSDA_store.scale}.xlsx'
+    "Save PLS-DA Feature Importance results as an Excel."
+    try:
+        # Building the datafile name
+        filename_string = f'PLS-DA_FeatImp_{PLSDA_store.imp_feature_metric}_model_params_components{PLSDA_store.n_components}'
+        filename_string = filename_string + f'_{PLSDA_store.n_fold}-foldstratCV_iterations{PLSDA_store.n_iterations}'
+        filename_string = filename_string + f'_scale{PLSDA_store.scale}.xlsx'
 
-    # Saving the file
-    PLSDA_store.feat_impor.to_excel(filename_string)
-    pn.state.notifications.success(f'{filename_string} successfully saved.')
+        # Saving the file
+        PLSDA_store.feat_impor.to_excel(filename_string)
+        pn.state.notifications.success(f'{filename_string} successfully saved.')
+    except:
+        pn.state.notifications.error(f'File could not be saved.')
 
 save_plsda_feat_imp_button.on_click(_save_plsda_feat_imp_button)
 
@@ -2483,11 +2493,13 @@ def _update_plsda_ellipse_std_options(confidence):
 
 
 # Permutation Test associated widgets
+# This description and equation will also be used for the Random Forest section
 permutation_test_description = '''Permutation tests permutate  the class labels of the samples, that is, all classes will
 be randomized while maintaining the same number of samples per class and classes. For each permutation, model performance is
 assessed by stratified cross-validation exactly as the previous sections. These performances are then compared with the
 performance of a single iteration of a model built based on the non-permutated model that appears with a red line. Thus,
-this red line might not be exactly the same value as the average model performance obtained in the PLS-DA fitting section.
+this red line might not be exactly the same value as the average model performance obtained in the supervised model (PLS-DA
+or Random Forest) fitting section.
 <br>
 <br>
 Thus, this is a test to observe model performance significancy, that is, if it is better than a random model. If it is,
@@ -2533,7 +2545,7 @@ as to make the model training too slow. A usual number used in our lab is 200.
 <br>
 After this optimization, a RF model can be fitted with the chosen parameters and number of trees. Model performance
 can be estimated by accuracy, recall, precision and F1-score (the latter 3 weighted by class) using stratified fold
-cross-validation. This cross-validation will also be used to estimate feature importance - <strong>GINI Importance</strong>.
+cross-validation. This cross-validation will also be used to estimate feature importance - <strong>Gini Importance</strong>.
 Importances estimated are then averaged across the different folds. This can be iterated multiple times using randomized
 cross-validation folds. Model performance can also be estimated with a Receiver Operating Characteristic (ROC) curve when
 only 2 classes are present.
@@ -2543,8 +2555,337 @@ Finally, Permutation Testing (<strong>slow</strong>) can be performed to observe
 significative.
 """
 
+
+# Param Class to store parameters and data regarding Random Forests
+class RF_Storage(param.Parameterized):
+    "Class to store Random Forest models, parameters and results."
+
+    # RF Optimization
+    n_min_max_trees = param.Range(default=(20,300))
+    n_interval = param.Number(default=5, doc='Test')
+    n_fold = param.Number(default=5)
+    confirm_optim_button = param.Boolean(default=False)
+    optim_scores = param.List(default=[''])
+    optim_ntrees = param.List(default=[''])
+
+    # RF model
+    n_trees = param.Number(default=200)
+    n_iterations = param.Number(default=10)
+    static_text_metrics = param.String(default='Choose what model performance metrics to use')
+    metrics_to_use = param.List(default=['Accuracy', 'F1-Score (weighted)', 'Precision (weighted)', 'Recall (weighted)'])
+    confirm_rf_button = param.Boolean(default=False)
+    n_results = param.DataFrame()
+    feat_impor = param.DataFrame()
+    models = param.List(default=[''])
+
+    # Params Used Store
+    current_rf_params = param.Dict()
+
+    # Permutation Test
+    n_perm = param.Number(default=500)
+    perm_metric = param.String(default='Accuracy')
+    dpi = param.Number(default=200)
+    confirm_button_permutation = param.Boolean(default=False)
+    save_figure_button_permutation = param.Boolean(default=False)
+    current_rf_params_permutation = param.Dict()
+
+    # ROC Curve
+
+    # Storing figures
+    optim_figure = param.List(default=['To Plot the Optimization RF Figure'])
+    ROC_figure = param.List(default=['a'])
+    perm_figure = param.List(default=['To Plot the Permutation Test Figure'])
+
+    # Update number of folds limits
+    def n_folds_limits(self, target_list):
+        "Updates the limits of the cross-validation fold number based on the number of samples per class."
+        # Updating the end value limits
+        min_samples_in_class = pd.Series(target_list.target).value_counts().min()
+        self.controls_optim.widgets['n_fold'].end = min_samples_in_class
+        self.controls.widgets['n_fold'].end = min_samples_in_class
+
+        # Updating the proper value if it is above the highest possible number
+        if min_samples_in_class < self.controls_optim.widgets['n_fold'].value:
+            self.controls_optim.widgets['n_fold'].value = min_samples_in_class
+            self.controls.widgets['n_fold'].value = min_samples_in_class
+            self.n_fold = min_samples_in_class
+
+
+    # Function to confirm the optimization
+    def _confirm_optim_button(self, event):
+        "Performs optimization, plots the optimization figure and updated corresponding layout."
+
+        # Loading Widget while the Random Forst optimization is being performed
+        rf_optim_section[1] = pn.indicators.LoadingSpinner(value=True, size=90,
+                                                            name='Performing Optimization of RF nº of trees...')
+
+        # Round to integer the values in the range
+        self.n_min_max_trees = int(np.round(self.n_min_max_trees[0])), int(np.round(self.n_min_max_trees[1]))
+
+        # Perform Optimization
+        rf_optim = iaf._optimization_n_trees_rf(self, DataFrame_Store.treated_df, target_list.target)
+        self.optim_scores = list(rf_optim['mean_test_score'])
+        self.optim_ntrees = list(rf_optim['param_n_estimators'])
+
+        # RF optimization Figure
+        rf_optim_results = pd.DataFrame([self.optim_ntrees, self.optim_scores],
+                                       index=['Number of Trees', 'Model Accuracy (estimated by CV)']).T
+        self.optim_figure[0] = px.line(rf_optim_results, x='Number of Trees', y='Model Accuracy (estimated by CV)',
+                title='Random Forest Optimization Plot', range_y=(0, 1.05),
+                range_x=(self.n_min_max_trees[0] - 10, self.n_min_max_trees[1] + 10)
+                 )
+
+        # Update the layout
+        filename_string = f'RF_optim_plot_{self.n_fold}-stratCV'
+        rf_optim_section[1] = pn.pane.Plotly(self.optim_figure[0],
+                                              config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
+
+
+    # Function to fit the RF model and obtain results
+    def _confirm_rf_button(self, event):
+        "Fits a Random Forest model, gives model performance estimations and feature importance lists, updating the layout."
+
+        # Loading Widget while the Random Forest model is being fitted and assessed
+        rf_results_section[0][1][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+                                                            name='Fitting and Assessing RF model...')
+
+        metrics_to_use = []
+
+        # Include the metrics chosen to be shown
+        if 'Accuracy' in self.metrics_to_use:
+            metrics_to_use.append('accuracy')
+        if 'F1-Score (weighted)' in self.metrics_to_use:
+            metrics_to_use.append('f1_weighted')
+        if 'Precision (weighted)' in self.metrics_to_use:
+            metrics_to_use.append('precision_weighted')
+        if 'Recall (weighted)' in self.metrics_to_use:
+            metrics_to_use.append('recall_weighted')
+        if len(self.metrics_to_use) == 0:
+            metrics_to_use.append('accuracy')
+
+        # Fits a RF model under a stratified cross validation scheme
+        RF_results = metsta.RF_model(DataFrame_Store.treated_df, target_list.target, # Data and labels
+                         return_cv=True, iter_num=self.n_iterations, # Number of iterations for it
+                         n_trees=self.n_trees, # Number of trees in the model
+                         cv=None, n_fold=self.n_fold, # Number of folds
+                         metrics = metrics_to_use) # Choose the performance metrics
+        if len(self.metrics_to_use) == 0:
+            RF_results.pop('accuracy')
+
+        # Results Table
+        results_summary = pd.DataFrame(columns=['Value', 'Standard Deviation'])
+        for k,v in RF_results.items():
+            if k != 'model' and k != 'imp_feat':
+                results_summary.loc[k] = np.mean(v), np.std(v)
+        self.n_results = results_summary
+
+        # Important Feature Table
+        self.feat_impor = iaf.creating_importance_feat_table('Gini Importance', DataFrame_Store, RF_results['imp_feat'])
+
+        # Store model
+        self.models[0] = RF_results['model']
+
+        # Store Parameters used for the model
+        self.current_rf_params = {'n_trees': self.n_trees, 'n_folds': self.n_fold, 'n_iterations': self.n_iterations}
+
+        # Update the layout
+        rf_results_section[0][1][1] = pn.pane.DataFrame(self.n_results)
+        rf_results_section[3] = pn.pane.DataFrame(self.feat_impor, height=600)
+        rf_feat_imp_show_annots_only.value = False
+        save_rf_feat_imp_button.disabled = False
+
+        if len(rf_results_section) == 5:
+            rf_results_section.append('### Random Forest Permutation Test Section')
+            rf_results_section.append(pn.Column(pn.pane.HTML(permutation_test_description),
+                                                 pn.pane.LaTeX(pvalue_equation_string, styles={'font-size': '14pt'})))
+            rf_results_section.append(pn.Row(self.controls_permutation,
+                                          self.perm_figure[0]))
+
+
+    # Function to confirm the permutation test to perform
+    def _confirm_button_permutation(self, event):
+        "Performs a permutation test for the Random Forest model and updates the layout."
+
+        # Loading Widget while the Permutation Test is being performed
+        rf_results_section[7][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+                                                            name='Performing Permutation Test... (It can take a while)')
+
+        # Sees what type of feature importance metric will be used
+        if self.perm_metric == 'Accuracy':
+            perm_metric = 'accuracy'
+        elif self.perm_metric == 'F1-score (weighted)':
+            perm_metric = 'f1_weighted'
+        elif self.perm_metric == 'Precision (weighted)':
+            perm_metric = 'precision_weighted'
+        elif self.perm_metric == 'Recall (weighted)':
+            perm_metric = 'recall_weighted'
+
+        # Performs the Permutation Test on the Random Forest model under a stratified cross validation scheme
+        perm_results_RF = metsta.permutation_RF(
+            DataFrame_Store.treated_df, target_list.target, # Data and target
+            iter_num=self.n_perm, # Nº of permutations to do in your test - around 500 should be enough
+            n_trees=self.n_trees, # Number of trees in the model
+            cv=None, n_fold=self.n_fold, # Choose the number of folds
+            random_state=None, # Random seed given to make the permutations rng class labels
+            metric=perm_metric) # Choose a metric to use to evaluate if the model is significant
+
+        # Store Parameters used for the model
+        self.current_rf_params_permutation = {'n_trees': self.n_trees, 'n_folds': self.n_fold,
+                                     'n_permutations': self.n_perm, 'perm_metric': self.perm_metric}
+
+        # Plot the permutation test
+        self.perm_figure[0] = iaf._plot_permutation_test(perm_results_RF, DataFrame_Store, self.n_fold,
+                                                     self.perm_metric, 'Random Forest Permutation Test')
+
+        # Update the layout
+        rf_results_section[7][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
+        self.controls_permutation.widgets['save_figure_button_permutation'].disabled = False
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets_optim = {
+            'n_min_max_trees': pn.widgets.EditableRangeSlider(
+                name='Range of Trees to test for optimization', format='0',
+                start=1, end=600, fixed_start=1, value=(20, 300), step=1),
+            'n_interval': pn.widgets.IntInput(name='Step of number of trees for Optimization', start=1, end=20, value=5, step=1,
+                description='''E.g. If 5, then the optimization is performed with the minimum number of trees, then that number + 5 and again until reaching the maximum number of trees.
+                It should be a divisor of the subtraction between the maximum and minimum number of trees allowed for the optimization.'''),
+            'n_fold': pn.widgets.IntInput(name="Number of folds for stratified cross-validation",
+                value=5, start=2, end=20,
+                description='''Value cannot be higher than the number of samples of your lowest sample number class.
+                Usual values are 5, 7 or 10. A good value would be a divisor of the number of samples in each of the classes.'''),
+            'confirm_optim_button': pn.widgets.Button(name="Confirm Optimization Parameters", button_type='primary')
+        }
+
+        widgets = {
+            'n_trees': pn.widgets.IntSlider(name='Number of Trees for Random Forest model',
+                start=1, end=600, value=200, step=1, styles={'font-weight': 'bold'}),
+            'n_iterations': pn.widgets.IntInput(name='Number of Times to repeat analysis',
+                start=1, value=10, step=1),
+            'n_fold': pn.widgets.IntInput(name="Number of folds for stratified cross-validation",
+                value=5, start=2, end=20,
+                description='''Value cannot be higher than the number of samples of your lowest sample number class.
+                Usual values are 5, 7 or 10. A good value would be a divisor of the number of samples in each of the classes.'''),
+            'static_text_metrics': pn.widgets.StaticText(name='', value='Choose what model performance metrics to use'),
+            'metrics_to_use': pn.widgets.CheckBoxGroup(name='Choose what metrics to use',
+                value=['Accuracy', 'F1-Score (weighted)', 'Precision (weighted)', 'Recall (weighted)'],
+                options=['Accuracy', 'F1-Score (weighted)', 'Precision (weighted)', 'Recall (weighted)'],
+                inline=False),
+            'confirm_rf_button': pn.widgets.Button(name="Fit Random Forest model", button_type='primary')
+        }
+
+        widgets_perm = {'n_trees': pn.widgets.IntInput(name='Number of Trees for Random Forest model',
+                start=1, end=600, value=200, step=1, disabled=True,
+                description='This parameter was chosen when fitting the Random Forest model and assessing its performance'),
+            'n_fold': pn.widgets.IntInput(name="Number of folds for stratified cross-validation",
+                value=5, start=2, end=20, disabled=True,
+                description='This parameter was chosen when fitting the Random Forest model and assessing its performance'),
+            'n_perm': pn.widgets.EditableIntSlider(name="Nº of Permutations to perform", start=100, value=500, end=2000,
+                step=100),
+            'perm_metric': pn.widgets.Select(name="Model Performance Metric", value='Accuracy',
+                options=['Accuracy', 'F1-score (weighted)', 'Precision (weighted)', 'Recall (weighted)'],
+                description='''Model performanced is estimated by default with **accuracy**.
+                However, if your data is imbalanced (that is, at least one class has much fewer samples than another), accuracy is not the best metric.
+                Consider using another metric such as the **F1 score**.'''),
+            'dpi': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
+                                    description='Set the resolution of Permutation Test Figure'),
+            'confirm_button_permutation': pn.widgets.Button(name="Perform Permutation Test (Slow)", button_type='primary', icon=iaf.hourglass_icon),
+            'save_figure_button_permutation': pn.widgets.Button(name="Save as a png (in current folder)",
+                button_type='success', icon=iaf.download_icon, disabled=True),
+        }
+
+        self.controls = pn.Param(self, parameters=['n_trees', 'n_iterations', 'n_fold', 'static_text_metrics',
+                                                   'metrics_to_use', 'confirm_rf_button'],
+                                 widgets=widgets, name='Parameters for Random Forest model fitting')
+
+        self.controls_optim = pn.Param(self, parameters=['n_min_max_trees', 'n_interval', 'n_fold', 'confirm_optim_button'],
+                                 widgets=widgets_optim, name='Parameters for optimization of nº of trees in Random Forest')
+
+        self.controls_permutation = pn.Param(self, parameters=['n_trees', 'n_fold', 'n_perm', 'perm_metric',
+                                                               'dpi', 'confirm_button_permutation',
+                                                               'save_figure_button_permutation'],
+                                 widgets=widgets_perm, name='Parameters for Random Forest Permutation Test')
+
+# Running initial param to store RF details
+RF_store = RF_Storage()
+
+# Click button to confirm Random Forest Optimization
+RF_store.controls_optim.widgets['confirm_optim_button'].on_click(RF_store._confirm_optim_button)
+
+# Click button to fit the Random Forest model and obtain model performance metrics
+RF_store.controls.widgets['confirm_rf_button'].on_click(RF_store._confirm_rf_button)
+
+# Click button to perform Random Forest Permutation Test
+RF_store.controls_permutation.widgets['confirm_button_permutation'].on_click(RF_store._confirm_button_permutation)
+# Function to save the Permutation Test figure as png
+def _save_figure_button_permutation_RF(event):
+    filename_string = f'RF_permutation_test_{RF_store.current_rf_params_permutation["n_permutations"]}perm_'
+    filename_string = filename_string + f'{RF_store.current_rf_params_permutation["n_trees"]}trees_'
+    filename_string = filename_string + f'{RF_store.current_rf_params_permutation["n_folds"]}-foldstratCV_scale'
+    filename_string = filename_string + f'{RF_store.current_rf_params_permutation["perm_metric"]}'
+    RF_store.perm_figure[0].savefig(filename_string+'.png', dpi=RF_store.dpi)
+    pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
+# Click button to save the aforementioned figure
+RF_store.controls_permutation.widgets['save_figure_button_permutation'].on_click(_save_figure_button_permutation_RF)
+
+
+# Optimization section of the page
+# Organizing the optimization section of the page
+rf_optim_section = pn.Row(RF_store.controls_optim, RF_store.optim_figure[0])
+
+
+# Results Section of the Random Forest page
+# Specific Widget for Random Forest results section, shows DataFrame with only annotated metabolites or all metabolites
+rf_feat_imp_show_annots_only = pn.widgets.Checkbox(name='Only show annotated metabolites in feature importance table',
+                                                       value=False)
+
+# Change the DataFrame shown based on checkbox
+@pn.depends(rf_feat_imp_show_annots_only.param.value, watch=True)
+def _layout_rf_feat_import_dataframe(rf_feat_imp_show_annots_only):
+    "Update the layout based on if we are showing all metabolites or only annotated ones."
+    # Select DataFrame
+    if rf_feat_imp_show_annots_only:
+        df_to_show = RF_store.feat_impor[RF_store.feat_impor['Has Match?']]
+    else:
+        df_to_show = RF_store.feat_impor
+
+    # Update the layout
+    rf_results_section[3] = pn.pane.DataFrame(df_to_show, height=600)
+
+# Widget to save dataframe with features ordered by importance
+save_rf_feat_imp_button = pn.widgets.Button(name='Save Random Forest Feature Importance table obtained as .xlsx (in current folder)',
+                                                button_type='warning', icon=iaf.download_icon, disabled=True)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_rf_feat_imp_button(event):
+    "Save Random Forest Feature Importance results as an Excel."
+    try:
+        # Building the datafile name
+        filename_string = f'RF_FeatImp_Gini_model_params_{RF_store.n_trees}trees_{RF_store.n_fold}-foldstratCV_'
+        filename_string = filename_string + f'iterations{RF_store.n_iterations}.xlsx'
+
+        # Saving the file
+        RF_store.feat_impor.to_excel(filename_string)
+        pn.state.notifications.success(f'{filename_string} successfully saved.')
+    except:
+        pn.state.notifications.error(f'File could not be saved.')
+
+save_rf_feat_imp_button.on_click(_save_rf_feat_imp_button)
+
+# Layout of the full results section (Partial, more is added when fitting RF model)
+rf_results_section = pn.Column(pn.Row(RF_store.controls,
+                                       pn.Column('### Model Performance Metrics', RF_store.n_results)),
+                                '### Feature Importance Table',
+                                rf_feat_imp_show_annots_only,
+                               pn.pane.DataFrame(RF_store.feat_impor),
+                               save_rf_feat_imp_button,)
+
+
 # Layout of the RF page
-page_RF = pn.Column(pn.pane.HTML(rf_opening_string))
+page_RF = pn.Column(pn.pane.HTML(rf_opening_string), rf_optim_section, rf_results_section)
 
 
 # Layout of the full supervised analysis page
@@ -3039,6 +3380,6 @@ sidebar = pn.Column(index_button, '## Data Pre-Processing and Pre-Treatment', pa
                    '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button,
                    page11_button, '## To Reset (TODO)', RESET_button)
 
-app = pn.template.FastListTemplate(title='Testing MetSta', sidebar=[sidebar], main=[main_area])
+app = pn.template.FastListTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
 
 app.show()
