@@ -43,7 +43,8 @@ class OpeningPage:
 class DataReading:
     def __init__(self):
         self.content = pn.Column("# Section 1: Data Input", """Inputting your Excel or csv MetaboScape file.
-                                 If your file is not from MetaboScape, it should have the _m/z_ peak column be called 'Bucket Label'.""",
+                                 If your file is not from MetaboScape, it should have the _m/z_ peak column be called 'Bucket Label'.
+                                 After confirming your dataset and moving to the next page, you will not be able to change it unless you restart the program.""",
                                 section1page)
 
     def view(self):
@@ -298,72 +299,29 @@ DataFrame_Store = DataFrame_Storage()
 
 # Page 1 - Reading File
 
+class FileReading(param.Parameterized):
+    """Class to store as attributes file read."""
+
+    temp_target = param.Dict()
+    read_df = param.DataFrame(pd.DataFrame())
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+
+# Initializing store for File Reading
+file = FileReading()
+
 # Widgets and reacting functions of page 1
 filename = pn.widgets.FileInput(name='Choose file', accept='.csv,.xlsx,.xls')
 target_included_in_file = pn.widgets.Checkbox(name='The first row of the file corresponds to the target (sample class labels).', value=False)
 temp_target = param.Parameter(default={})
 
 confirm_button_filename = pn.widgets.Button(name='Read File', button_type='primary', disabled=True)
-tooltip_file = pn.widgets.TooltipIcon(value="""Provided file must come from MetaboScape. Alternatively, the column with the _m/z_ peaks should be labelled 'Bucket label'.""")
-dataframe_to_show = pn.widgets.DataFrame(pd.DataFrame(), name='Data')
+tooltip_file = pn.widgets.TooltipIcon(
+    value="""Provided file must come from MetaboScape. Alternatively, the column with the _m/z_ peaks should be labelled 'Bucket label'.""")
 confirm_button_step1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm - Next Step', button_type='success',
                                          disabled=True)
-
-def read_file(event):
-    "Function to read the file given."
-
-    # Samples names frequently have 00000.
-    def renamer(colname):
-        # Util to optionally remove all those 00000 from sample names
-        return ''.join(colname.split('00000'))
-    target_file = {}
-
-    # No File Inputted
-    if filename.value == '':
-        dataframe_to_show.value = pd.DataFrame()
-
-    # If it is a .csv file
-    elif filename.filename.endswith('.csv'):
-
-        if target_included_in_file.value: # If you have the target in the file
-            file = pd.read_csv(filename.filename, header=[0,1])
-            colnames = [renamer(i) for i in file.columns.get_level_values(0)]
-            target_file = dict(zip(colnames, file.columns.get_level_values(1)))
-            file.columns = colnames
-
-        else: # If you do not have the target in the file
-            file = pd.read_csv(filename.filename)
-            file.columns = [renamer(i) for i in file.columns]
-
-    # If it is a .xlsx file
-    elif filename.filename.endswith('.xlsx') or filename.filename.endswith('.xls'):
-
-        if target_included_in_file.value: # If you have the target in the file
-            file = pd.read_excel(filename.filename, header=[0,1])
-            colnames = [renamer(i) for i in file.columns.get_level_values(0)]
-            target_file = dict(zip(colnames, file.columns.get_level_values(1)))
-            file.columns = colnames
-
-        else: # If you do not have the target in the file
-            file = pd.read_excel(filename.filename)
-            file.columns = [renamer(i) for i in file.columns]
-
-    else:
-        pn.state.notifications.error('Provided file is not an Excel or a csv file.')
-
-    # Treated the read file to put them as we want it - # Important for database match
-    try:
-        file.insert(1, 'Neutral Mass', file['Bucket label'].str.replace('Da', '').astype('float'))
-    except:
-        pn.state.notifications.warning('Neutral Mass could not be inferred from Bucket Label. No annotation can be performed.')
-
-    file = file.set_index('Bucket label')
-    # Replaces zeros with numpy nans. Essential for data processing
-    file = file.replace({0:np.nan})
-    # Updating widgetss and parameters
-    dataframe_to_show.value = file
-    temp_target.default = target_file
-
 
 # Update button so it can be pressed after you put something in the filename
 @pn.depends(filename.param.filename, watch=True)
@@ -373,22 +331,46 @@ def _update_confirm_button_filename(filename):
     else:
         confirm_button_filename.disabled = True
 
-# Function happens when you press the button        
-confirm_button_filename.on_click(read_file)
+def _confirm_button_filename(event):
+    "Reads the file given."
 
+    # Read the file, updating widgets and parameters
+    file.read_df, file.temp_target = iaf.read_file(filename.filename, target_included_in_file.value)
 
-# Enabling button for next step
-def _update_confirm_step1(event):
+    # Enabling button for next step
+    section1page[2] = pn.widgets.DataFrame(file.read_df)
     confirm_button_step1.disabled = False
+# Function happens when you press the button        
+confirm_button_filename.on_click(_confirm_button_filename)
+
+# Alternatively, provide option to read an example data
+load_example_df_button = pn.widgets.Button(name='Load Example Dataset', button_type='warning', disabled=False, height=50)
+tooltip_example_df = pn.widgets.TooltipIcon(
+    value="""Example Data consists of 15 FT-ICR-MS samples of 5 strains of the Yeast Saccharomyces cerevisiae with previsouly assigned annotations.""")
+
+def _load_example_df_button(event):
+    "Reads the example file ofthe software."
+
+    # Read the file, updating widgets and parameters
+    file.read_df, file.temp_target = iaf.read_file('5yeasts_notnorm.csv', False)
+
+    # Enabling button for next step
+    section1page[2] = pn.widgets.DataFrame(file.read_df)
+    confirm_button_step1.disabled = False
+# Function happens when you press the button
+load_example_df_button.on_click(_load_example_df_button)
+
 
 # Confirm file, show next page, disable reading files, update columns of the dataset read
 def _confirm_step1(event):
     # Enabling/Disabling appropriate Widgets
     page1_1_button.disabled = False
     confirm_button_filename.disabled = True
+    load_example_df_button.disabled = True
+    target_included_in_file.disabled = True
     filename.disabled = True
 
-    DataFrame_Store.read_df = dataframe_to_show.value # Update DataFrame store
+    DataFrame_Store.read_df = file.read_df # Update DataFrame store
 
     # Update all the options for the Data Metadata Step - CheckBox and RadioBox Widgets
     checkbox_formula.options = list(DataFrame_Store.read_df.columns)
@@ -403,13 +385,12 @@ def _confirm_step1(event):
 
 
 # Call the appropriate functions when the buttons are pressed
-confirm_button_filename.on_click(_update_confirm_step1)
 confirm_button_step1.on_click(_confirm_step1)
 
 # Setting up the page layout
-section1page = pn.Column(filename, target_included_in_file,
+section1page = pn.Column(pn.Row(pn.Column(filename, target_included_in_file), pn.Row(load_example_df_button, tooltip_example_df)),
                          pn.Row(confirm_button_filename, tooltip_file),
-                         dataframe_to_show, confirm_button_step1)
+                         file.read_df, confirm_button_step1)
 
 
 
@@ -418,24 +399,24 @@ section1page = pn.Column(filename, target_included_in_file,
 
 # Making checkbox widgets for each category
 checkbox_formula = pn.widgets.CheckBoxGroup(
-    name='Formula', value=['Formula'], options=list(dataframe_to_show.value.columns),
+    name='Formula', value=['Formula'], options=list(file.read_df.columns),
     inline=False, disabled=False)
 
 checkbox_annotation = pn.widgets.CheckBoxGroup(
-    name='Annotation', value=['Name'], options=list(dataframe_to_show.value.columns),
+    name='Annotation', value=['Name'], options=list(file.read_df.columns),
     inline=False, disabled=False)
 
 # Select only one instead of multiple - RadioBox Widget
 radiobox_neutral_mass = pn.widgets.RadioBoxGroup(
-    name='Neutral Mass', value='Neutral Mass', options=['None'] + list(dataframe_to_show.value.columns),
+    name='Neutral Mass', value='Neutral Mass', options=['None'] + list(file.read_df.columns),
     inline=False, disabled=False)
 
 checkbox_others = pn.widgets.CheckBoxGroup(
-    name='Others', options=list(dataframe_to_show.value.columns),
+    name='Others', options=list(file.read_df.columns),
     inline=False, disabled=False)
 
 checkbox_samples = pn.widgets.CheckBoxGroup(
-    name='Samples', options=list(dataframe_to_show.value.columns),
+    name='Samples', options=list(file.read_df.columns),
     inline=False, disabled=True)
 
 # Arranging the checkboxes
@@ -469,8 +450,8 @@ def _update_confirm_column_selection(event):
     # Target widget box
     if checkbox_samples.value != '':
         # If the target was in the first row of the file read, pass it to here
-        if temp_target.default != {}:
-            tg = [temp_target.default[s] for s in sample_cols] # Update to target present in file provided
+        if file.temp_target != {}:
+            tg = [file.temp_target[s] for s in sample_cols] # Update to target present in file provided
             target_widget.placeholder = ','.join(tg)
             target_widget.value = ','.join(tg)
 

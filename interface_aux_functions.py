@@ -61,6 +61,64 @@ hourglass_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tab
 </svg>'''
 
 
+# Function related to File data reading
+def read_file(filename, target_in_file):
+    "Function to read the file given."
+
+    # Samples names frequently have 00000.
+    def renamer(colname):
+        # Util to optionally remove all those 00000 from sample names
+        return ''.join(colname.split('00000'))
+    target_file = {}
+
+    # No File Inputted
+    if filename == '':
+        file = pd.DataFrame()
+
+    # If it is a .csv file
+    elif filename.endswith('.csv'):
+
+        if target_in_file: # If you have the target in the file
+            file = pd.read_csv(filename, header=[0,1])
+            colnames = [renamer(i) for i in file.columns.get_level_values(0)]
+            target_file = dict(zip(colnames, file.columns.get_level_values(1)))
+            file.columns = colnames
+
+        else: # If you do not have the target in the file
+            file = pd.read_csv(filename)
+            file.columns = [renamer(i) for i in file.columns]
+            target_file = {}
+
+    # If it is a .xlsx file
+    elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+
+        if target_in_file: # If you have the target in the file
+            file = pd.read_excel(filename, header=[0,1])
+            colnames = [renamer(i) for i in file.columns.get_level_values(0)]
+            target_file = dict(zip(colnames, file.columns.get_level_values(1)))
+            file.columns = colnames
+
+        else: # If you do not have the target in the file
+            file = pd.read_excel(filename)
+            file.columns = [renamer(i) for i in file.columns]
+            target_file = {}
+
+    else:
+        pn.state.notifications.error('Provided file is not an Excel or a csv file.')
+
+    # Treated the read file to put them as we want it - # Important for database match
+    try:
+        file.insert(1, 'Neutral Mass', file['Bucket label'].str.replace('Da', '').astype('float'))
+    except:
+        pn.state.notifications.warning('Neutral Mass could not be inferred from Bucket Label. No annotation can be performed.')
+
+    file = file.set_index('Bucket label')
+    # Replaces zeros with numpy nans. Essential for data processing
+    file = file.replace({0:np.nan})
+
+    return file, target_file
+
+
 # Functions related to Data pre-processing and pre-treatment that needed to be adapted for the graphical interface
 
 def initial_filtering(df, sample_cols, target=None, filt_method='total_samples', filt_kw=2):
