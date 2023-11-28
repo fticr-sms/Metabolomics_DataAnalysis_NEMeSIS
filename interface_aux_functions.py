@@ -11,6 +11,7 @@ import sklearn.ensemble as skensemble
 from sklearn.model_selection import GridSearchCV
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.colors import TwoSlopeNorm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np
 import panel as pn
@@ -274,7 +275,7 @@ def TargetStorage_filling(target_list, colours):
 
     temp_dict = {}
     target = target_list
-    classes = pd.unique(target)
+    classes = pd.unique(np.array(target))
     for cl in range(len(classes)):
 
         # The first 10 different targets will follow the tab10 default colours
@@ -317,7 +318,7 @@ def _group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store):
                     subset=com_exc_compounds.groups[g], thresh=1)
                 com_exc_compounds.group_dfs_ids[g] = com_exc_compounds.group_dfs[g].iloc[[
                     i for i in range(len(com_exc_compounds.group_dfs[
-                    g]['Has Match?'])) if com_exc_compounds.group_dfs[g]['Has Match?'][i]]]
+                    g]['Has Match?'])) if com_exc_compounds.group_dfs[g]['Has Match?'].iloc[i]]]
 
     # Description of the number of metabolites (and annotated metabolites) that appear in at least one sample of each class
     desc_string = ['**Nº of peaks per class:**', '', ]
@@ -623,7 +624,7 @@ def plot_cov_ellipse(cov, pos, q):
     width, height = 2 * np.sqrt(vals * r2)
     theta = np.arctan2(*vecs[:,0][::-1])
 
-    ellip = hv.Ellipse(pos[0], pos[1], (width,height), orientation=theta)
+    ellip = hv.Ellipse(pos.iloc[0], pos.iloc[1], (width,height), orientation=theta)
 
     return ellip
 
@@ -803,7 +804,7 @@ def creating_importance_feat_table(imp_feat_metric, DataFrame_Store, model_feat_
     imp_feats.insert(1, imp_feat_colname, '') # Include Column for importance
     # Fill importance column
     for n in range(len(model_feat_results)):
-        imp_feats[imp_feat_colname][model_feat_results[n][0]] = model_feat_results[n][1]
+        imp_feats[imp_feat_colname].iloc[model_feat_results[n][0]] = model_feat_results[n][1]
     # Sort from highest to lowest importance
     imp_feats = imp_feats.sort_values(by=imp_feat_colname, ascending=False)
     # Make Index be the place/position of each feature in the importance list
@@ -816,7 +817,7 @@ def creating_importance_feat_table(imp_feat_metric, DataFrame_Store, model_feat_
 def _plot_permutation_test(perm_results, DataFrame_Store, n_fold, metric, title='Permutation Test'):
     "Plots the permutation test results with matplotlib."
 
-    with plt.style.context('seaborn-whitegrid'):
+    with plt.style.context('seaborn-v0_8-whitegrid'):
         fig, ax = plt.subplots(1,1, figsize=(6,6))
 
         n_labels = len(DataFrame_Store.treated_df.index)
@@ -1065,3 +1066,226 @@ def _univariate_intersections(UnivarA_Store, DataFrame_Store):
         string = string+cl+', '
     string = string[:-2] + f'), **{n_inter_sig_annots}** of which are annotated.'
     UnivarA_Store.inter_description = string
+
+
+### Functions related to the Data Diversity Visualization Plots page of the graphical interface
+
+# Slightly altered version from what is in metanalysis_standard.py
+def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
+                          series=('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP')):
+    """Create DataFrame from element counts and concat to original DataFrame.
+
+       Optionally, the ratios of H/C and O/C and element composition series are also computed"""
+
+    # safe guard: remove empty formulae
+    formulae = data[formula_subset]
+
+    # count elements
+    forms_list = []
+    idxs_list = []
+    for col in formulae.columns:
+        formulae_col = formulae[[col]].dropna()
+        for l in formulae_col.index:
+            fs = formulae_col.loc[l].iloc[0]
+            if type(fs) == str: # For Smart Formula and str based annotations
+                forms_list.append(fs)
+                idxs_list.append(l)
+
+            else: # For meta_cols and list based annotations
+                l_unique = set(fs)
+                for f in l_unique:
+                    #print(f)
+                    forms_list.append(f)
+                    idxs_list.append(l)
+    ecounts_list = []
+    for f in forms_list:
+        ecounts_list.append(metsta.element_composition(f))
+
+    result = pd.DataFrame(ecounts_list).fillna(0).astype(int)
+    result['idxs'] = idxs_list
+
+    # compute ratios for VK plots
+    if compute_ratios:
+        result['H/C'] = result['H'] / result['C']
+        result['O/C'] = result['O'] / result['C']
+
+    # compute series from compositions
+
+    sorted_series = [''.join(sorted(list(s))) for s in series]
+    result_series = []
+
+    for composition in ecounts_list:
+        nonzero = ''.join(sorted([k for k, c in composition.items() if c > 0]))
+
+        if nonzero in sorted_series:
+            result_series.append(series[sorted_series.index(nonzero)])
+        else:
+            result_series.append('other')
+
+    result['Series'] = pd.Series(result_series, index=result.index)
+    if type(formula_subset) != str:
+        result = result.set_index('idxs')
+        result = result.drop_duplicates()
+
+    return result
+
+
+def _plot_VK_diagrams_individual(filt_df, dataviz_store, norm_full_df, target, group):
+    "Plot Van Krevelen Diagrams based on parameters passed."
+
+    # Calculating H/C and O/C ratios
+    forms = filt_df.dropna(subset=dataviz_store.vk_formula_to_consider, how='all')
+    elems = create_element_counts(forms, formula_subset=dataviz_store.vk_formula_to_consider)
+
+    # Set up the list of ranks and the two sloped before and after the midpoint
+    rank_values = norm_full_df[elems.index].loc[np.array(target) == group].mean().rank(ascending=False)
+    logInt_values = np.log(norm_full_df[elems.index].loc[np.array(target) == group].mean())
+    elems['Rank'] = rank_values
+    elems['logInt'] = logInt_values
+
+    # If rank was selected
+    if dataviz_store.vk_highlight_by == 'Rank':
+        # Creates the 2 slopes and saves appropriate information
+        tsn = TwoSlopeNorm(vmin=rank_values.min(),
+                           vcenter=(1-dataviz_store.vk_midpoint)*(len(elems.index)+1),
+                           vmax=rank_values.max())
+        sorted_tsn = sorted(tsn(rank_values), reverse=False)
+        elems[dataviz_store.vk_highlight_by + 's'] = 1-tsn(rank_values)
+        sorted_vals = sorted(rank_values, reverse=True)
+
+    # If log Int was selected
+    elif dataviz_store.vk_highlight_by == 'logInt':
+        # Creates the 2 slopes and saves appropriate information
+        tsn = TwoSlopeNorm(vmin=logInt_values.min(),
+                           vcenter=logInt_values.sort_values().iloc[int(dataviz_store.vk_midpoint*len(elems.index))],
+                           vmax=logInt_values.max())
+        sorted_tsn = sorted(tsn(logInt_values))
+        elems[dataviz_store.vk_highlight_by + 's'] = tsn(logInt_values)
+        sorted_vals = sorted(logInt_values, reverse=True)
+
+    # In case none of them was selected:
+    else:
+        # Plot a simple Van Krevelen and end the function
+        fig = px.scatter(elems, x="O/C", y="H/C", size=[1,]*len(elems),
+                         size_max=dataviz_store.vk_max_dot_size, opacity=0.7,
+                         range_x=[-0.1,2.03], range_y=[0.15,2.03],
+                    hover_data={'Rank':True, 'logInt':True}, title='Van Krevelen - ' + group)
+        filename = f'VK_plot_{group}_formulacolumns'
+        # Create appropriate filename
+        for cl in dataviz_store.vk_formula_to_consider:
+            filename = filename + f'_{cl}'
+
+        return fig, filename
+
+    # See if dots should be colored based on intensity
+    if dataviz_store.vk_colour:
+        color = dataviz_store.vk_highlight_by + 's'
+    else:
+        color = None
+
+    # See if dots should have different sizes based on intensity
+    if dataviz_store.vk_size:
+        s = dataviz_store.vk_highlight_by + 's'
+    else:
+        s = [1,]*len(elems)
+
+    # Plot Van Krevelen with all the specified parameters
+    fig = px.scatter(elems, x="O/C", y="H/C", color=color,
+                 color_continuous_scale='Portland', size=s,
+                 size_max=dataviz_store.vk_max_dot_size, opacity=0.7,
+                 range_x=[-0.1,2.03], range_y=[0.15,2.03],
+                    hover_data={dataviz_store.vk_highlight_by + 's':False, # remove
+                             'Rank':True, 'logInt':True,
+                            }, title='Van Krevelen - ' + group)
+
+    # Set up the colorbar translating the two slopes values into the actual ranks or intensities
+    if dataviz_store.vk_show_colorbar:
+        a = 0
+        tickvals = [] # Values to substitute
+        ticktext = [] # Text to replace them with
+        extra = [] # For log Int
+        # For each tickval, get the ticktext
+        for v in np.arange(0,1.01,0.1):
+            while v > sorted_tsn[a]:
+                a += 1
+            tickvals.append(sorted_tsn[a])
+            if dataviz_store.vk_highlight_by == 'Rank':
+                ticktext.append(len(sorted_vals)-sorted_vals[a]+1)
+            else:
+                ticktext.append(len(sorted_vals)-a)
+                extra.append(sorted_vals[a])
+
+        # Update the colorbar with the correct ticks and text based on the methodology chosen
+        if dataviz_store.vk_highlight_by == 'Rank': # Rank
+            ticktext = [ticktext[-i] for i in range(1, len(ticktext)+1)]
+            fig.update_coloraxes(colorbar_title=dataviz_store.vk_highlight_by, colorbar=dict(
+                                      tickvals=tickvals,
+                                      ticktext=ticktext))
+        else: # Log Int
+            true_ticktext = [] # Create a mix of intensity values and their rank
+            for i in range(len(ticktext)):
+                true_ticktext.append(f'{extra[-1-i]:.3f} ({ticktext[i]})')
+            fig.update_coloraxes(colorbar_title=dataviz_store.vk_highlight_by +' (Rank)', colorbar=dict(
+                                      tickvals=tickvals,
+                                      ticktext=true_ticktext))
+
+    # If no colorbar is to be shown
+    else:
+        fig.update(layout_coloraxis_showscale=False)
+
+    # Create appropriate filename
+    filename = f'VK_plot_{group}_{dataviz_store.vk_highlight_by}order_(midpoint{dataviz_store.vk_midpoint})_formulacolumns'
+    for cl in dataviz_store.vk_formula_to_consider:
+        filename = filename + f'_{cl}'
+
+    return fig, filename
+
+
+def vk_add_class_rectangles(fig):
+    "Add rectangles delimiting zones for Peptide, Lignins, Tannins, Nucleotides and Phytochemical areas and corresponding legend."
+
+    # Add a rectangle for each 'class'
+    # Peptides
+    fig.add_shape(type="rect",
+        x0=0.23, y0=1.48, x1=0.23+0.31, y1=1.48+0.51,
+        line=dict(color="Green"), line_dash='dash',
+        showlegend=True, name="Peptide",
+    )
+
+    # Lignins
+    fig.add_shape(type="rect",
+        x0=0.26, y0=0.77, x1=0.26+0.36, y1=0.77+0.69,
+        line=dict(color="Blue"), line_dash='dash',
+        showlegend=True, name="Lignins",
+    )
+
+    # Tannins
+    fig.add_shape(type="rect",
+        x0=0.62, y0=0.55, x1=0.62+0.28, y1=0.55+0.7,
+        line=dict(color="Purple"), line_dash='dash',
+        showlegend=True, name="Tannins",
+    )
+
+    # Nucleotides
+    fig.add_shape(type="rect",
+        x0=0.5, y0=1, x1=0.5+0.7, y1=1+0.8,
+        line=dict(color="Red"), line_dash='dash',
+        showlegend=True, name="Nucleotides",
+    )
+
+    # Phytochemical
+    fig.add_shape(type="rect",
+        x0=0, y0=0.2, x1=1.15, y1=0.2+1.32,
+        line=dict(color="Black"), line_dash='dash',
+        showlegend=True, name="Phythochemical",
+    )
+
+    # Update and put legend on the plot
+    fig.update_layout(legend=dict(
+        yanchor="top",
+        y=0.99,
+        xanchor="right",
+        x=0.99
+    ))
+
+    return fig

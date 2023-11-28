@@ -49,7 +49,7 @@ permutation tests of the significance of predictive accuracy of PLS-DA models (p
 def computeFC(data, labels):
     # NOTE: labels must be given explicitly, now
 
-    unique_labels = pd.unique(labels)
+    unique_labels = pd.unique(np.array(labels))
     if len(unique_labels) != 2:
         raise ValueError('The number of groups in the data is not two')
 
@@ -81,7 +81,7 @@ def p_adjust_bh(p):
     return q[by_orig]
 
 def compute_pvalues_2groups(data, labels, equal_var=True, alpha=0.05, useMW=False):
-    unique_labels = pd.unique(labels)
+    unique_labels = pd.unique(np.array(labels))
     if len(unique_labels) != 2:
         raise ValueError('The number of groups in the data is not two')
     locs0 = [i for i, lbl in enumerate(labels) if lbl == unique_labels[0]]
@@ -117,7 +117,7 @@ def compute_FC_pvalues_2groups(normalized, processed,
 # Hopefully, it is fast enough...
 
 def compute_ANOVA_pvalues(dataset, labels):
-    unique_labels = pd.unique(labels)
+    unique_labels = pd.unique(np.array(labels))
     if len(unique_labels) < 3:
         raise ValueError('The number of groups in the data is less than 3')
 
@@ -177,7 +177,7 @@ def dist_discrim(Z, sample_labels, method='average'):
     """
 
     # Get metadata
-    unique_labels = pd.unique(sample_labels)
+    unique_labels = pd.unique(np.array(sample_labels))
     n_unique_labels = len(unique_labels)
     ns = len(sample_labels)
 
@@ -255,7 +255,7 @@ def correct_1stcluster_fraction(Z, sample_labels):
        returns: scalar; fraction of samples who initial clustered with a cluster of samples with the same label."""
 
     # Get metadata
-    unique_labels = pd.unique(sample_labels)
+    unique_labels = pd.unique(np.array(sample_labels))
     n_unique_labels = len(unique_labels)
     ns = len(sample_labels)
 
@@ -398,7 +398,7 @@ def Kmeans_discrim(df, sample_labels, method='average', iter_num=1, best_fractio
     # Get data parts
     # DataParts = namedtuple('DataParts', 'data_matrix labels names features unique_labels')
     #dfdata = df.cdl.data
-    unique_labels = pd.unique(sample_labels)
+    unique_labels = pd.unique(np.array(sample_labels))
     all_labels = sample_labels
     n_labels = len(unique_labels)
     #sample_number = {label: len(df.cdl.samples_of(label)) for label in unique_labels}
@@ -917,7 +917,7 @@ def fit_PLSDA_model(data, labels, n_comp=10, return_scores=True,
     "Obtain X-scores of a PLSRegression model built from a labelled dataset."
     # create label lists
 
-    unique_labels = list(pd.unique(labels))
+    unique_labels = list(pd.unique(np.array(labels)))
     is1vector = (len(unique_labels) == 2) and encode2as1vector
 
     # Generate the response variable Y for PLSRegression
@@ -973,7 +973,7 @@ def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=50, n_f
     Accuracy = []
     nright = 0
    
-    unique_labels = list(pd.unique(labels))
+    unique_labels = list(pd.unique(np.array(labels)))
 
     is1vector = len(unique_labels) == 2 and encode2as1vector
 
@@ -1097,7 +1097,7 @@ def PLSDA_model_CV(df, labels, n_comp=10,
     Imp_Feat = np.zeros((iter_num * n_fold, df.shape[1]))
     f = 0
 
-    unique_labels = list(pd.unique(labels))
+    unique_labels = list(pd.unique(np.array(labels)))
 
     is1vector = len(unique_labels) == 2 and encode2as1vector
 
@@ -1207,7 +1207,7 @@ def permutation_PLSDA(df, labels, n_comp=10, n_fold=5, iter_num=100, encode2as1v
     NewC = np.arange(df.shape[0])
     df = df.copy()  # TODO: check if this copy is really necessary
 
-    unique_labels = list(pd.unique(labels))
+    unique_labels = list(pd.unique(np.array(labels)))
 
     is1vector = len(unique_labels) == 2 and encode2as1vector
 

@@ -39,8 +39,8 @@ def characterize_data(dataset, name='dataset', target=None):
     n_samples, n_feats = dataset.shape
 
     if target:
-        n_classes = len(np.unique(target))
-        Samp_Class = len(target)/len(np.unique(target)) # Number of Sample per Class
+        n_classes = len(np.unique(np.array(target)))
+        Samp_Class = len(target)/len(np.unique(np.array(target))) # Number of Sample per Class
 
     avg_feature_value = dataset.values.flatten()[~np.isnan(dataset.values.flatten())].mean() # Mean value in the dataset
     max_feature_value = dataset.values.flatten()[~np.isnan(dataset.values.flatten())].max() # Maximum value in the dataset
@@ -715,7 +715,7 @@ def basic_feat_filtering(file, target=None, filt_method='total_samples', filt_kw
             idxs_to_keep = []
         for col in meta_cols_formulas:
             idxs_to_keep.extend([i for i in data_filt.columns if type(extra_filt_data.loc[i, col]) == list])
-        idxs_to_keep = pd.unique(idxs_to_keep)
+        idxs_to_keep = pd.unique(np.array(idxs_to_keep))
         data_filt = data_filt.loc[:,idxs_to_keep]
 
     elif extra_filt == 'Name': # Keep only features with a name annotated on the dataset
@@ -726,7 +726,7 @@ def basic_feat_filtering(file, target=None, filt_method='total_samples', filt_kw
             idxs_to_keep = []
         for col in meta_cols_names:
             idxs_to_keep.extend([i for i in data_filt.columns if type(extra_filt_data.loc[i, col]) == list])
-        idxs_to_keep = pd.unique(idxs_to_keep)
+        idxs_to_keep = pd.unique(np.array(idxs_to_keep))
         data_filt = data_filt.loc[:,idxs_to_keep]
 
     elif extra_filt == None: # No extra filtering
@@ -1079,7 +1079,7 @@ def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=15, min
     CVs = []
     CVr2s = []
    
-    unique_labels = list(pd.unique(labels))
+    unique_labels = list(pd.unique(np.array(labels)))
 
     is1vector = len(unique_labels) == 2 and encode2as1vector
 
@@ -1164,7 +1164,7 @@ def PLSDA_model_CV(df, labels, n_comp=10,
     Imp_Feat = np.zeros((iter_num * n_fold, df.shape[1]))
     f = 0
 
-    unique_labels = list(pd.unique(labels))
+    unique_labels = list(pd.unique(np.array(labels)))
 
     is1vector = len(unique_labels) == 2 and encode2as1vector
 
@@ -1386,7 +1386,7 @@ def permutation_PLSDA(df, labels, n_comp=10, iter_num=100, cv=None, n_fold=5, ra
     NewC = np.arange(df.shape[0])
     df = df.copy()  # TODO: check if this copy is really necessary
 
-    unique_labels = list(pd.unique(labels))
+    unique_labels = list(pd.unique(np.array(labels)))
 
     is1vector = len(unique_labels) == 2 and encode2as1vector
 
@@ -1516,7 +1516,7 @@ def permutation_PLSDA(df, labels, n_comp=10, iter_num=100, cv=None, n_fold=5, ra
 def computeFC(data, labels, control_class, test_class):
     # NOTE: labels must be given explicitly, now
 
-    unique_labels = pd.unique(labels)
+    unique_labels = pd.unique(np.array(labels))
     if len(unique_labels) != 2:
         raise ValueError('The number of groups in the data is not two')
 
@@ -1537,7 +1537,7 @@ def computeFC(data, labels, control_class, test_class):
 
 # Compute p-values between two classes
 def compute_pvalues_2groups(data, labels, control_class, test_class, equal_var=True, useMW=False):
-    unique_labels = pd.unique(labels)
+    unique_labels = pd.unique(np.array(labels))
     if len(unique_labels) != 2:
         raise ValueError('The number of groups in the data is not two')
     locs0 = [i for i, lbl in enumerate(labels) if lbl == test_class]

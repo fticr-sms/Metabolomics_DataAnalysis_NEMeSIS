@@ -23,12 +23,16 @@ import multianalysis as ma
 
 # The initial pages, especially the read file one does not have the nomenclature that I started using later on
 # for the different widgets as well as organization
-pn.extension('plotly', 'floatpanel', 'katex', notifications=True)
+pn.extension('plotly', 'floatpanel', 'katex', 'gridstack', notifications=True)
 hv.extension('plotly')
 pn.config.sizing_mode="stretch_width"
 
+# To allow the interaction of different packages
+pd.DataFrame.iteritems = pd.DataFrame.items
+
 # TODO: Make a way to choose folder where all figures and tables downloaded go to
 # TODO: Change UpSetPlot name to IntersectionPlot everywhere
+# TODO: Updating packages made a series of future deprecation warnings appear - adapt code to them
 
 # Define pages as classes
 # Initial Pages class building with barebones for each class
@@ -165,7 +169,7 @@ class UnivariateAnalysisPage:
 class DataVisualizationPage:
     def __init__(self):
 
-        self.content = pn.Column("# Plots to Visualize Your Data", "Van Krevelen and Chemical Composition Series",
+        self.content = pn.Column("# Plots to Visualize Your Data", "Van Krevelen, Kendrick Mass Defect Plots and Chemical Composition Series",
                                  data_viz_page)
 
     def view(self):
@@ -799,7 +803,7 @@ def _confirm_button_databases_read(event):
     confirm_button_databases_read.disabled = True
     confirm_button_annotation_perform.disabled = False
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index) # Setup the annotation df
-    
+
     page2.append(annotation_param_selection)
 confirm_button_databases_read.on_click(_confirm_button_databases_read)
 
@@ -848,7 +852,7 @@ def metabolite_annotation():
                 ppm_margin = annotation_ppm_deviation.value
 
                 candidates_for_annotation = abs((DB_dict[db_to_use].db.value['Mass']-filtered_df.value[
-                    radiobox_neutral_mass.value][a])/filtered_df.value[radiobox_neutral_mass.value][a])*10**6
+                    radiobox_neutral_mass.value].iloc[a])/filtered_df.value[radiobox_neutral_mass.value].iloc[a])*10**6
                 candidates_for_annotation = candidates_for_annotation[candidates_for_annotation<ppm_margin]
 
             # Option 2 - Based on maximum Dalton Deviation
@@ -1069,7 +1073,7 @@ def _confirm_button_next_step_4(event):
 
     # Filling the target storage with the correct target and default colours
     target_list.target = target_widget.value.split(',')
-    target_list.classes = list(pd.unique(target_list.target))
+    target_list.classes = list(pd.unique(np.array(target_list.target)))
     target_list(target_widget.value.split(','), colours)
 
     # Setting up the layout of page 4
@@ -1188,12 +1192,18 @@ def _confirm_button_next_step_5(event):
     HCA_params.HCA_plot[0] = _plot_HCA()
     page_HCA[0:6,1:4] = HCA_params.HCA_plot[0]
 
+    # Updating the Common and Exclusive Compound Page since this is needed for the data diversity page
+    iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
+
     # Updating Widgets for Unsupervised Analysis
     UnivarA_Store._update_widgets()
 
     # Updating Widgets for Supervised Analysis
     PLSDA_store.n_folds_limits(target_list)
     RF_store.n_folds_limits(target_list)
+
+    # Updating Widgets for Data Diversity Visualization
+    dataviz_store.update_widgets()
 
     # Updating the layout for the transitional page
     main_area.clear()
@@ -3253,7 +3263,164 @@ univar_analysis_page = pn.Column(pn.pane.HTML(univ_opening_string), UnivarA_Stor
 
 
 # Page for Data Visualization
-data_viz_page = pn.Column()
+
+# Three sections: Van Krevelen Plots, Kendrick Mass Defect Plots and Chemical Composition Series
+# TODO: Legend does not appear in Van Krevelen Plot - make it appear
+
+# Param Class to store parameters and data regarding the 3 different plots
+class VanKrev_KMD_CCS_Storage(param.Parameterized):
+    "Class to store all information and parameters to plot Van Krevelen, Kendrick Mass Defect and Chemical Composition Series."
+
+    # Van Krevelen Parameters
+    vk_highlight_by = param.String(default='Rank')
+    vk_colour = param.Boolean(True)
+    vk_size = param.Boolean(True)
+    vk_midpoint = param.Number(default=0.7)
+    vk_max_dot_size = param.Number(default=8)
+    vk_show_colorbar = param.Boolean(default=True)
+    vk_draw_class_rectangle = param.Boolean(default=False)
+    vk_text = param.String('Select which columns with Formulas to consider:')
+    vk_formula_to_consider = param.List(default=checkbox_formula.value)
+
+    # Kendrick Mass Defect Plot Parameters
+    mass_rounding = param.String(default='Up')
+    kmd_dot_size = param.Number(default=5)
+    kmd_formula_to_consider = param.List(default=[])
+    dpi_kmd = param.Number(default=200)
+
+    # Chemical Composition Series Plot Parameters
+    bar_plot_type = param.String(default='Horizontal')
+    ccs_formula_to_consider = param.List(default=[])
+    dpi_ccs = param.Number(default=200)
+
+    # Storing figures
+    VanKrevelen_plot = param.List(default=['Pane for Van Krevelen Plot'])
+    VanKrevelen_filenames = param.List(default=[])
+    KendrickMD_plot = param.List(default=['Pane for Kendrick Mass Defect Plot'])
+    CCSPlot = param.List(default=['Pane for Chemical Composition Series'])
+
+    # Update the VK Plots
+    @param.depends('vk_highlight_by', 'vk_colour', 'vk_size', 'vk_midpoint', 'vk_max_dot_size', 'vk_show_colorbar',
+                   'vk_draw_class_rectangle', 'vk_formula_to_consider', watch=True)
+    def _compute_VK_plots(self):
+        "Computes Van Krevelen Plots and updates layout and widgets."
+
+        # Enabling and Disabling widgets
+        if self.vk_highlight_by == 'None':
+            self.controls_vk.widgets['vk_colour'].disabled = True
+            self.controls_vk.widgets['vk_size'].disabled = True
+            self.controls_vk.widgets['vk_midpoint'].disabled = True
+            self.controls_vk.widgets['vk_show_colorbar'].disabled = True
+        else:
+            if self.controls_vk.widgets['vk_colour'].disabled == True:
+                self.controls_vk.widgets['vk_colour'].disabled = False
+                self.controls_vk.widgets['vk_size'].disabled = False
+                self.controls_vk.widgets['vk_midpoint'].disabled = False
+                self.controls_vk.widgets['vk_show_colorbar'].disabled = False
+
+        # Setting up stores for figures and filenames
+        figures_list = []
+        filenames = []
+
+        for g in com_exc_compounds.group_dfs:
+            # Getting the Van Krevelen Plots and figures for each class and adding it to the store
+            fig, f = iaf._plot_VK_diagrams_individual(com_exc_compounds.group_dfs[g], # Filtered DF for specific class
+                                                  self, # Parameters to use for VK
+                                                  DataFrame_Store.univariate_df, # Full normalized data
+                                                  target_list.target, g) # Target and current class
+
+            if self.vk_draw_class_rectangle:
+                fig = iaf.vk_add_class_rectangles(fig)
+
+            figures_list.append(fig)
+            filenames.append(f)
+
+        # Storing as attributes
+        self.VanKrevelen_plot = figures_list
+        self.VanKrevelen_filenames = filenames
+
+        # Updating the layouts with the new VK plots
+        vk_plots.clear()
+        for i in range(len(self.VanKrevelen_plot)):
+            vk_plots.append(pn.pane.Plotly(self.VanKrevelen_plot[i],
+                           config = {'toImageButtonOptions': {'filename': self.VanKrevelen_filenames[i], 'scale':4,}}))
+
+
+
+    def update_widgets(self):
+        "Update the needed widget values."
+        formula_cols = checkbox_formula.value + [i for i in DataFrame_Store.metadata_df.columns if i.startswith('Matched') and i.endswith('formulas')]
+        self.controls_vk.widgets['vk_formula_to_consider'].options = formula_cols
+        self.controls_vk.widgets['vk_formula_to_consider'].value = formula_cols
+        self._compute_VK_plots()
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets_vk = {
+            'vk_highlight_by': pn.widgets.Select(name='What method to use to highlight points based on avg. intensity:',
+                                value='Rank', options=['Rank', 'logInt', 'None'],
+                                description='''Van Krevelen points (peaks) are coloured or sized based on their average intensity.
+                                Rank - by the rank of their average intensity compared to others.
+                                logInt - by the logarithm (base 10) of their averaged intensity compared to others.
+                                Midpoint marks the point from which a peak is considered low or high intensity.
+                                e.g. using 0.7 and "Rank" means that, if selected, 70% of points (lowest intensity) will have the low intensity colour and will be smaller and 30% the higher intensity colour and will be bigger.
+                                '''),
+            'vk_colour': pn.widgets.Checkbox(name='Colour points by intensity', value=True),
+            'vk_size': pn.widgets.Checkbox(name='Size points by intensity', value=True),
+            'vk_midpoint': pn.widgets.FloatSlider(name='Midpoint (% of points with "low" intensity)',
+                                value=0.7, start=0.0, end=1.0, step=0.05),
+            'vk_max_dot_size': pn.widgets.IntSlider(name='Max. dot size (or dot size in general)',
+                                value=8, start=1, end=20, step=1),
+            'vk_show_colorbar': pn.widgets.Checkbox(name='Show colorbar', value=True),
+            'vk_draw_class_rectangle': pn.widgets.Checkbox(name='Draw Peptide, Lignins, Tannins, Nucleotides and Phytochemical area rectangles', value=False),
+            'vk_text': pn.widgets.StaticText(name='',
+                                             value='Select which columns with Formulas to consider (at least 1 has to be selected):',
+                                            styles={'font-weight': 'bold'}),
+            'vk_formula_to_consider': pn.widgets.CheckBoxGroup(name='Columns', value=checkbox_formula.value,
+                                options=checkbox_formula.value, inline=False),
+        }
+
+        # Control panel for the Van Krevelen section
+        self.controls_vk = pn.Param(self,
+                                 parameters=['vk_highlight_by', 'vk_colour', 'vk_size', 'vk_midpoint', 'vk_max_dot_size',
+                                            'vk_show_colorbar', 'vk_draw_class_rectangle', 'vk_text', 'vk_formula_to_consider'],
+                                 widgets=widgets_vk, name='Van Krevelen Plot Parameters')
+
+
+# Van Krevelen Plot Section
+vk_opening_string = '''<strong>Van Krevelen Plot section</strong>
+<br>
+<br>
+This section plots a Van Krevelen Plot for each of the classes under analysis. This is made by only considering metabolites
+(features) that appear at least in one sample of said class.
+<br>
+Only metabolites with assigned formulas are considered. You can choose which formula annotation you want to use whether it
+is a previous annotation performed, an annotation performed in this software, or even multiple different annotations
+(<strong>Note: you HAVE to select at least one annotation</strong>). If multiple formulas can be assigned to a metabolite
+whether within the same database annotation or different, they are both considered and plotted in the Van Krevelen.
+<br>
+<br>
+You can also decide to colour the dots and make them different sized based on their average intensity in the corresponding
+class using either a rank-based (more linear) approach or the logarithm of the averages intensity (less linear). You can
+also choose a "midpoint", where the dots with avg. intensity below the midpoint % of the intensity of all features have a
+more bluish colour, while those above have a redder colour.
+'''
+
+dataviz_store = VanKrev_KMD_CCS_Storage()
+vk_plots = pn.Column()
+
+vk_page = pn.Column(pn.pane.HTML(vk_opening_string), dataviz_store.controls_vk, vk_plots)
+
+
+kmd_page = pn.Column()
+ccs_page = pn.Column()
+
+data_viz_page = pn.Tabs(('Van Krevelen Plot', vk_page), ('Kendrick Mass Defect Plot', kmd_page),
+                        ('Chemical Composition Series', ccs_page))
+
 
 # Page for BinSim Analysis
 binsim_analysis_page = pn.Column()
