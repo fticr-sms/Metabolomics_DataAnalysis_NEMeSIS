@@ -169,7 +169,10 @@ class UnivariateAnalysisPage:
 class DataVisualizationPage:
     def __init__(self):
 
-        self.content = pn.Column("# Plots to Visualize Your Data", "Van Krevelen, Kendrick Mass Defect Plots and Chemical Composition Series",
+        self.content = pn.Column("# Data Diversity Visualization Plots",
+                                 """This page allows you to plot Van Krevelen, Kendrick Mass Defect  and Chemical Composition Series Plots to visualize the data diversity in your dataset.
+                                 **Note**: Press the button to generate the data and update the different sections with relevant information from your workflow.
+                                 """, '', '#### Known Issue: Legend in Van Krevelen Plots does not appear. Randomly some Kendrick Mass Defect Plots have bigger points than others.',
                                  data_viz_page)
 
     def view(self):
@@ -1192,18 +1195,12 @@ def _confirm_button_next_step_5(event):
     HCA_params.HCA_plot[0] = _plot_HCA()
     page_HCA[0:6,1:4] = HCA_params.HCA_plot[0]
 
-    # Updating the Common and Exclusive Compound Page since this is needed for the data diversity page
-    iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
-
     # Updating Widgets for Unsupervised Analysis
     UnivarA_Store._update_widgets()
 
     # Updating Widgets for Supervised Analysis
     PLSDA_store.n_folds_limits(target_list)
     RF_store.n_folds_limits(target_list)
-
-    # Updating Widgets for Data Diversity Visualization
-    dataviz_store.update_widgets()
 
     # Updating the layout for the transitional page
     main_area.clear()
@@ -3281,32 +3278,37 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
     vk_max_dot_size = param.Number(default=8)
     vk_show_colorbar = param.Boolean(default=True)
     vk_draw_class_rectangle = param.Boolean(default=False)
-    vk_text = param.String('Select which columns with Formulas to consider:')
+    vk_text = param.String('Select which columns with Formulas to consider (at least 1 has to be selected):')
     vk_formula_to_consider = param.List(default=checkbox_formula.value)
 
     # Kendrick Mass Defect Plot Parameters
     kmd_mass_rounding = param.String(default='Up')
     kmd_max_dot_size = param.Number(default=8)
-    kmd_text = param.String('Select which columns with Formulas to consider:')
+    kmd_text = param.String('Select which columns with Formulas to consider for colouring (if none is selected, dots are not coloured):')
     kmd_formula_to_consider = param.List(default=checkbox_formula.value)
 
     # Chemical Composition Series Plot Parameters
-    bar_plot_type = param.String(default='Horizontal')
-    ccs_formula_to_consider = param.List(default=[])
-    dpi_ccs = param.Number(default=200)
+    ccs_bar_plot_type = param.String(default='Horizontal')
+    ccs_text = param.String('Select which columns with Formulas to consider for counting (at least 1 has to be selected):')
+    ccs_formula_to_consider = param.List(default=checkbox_formula.value)
+    ccs_desc = param.String(default='')
 
     # Storing figures
     VanKrevelen_plot = param.List(default=['Pane for Van Krevelen Plot'])
     VanKrevelen_filenames = param.List(default=[])
     KendrickMD_plot = param.List(default=['Pane for Kendrick Mass Defect Plot'])
     KendrickMD_filenames = param.List(default=[])
-    CCSPlot = param.List(default=['Pane for Chemical Composition Series'])
+    CCS_plot = param.List(default=['Pane for Chemical Composition Series'])
 
     # Update the VK Plots
     @param.depends('vk_highlight_by', 'vk_colour', 'vk_size', 'vk_midpoint', 'vk_max_dot_size', 'vk_show_colorbar',
                    'vk_draw_class_rectangle', 'vk_formula_to_consider', watch=True)
     def _compute_VK_plots(self):
         "Computes Van Krevelen Plots and updates layout and widgets."
+
+        if len(self.ccs_formula_to_consider) == 0:
+            pn.state.notifications.error('At least 1 Formula Annotation column must be provided for VK plot.')
+            raise ValueError('At least 1 Formula Annotation column must be provided for VK plot.')
 
         # Enabling and Disabling widgets
         if self.vk_highlight_by == 'None':
@@ -3391,8 +3393,88 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
             kmd_plots.append(pane)
 
 
+    # Update the CCS Plot
+    @param.depends('ccs_bar_plot_type', 'ccs_formula_to_consider', watch=True)
+    def _compute_CCS_plot(self, group_dfs=com_exc_compounds.group_dfs,
+                          series_order=('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP', 'other')):
+        "Computes and plots the chemical compostion series plot, updating the corresponding layout."
+
+        if len(self.ccs_formula_to_consider) == 0:
+            pn.state.notifications.error('At least 1 Formula Annotation column must be provided for CCS plot.')
+            raise ValueError('At least 1 Formula Annotation column must be provided for CCS plot.')
+
+        # Initialize figure
+        fig = go.Figure()
+
+        # Initialize the DataFrame
+        series_df = pd.DataFrame()
+
+        # Description of the number of formulas assigned considered for each class and from how many peaks they came from.
+        desc_string = [f'**Description with number of formulas assigned considered**', '']
+
+        # For each class
+        for g in group_dfs:
+            # Calculating H/C and O/C ratios and series classes for data diversity plots.
+            forms = com_exc_compounds.group_dfs[g].dropna(subset=self.ccs_formula_to_consider, how='all')
+            elems = iaf.create_element_counts(forms, formula_subset=self.ccs_formula_to_consider)
+
+            # Calculating counts of each series for each class
+            counts = elems['Series'].value_counts().reindex(series_order)
+            series_df[g] = counts # Store the counts in the dataframe
+
+            # Adding the class' bars to the plot
+            if self.ccs_bar_plot_type == 'Horizontal': # Horizontal bar plot
+                fig.add_trace(go.Bar(name=g, x=counts, y=series_order, orientation='h'))
+            else: # Vertical bar plot
+                fig.add_trace(go.Bar(name=g, x=series_order, y=counts, orientation='v'))
+
+            # Adding to the description
+            n_peaks = pd.Series(elems.index).value_counts().shape[0]
+            group_string = f'**{g}**: **{counts.sum()}** formulas were considered from a total of **{n_peaks}** peaks.'
+            desc_string.append(group_string)
+
+        # Defining x and y labels for horizontal and vertical barplots
+        if self.ccs_bar_plot_type == 'Horizontal': # Horizontal bar plot
+            xlabel = 'Nº of Formulas'
+            ylabel = 'Composition Series'
+        else: # Vertical bar plot
+            xlabel = 'Composition Series'
+            ylabel = 'Nº of Formulas'
+
+        # Defining major figure characteristics
+        fig.update_layout(
+            title="Chemical Composition Series",
+            xaxis_title=xlabel,
+            yaxis_title=ylabel,
+            legend_title="Classes")
+
+        # Setting up the attributes
+        self.CCS_plot[0] = fig
+        self.ccs_desc = '<br />'.join(desc_string) # <br /> leads to line breaks in Markdown
+        filename = 'CCS_Plot_formulacolumns_'
+        # Create appropriate filename
+        for cl in self.ccs_formula_to_consider:
+            filename = filename + f'_{cl}'
+
+        # Updating chemical composition series layout
+        if len(ccs_page) == 2:
+            ccs_page.append(self.ccs_desc)
+            ccs_page.append(pn.pane.Plotly(self.CCS_plot[0], height=600,
+                            config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}}))
+            ccs_page.append(pn.widgets.DataFrame(series_df.T))
+        else:
+            ccs_page[2] = self.ccs_desc
+            ccs_page[3] = pn.pane.Plotly(self.CCS_plot[0], height=600,
+                            config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
+            ccs_page[4] = pn.widgets.DataFrame(series_df.T)
+
+
     def update_widgets(self):
         "Update the needed widget values."
+        # Calculate specific class DataFrames in case it has not been calculated before
+        if com_exc_compounds.group_dfs == {}:
+            iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
+
         formula_cols = checkbox_formula.value + [i for i in DataFrame_Store.metadata_df.columns if i.startswith('Matched') and i.endswith('formulas')]
 
         # VK Plots
@@ -3404,6 +3486,11 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
         self.controls_kmd.widgets['kmd_formula_to_consider'].options = formula_cols
         self.controls_kmd.widgets['kmd_formula_to_consider'].value = formula_cols
         self._compute_KMD_plots()
+
+        # CCS
+        self.controls_ccs.widgets['ccs_formula_to_consider'].options = formula_cols
+        self.controls_ccs.widgets['ccs_formula_to_consider'].value = formula_cols
+        self._compute_CCS_plot(com_exc_compounds.group_dfs)
 
 
     def __init__(self, **params):
@@ -3428,8 +3515,8 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
             'vk_show_colorbar': pn.widgets.Checkbox(name='Show colorbar', value=True),
             'vk_draw_class_rectangle': pn.widgets.Checkbox(name='Draw Peptide, Lignins, Tannins, Nucleotides and Phytochemical area rectangles', value=False),
             'vk_text': pn.widgets.StaticText(name='',
-                                             value='Select which columns with Formulas to consider (at least 1 has to be selected):',
-                                            styles={'font-weight': 'bold'}),
+                                value='Select which columns with Formulas to consider (at least 1 has to be selected):',
+                                styles={'font-weight': 'bold'}),
             'vk_formula_to_consider': pn.widgets.CheckBoxGroup(name='Columns', value=checkbox_formula.value,
                                 options=checkbox_formula.value, inline=False),
         }
@@ -3442,9 +3529,19 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
             'kmd_max_dot_size': pn.widgets.IntSlider(name='Dot size',
                                 value=8, start=1, end=20, step=1),
             'kmd_text': pn.widgets.StaticText(name='',
-                                             value='Select which columns with Formulas to consider for colouring (if none is selected, dots are not coloured):',
-                                            styles={'font-weight': 'bold'}),
+                                value='Select which columns with Formulas to consider for colouring (if none is selected, dots are not coloured):',
+                                styles={'font-weight': 'bold'}),
             'kmd_formula_to_consider': pn.widgets.CheckBoxGroup(name='Columns', value=checkbox_formula.value,
+                                options=checkbox_formula.value, inline=False),
+        }
+
+        widgets_ccs = {
+            'ccs_bar_plot_type': pn.widgets.Select(name='Type of bar plot:',
+                                value='Horizontal', options=['Horizontal', 'Vertical']),
+            'ccs_text': pn.widgets.StaticText(name='',
+                                value='Select which columns with Formulas to consider for counting (at least 1 has to be selected):',
+                                styles={'font-weight': 'bold'}),
+            'ccs_formula_to_consider': pn.widgets.CheckBoxGroup(name='Columns', value=checkbox_formula.value,
                                 options=checkbox_formula.value, inline=False),
         }
 
@@ -3460,8 +3557,22 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
                                             'kmd_text', 'kmd_formula_to_consider'],
                                  widgets=widgets_kmd, name='Kendrick Mass Defect Plot Parameters')
 
+        # Control panel for the Chemical Composition Series section
+        self.controls_ccs = pn.Param(self,
+                                 parameters=['ccs_bar_plot_type', 'ccs_text', 'ccs_formula_to_consider'],
+                                 widgets=widgets_ccs, name='Chemical Composition Series Parameters')
+
+
 # Initializing the store
 dataviz_store = VanKrev_KMD_CCS_Storage()
+
+# Button to compute the data diversity visualization plots for the first time
+compute_vk_kmd_ccs_button = pn.widgets.Button(
+    name='Compute Van Krevelen, Kendrick Mass Defect and Chemical Composition Series Plots', button_type='success')
+def _compute_vk_kmd_ccs_button(event):
+    dataviz_store.update_widgets()
+compute_vk_kmd_ccs_button.on_click(_compute_vk_kmd_ccs_button)
+
 
 # Van Krevelen Plot Section
 vk_opening_string = '''<strong>Van Krevelen Plot section</strong>
@@ -3513,10 +3624,32 @@ kmd_plots = pn.Column()
 kmd_page = pn.Column(pn.pane.HTML(kmd_opening_string), dataviz_store.controls_kmd, kmd_plots)
 
 
-ccs_page = pn.Column()
+# Chemical Composition Series Section
+ccs_opening_string = '''<strong>Chemical Composition Series section</strong>
+<br>
+<br>
+This section plots a Chemical Composition Series bar plot indicating how many formulas of different chemical series ('CHO',
+'CHON', 'CHOP', 'CHONSP', etc.) were assigned to samples of each class.
+<br>
+<br>
+You can decide if you want to use formula annotations made previously, made in this software or a combination. <strong>If
+multiple formulas</strong> can be assigned to the same m/z peak whether within the same formula annotation made or between
+different annotations, <strong>each one will be counted in this plot</strong>. That is, if a peak in a class has 3 possible
+candidate formulas, 2 belonging to the 'CHO' series and another to the 'CHOP' series; then 2 formulas will be added to the
+'CHO' series and 1 to the 'CHOP' series. Thus, we are considering that the 3 elementary formulas are represented by that
+peak (probably an overestimation). In all cases, it is rare to find multiple candidate formulas for the same m/z peak,
+especially with extreme-resolution data. To provide an idea of how extensive this effect is, a description is also provided
+detailing how many formulas are being considered for each class and from how many different features (<em>m/z</em> peaks)
+they came from.
+'''
 
-data_viz_page = pn.Tabs(('Van Krevelen Plot', vk_page), ('Kendrick Mass Defect Plot', kmd_page),
-                        ('Chemical Composition Series', ccs_page))
+ccs_page = pn.Column(pn.pane.HTML(ccs_opening_string), dataviz_store.controls_ccs)
+
+
+data_viz_page = pn.Column(compute_vk_kmd_ccs_button, pn.Tabs(('Van Krevelen Plot', vk_page), ('Kendrick Mass Defect Plot', kmd_page),
+                        ('Chemical Composition Series', ccs_page)))
+
+
 
 
 # Page for BinSim Analysis

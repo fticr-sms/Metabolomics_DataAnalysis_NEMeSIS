@@ -1377,7 +1377,6 @@ def _plot_KMD_plot_individual(filt_df, dataviz_store, group, neutral_mass_col):
 
     if len(dataviz_store.kmd_formula_to_consider) == 0:
         fig.update_layout(showlegend=False)
-        fig.update_traces(marker=dataviz_store.kmd_max_dot_size)
         filename = f'KMD_plot_{group}'
         return fig, filename
 
