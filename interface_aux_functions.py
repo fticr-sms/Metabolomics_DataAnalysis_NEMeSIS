@@ -1133,7 +1133,7 @@ def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
 def _plot_VK_diagrams_individual(filt_df, dataviz_store, norm_full_df, target, group):
     "Plot Van Krevelen Diagrams based on parameters passed."
 
-    # Calculating H/C and O/C ratios
+    # Calculating H/C and O/C ratios and series classes for data diversity plots.
     forms = filt_df.dropna(subset=dataviz_store.vk_formula_to_consider, how='all')
     elems = create_element_counts(forms, formula_subset=dataviz_store.vk_formula_to_consider)
 
@@ -1168,7 +1168,7 @@ def _plot_VK_diagrams_individual(filt_df, dataviz_store, norm_full_df, target, g
         # Plot a simple Van Krevelen and end the function
         fig = px.scatter(elems, x="O/C", y="H/C", size=[1,]*len(elems),
                          size_max=dataviz_store.vk_max_dot_size, opacity=0.7,
-                         range_x=[-0.1,2.03], range_y=[0.15,2.03],
+                         range_x=[-0.1,2.03], range_y=[0.15,3.2],
                     hover_data={'Rank':True, 'logInt':True}, title='Van Krevelen - ' + group)
         filename = f'VK_plot_{group}_formulacolumns'
         # Create appropriate filename
@@ -1193,7 +1193,7 @@ def _plot_VK_diagrams_individual(filt_df, dataviz_store, norm_full_df, target, g
     fig = px.scatter(elems, x="O/C", y="H/C", color=color,
                  color_continuous_scale='Portland', size=s,
                  size_max=dataviz_store.vk_max_dot_size, opacity=0.7,
-                 range_x=[-0.1,2.03], range_y=[0.15,2.03],
+                 range_x=[-0.1,2.03], range_y=[0.15,3.2],
                     hover_data={dataviz_store.vk_highlight_by + 's':False, # remove
                              'Rank':True, 'logInt':True,
                             }, title='Van Krevelen - ' + group)
@@ -1245,36 +1245,57 @@ def vk_add_class_rectangles(fig):
     "Add rectangles delimiting zones for Peptide, Lignins, Tannins, Nucleotides and Phytochemical areas and corresponding legend."
 
     # Add a rectangle for each 'class'
+    # Lipids
+    fig.add_shape(type="rect", line_width=2,
+        x0=0, y0=1.32, x1=0.6, y1=1.32+1.78,
+        line=dict(color="olive"), line_dash='dash',
+        showlegend=True, name="Lipids",
+    )
+
+    # Amino-Sugars
+    fig.add_shape(type="rect", line_width=2,
+        x0=0.56, y0=1.55, x1=0.56+0.17, y1=1.55+0.41,
+        line=dict(color="salmon"), line_dash='dash',
+        showlegend=True, name="Amino-Sugars",
+    )
+
+    # Carbohydrates
+    fig.add_shape(type="rect", line_width=2,
+        x0=0.72, y0=1.53, x1=0.72+0.35, y1=1.53+0.74,
+        line=dict(color="Orange"), line_dash='dash',
+        showlegend=True, name="Carbohydrates",
+    )
+
     # Peptides
-    fig.add_shape(type="rect",
+    fig.add_shape(type="rect", line_width=2,
         x0=0.23, y0=1.48, x1=0.23+0.31, y1=1.48+0.51,
         line=dict(color="Green"), line_dash='dash',
         showlegend=True, name="Peptide",
     )
 
     # Lignins
-    fig.add_shape(type="rect",
+    fig.add_shape(type="rect", line_width=2,
         x0=0.26, y0=0.77, x1=0.26+0.36, y1=0.77+0.69,
         line=dict(color="Blue"), line_dash='dash',
         showlegend=True, name="Lignins",
     )
 
     # Tannins
-    fig.add_shape(type="rect",
+    fig.add_shape(type="rect", line_width=2,
         x0=0.62, y0=0.55, x1=0.62+0.28, y1=0.55+0.7,
         line=dict(color="Purple"), line_dash='dash',
         showlegend=True, name="Tannins",
     )
 
     # Nucleotides
-    fig.add_shape(type="rect",
+    fig.add_shape(type="rect", line_width=2,
         x0=0.5, y0=1, x1=0.5+0.7, y1=1+0.8,
         line=dict(color="Red"), line_dash='dash',
         showlegend=True, name="Nucleotides",
     )
 
     # Phytochemical
-    fig.add_shape(type="rect",
+    fig.add_shape(type="rect", line_width=2,
         x0=0, y0=0.2, x1=1.15, y1=0.2+1.32,
         line=dict(color="Black"), line_dash='dash',
         showlegend=True, name="Phythochemical",
@@ -1289,3 +1310,79 @@ def vk_add_class_rectangles(fig):
     ))
 
     return fig
+
+
+def _plot_KMD_plot_individual(filt_df, dataviz_store, group, neutral_mass_col):
+    "Plots Kendrick Mass Defect Plots based on parameters passed."
+
+    # Calculate points for the scatter plot, choose if rounding should happen by rounding up or to the nearest integer
+    if dataviz_store.kmd_mass_rounding == 'Up':
+        rounding = 'up'
+    else:
+        rounding = 'nearest'
+    nominal, fraction = metsta.calc_kmd(filt_df, rounding=rounding, neutral_mass_col=neutral_mass_col)
+
+    # Create DF that will be used to plot
+    new_df = pd.DataFrame()
+    new_df['Kendrick Nominal Mass'] = nominal
+    new_df['Kendrick Mass Defect'] = fraction
+
+    # See if dots should be coloured by the chemical composition series
+    if len(dataviz_store.kmd_formula_to_consider) == 0: # If not
+        c = [None, ]*len(new_df)
+        new_df['Comp. Class'] = c
+
+    else: # If Yes
+        # Calculating H/C and O/C ratios and series classes for data diversity plots.
+        forms = filt_df.dropna(subset=dataviz_store.kmd_formula_to_consider, how='all')
+        elems = create_element_counts(forms, formula_subset=dataviz_store.kmd_formula_to_consider)
+
+        class_labels = []
+        n_form_per_peak = pd.Series(elems.index).value_counts()
+
+        for i in filt_df.index: # For each peak to consider
+            # If it has formula assigned by the formula columns selected
+            if i in elems.index:
+                # See if it has more than one formula
+                if n_form_per_peak.loc[i] > 1:
+                    # If it has, see if they belong to the same class series or not
+                    cl = set(elems.loc[i, 'Series'])
+                    if len(cl) == 1: # If yes assign it
+                        class_labels.append(elems.loc[i, 'Series'].iloc[0])
+                    else: # If not, say it is Ambiguous
+                        class_labels.append('Ambiguous')
+
+                # In case it only has one formula
+                else:
+                    class_labels.append(elems['Series'].loc[i])
+
+            # If it has not formula assigned by the formula columns selected
+            else:
+                class_labels.append('No Formula')
+
+        new_df['Comp. Class'] = class_labels
+        c = class_labels
+
+    # See if dots should have different sizes based on intensity
+    s = [1,]*len(new_df)
+
+    # Plot Kendrick Mass Defect Plot with all the specified parameters
+    fig = px.scatter(new_df, x='Kendrick Nominal Mass', y='Kendrick Mass Defect', color='Comp. Class', size=s,
+                 size_max=dataviz_store.kmd_max_dot_size, opacity=0.5,
+                 range_x=[0,1250],
+                 category_orders={"Comp. Class": ['CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP',
+                                                      'other', 'No Formula', 'Ambiguous']},
+                 title = 'Kendrick Mass Defect - ' + group
+                    )
+
+    if len(dataviz_store.kmd_formula_to_consider) == 0:
+        fig.update_layout(showlegend=False)
+        fig.update_traces(marker=dataviz_store.kmd_max_dot_size)
+        filename = f'KMD_plot_{group}'
+        return fig, filename
+
+    filename = f'KMD_plot_{group}_formulacolumns'
+    for cl in dataviz_store.vk_formula_to_consider:
+        filename = filename + f'_{cl}'
+
+    return fig, filename

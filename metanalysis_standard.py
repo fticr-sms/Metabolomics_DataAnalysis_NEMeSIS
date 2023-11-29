@@ -1674,7 +1674,7 @@ def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
 
     return result
 
-def calc_kmd(data, rounding='up'):
+def calc_kmd(data, rounding='up', neutral_mass_col='Neutral Mass'):
     """Calculates Kendrick Mass Nominal Mass and Kendrick Mass Defect to plot Kendrick Mass Defect Plots.
        
        rounding: str (default: 'up') - 'up' or 'nearest', determines what nominal mass to consider, if rounding Kendrick mass
@@ -1683,7 +1683,7 @@ def calc_kmd(data, rounding='up'):
        returns: the Nominal Kendrick Mass and the Kendrick Mass Defect for the mass data given."""
 
     # Calculating Exact Kendrick Mass
-    masses = data['Neutral Mass']
+    masses = data[neutral_mass_col]
     Kendrick_m = masses * 14 / 14.0156500638
 
     nominal = []

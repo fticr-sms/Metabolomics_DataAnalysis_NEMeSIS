@@ -74,7 +74,7 @@ class DataFiltering:
 class DataAnnotation:
     def __init__(self):
         self.content = pn.Column("# Section 2: Data Annotation", 
-    """Perform Annotations based on available databases. 
+    """Perform Annotations based on available databases. **Cannot perform annotation without a selected Neutral Mass column.**
     You can annotate with multiple databases. However, each database is annotated individually.
     Annotation works by assigning to a m/z peak / feature all metabolites of a database that are within the provided error margin.
     Annotation from two different databases might annotate different metabolites for the same m/z peak / feature.
@@ -3266,6 +3266,8 @@ univar_analysis_page = pn.Column(pn.pane.HTML(univ_opening_string), UnivarA_Stor
 
 # Three sections: Van Krevelen Plots, Kendrick Mass Defect Plots and Chemical Composition Series
 # TODO: Legend does not appear in Van Krevelen Plot - make it appear
+# TODO: Make Kendrick Mass Defect Plots have different sizes based on avg. intensity like in VK plots?
+# TODO: KMD Plots of different classes have different dot sizes - why?? What can even cause this?
 
 # Param Class to store parameters and data regarding the 3 different plots
 class VanKrev_KMD_CCS_Storage(param.Parameterized):
@@ -3283,10 +3285,10 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
     vk_formula_to_consider = param.List(default=checkbox_formula.value)
 
     # Kendrick Mass Defect Plot Parameters
-    mass_rounding = param.String(default='Up')
-    kmd_dot_size = param.Number(default=5)
-    kmd_formula_to_consider = param.List(default=[])
-    dpi_kmd = param.Number(default=200)
+    kmd_mass_rounding = param.String(default='Up')
+    kmd_max_dot_size = param.Number(default=8)
+    kmd_text = param.String('Select which columns with Formulas to consider:')
+    kmd_formula_to_consider = param.List(default=checkbox_formula.value)
 
     # Chemical Composition Series Plot Parameters
     bar_plot_type = param.String(default='Horizontal')
@@ -3297,6 +3299,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
     VanKrevelen_plot = param.List(default=['Pane for Van Krevelen Plot'])
     VanKrevelen_filenames = param.List(default=[])
     KendrickMD_plot = param.List(default=['Pane for Kendrick Mass Defect Plot'])
+    KendrickMD_filenames = param.List(default=[])
     CCSPlot = param.List(default=['Pane for Chemical Composition Series'])
 
     # Update the VK Plots
@@ -3323,7 +3326,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
         filenames = []
 
         for g in com_exc_compounds.group_dfs:
-            # Getting the Van Krevelen Plots and figures for each class and adding it to the store
+            # Getting the Van Krevelen Plots and filenames for each class and adding it to the store
             fig, f = iaf._plot_VK_diagrams_individual(com_exc_compounds.group_dfs[g], # Filtered DF for specific class
                                                   self, # Parameters to use for VK
                                                   DataFrame_Store.univariate_df, # Full normalized data
@@ -3342,17 +3345,65 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
         # Updating the layouts with the new VK plots
         vk_plots.clear()
         for i in range(len(self.VanKrevelen_plot)):
-            vk_plots.append(pn.pane.Plotly(self.VanKrevelen_plot[i],
-                           config = {'toImageButtonOptions': {'filename': self.VanKrevelen_filenames[i], 'scale':4,}}))
+            # Repeating this since otherwise the legend does not appear - it still does not appear
+            self.VanKrevelen_plot[i].update_layout(showlegend=True, legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="right",
+                x=0.99)),
+            pane = pn.pane.Plotly(self.VanKrevelen_plot[i],
+                           config = {'toImageButtonOptions': {'filename': self.VanKrevelen_filenames[i], 'scale':4,}})
+            vk_plots.append(pane)
 
+
+    # Update the KMD Plots
+    @param.depends('kmd_mass_rounding', 'kmd_max_dot_size', 'kmd_formula_to_consider', watch=True)
+    def _compute_KMD_plots(self):
+        "Computes Kendrick Mass Defect Plots and updates layout."
+
+        # Setting up stores for figures and filenames
+        figures_list = []
+        filenames = []
+
+        # Kendrick Mass Defect Plots cannot be computed without a neutral mass column
+        if radiobox_neutral_mass.value == 'None':
+            return
+
+        for g in com_exc_compounds.group_dfs:
+            # Getting the Kendrick Mass Defect Plots for each class and adding it to the store
+            fig, f = iaf._plot_KMD_plot_individual(com_exc_compounds.group_dfs[g], # Filtered DF for specific class
+                                                   self, # Parameters to use for VK
+                                                   g, # Current class
+                                                   radiobox_neutral_mass.value) # Neutral Mass Column
+
+            figures_list.append(fig)
+            filenames.append(f)
+
+        # Storing as attributes
+        self.KendrickMD_plot = figures_list
+        self.KendrickMD_filenames = filenames
+
+        # Updating the layouts with the new Kendrick Mass Defect plots
+        kmd_plots.clear()
+        for i in range(len(self.KendrickMD_plot)):
+            pane = pn.pane.Plotly(self.KendrickMD_plot[i],
+                           config = {'toImageButtonOptions': {'filename': self.KendrickMD_filenames[i], 'scale':4,}})
+            kmd_plots.append(pane)
 
 
     def update_widgets(self):
         "Update the needed widget values."
         formula_cols = checkbox_formula.value + [i for i in DataFrame_Store.metadata_df.columns if i.startswith('Matched') and i.endswith('formulas')]
+
+        # VK Plots
         self.controls_vk.widgets['vk_formula_to_consider'].options = formula_cols
         self.controls_vk.widgets['vk_formula_to_consider'].value = formula_cols
         self._compute_VK_plots()
+
+        # KMD Plots
+        self.controls_kmd.widgets['kmd_formula_to_consider'].options = formula_cols
+        self.controls_kmd.widgets['kmd_formula_to_consider'].value = formula_cols
+        self._compute_KMD_plots()
 
 
     def __init__(self, **params):
@@ -3383,12 +3434,34 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
                                 options=checkbox_formula.value, inline=False),
         }
 
+        widgets_kmd = {
+            'kmd_mass_rounding': pn.widgets.Select(name='Choose how to round experimental masses to nominal:',
+                                value='Up', options=['Up', 'Nearest'],
+                                description='''Kendrick Nominal Mass is obtained by rounding up or to the nearest integer.
+                                '''),
+            'kmd_max_dot_size': pn.widgets.IntSlider(name='Dot size',
+                                value=8, start=1, end=20, step=1),
+            'kmd_text': pn.widgets.StaticText(name='',
+                                             value='Select which columns with Formulas to consider for colouring (if none is selected, dots are not coloured):',
+                                            styles={'font-weight': 'bold'}),
+            'kmd_formula_to_consider': pn.widgets.CheckBoxGroup(name='Columns', value=checkbox_formula.value,
+                                options=checkbox_formula.value, inline=False),
+        }
+
         # Control panel for the Van Krevelen section
         self.controls_vk = pn.Param(self,
                                  parameters=['vk_highlight_by', 'vk_colour', 'vk_size', 'vk_midpoint', 'vk_max_dot_size',
                                             'vk_show_colorbar', 'vk_draw_class_rectangle', 'vk_text', 'vk_formula_to_consider'],
                                  widgets=widgets_vk, name='Van Krevelen Plot Parameters')
 
+        # Control panel for the Kendrick Mass Defect section
+        self.controls_kmd = pn.Param(self,
+                                 parameters=['kmd_mass_rounding', 'kmd_max_dot_size',
+                                            'kmd_text', 'kmd_formula_to_consider'],
+                                 widgets=widgets_kmd, name='Kendrick Mass Defect Plot Parameters')
+
+# Initializing the store
+dataviz_store = VanKrev_KMD_CCS_Storage()
 
 # Van Krevelen Plot Section
 vk_opening_string = '''<strong>Van Krevelen Plot section</strong>
@@ -3409,13 +3482,37 @@ also choose a "midpoint", where the dots with avg. intensity below the midpoint 
 more bluish colour, while those above have a redder colour.
 '''
 
-dataviz_store = VanKrev_KMD_CCS_Storage()
 vk_plots = pn.Column()
 
 vk_page = pn.Column(pn.pane.HTML(vk_opening_string), dataviz_store.controls_vk, vk_plots)
 
 
-kmd_page = pn.Column()
+# Kendrick Mass Defect Plot Section
+kmd_opening_string = '''<strong>Kendrick Mass Defect Plot section</strong>
+<br>
+<br>
+This section plots a Kendrick Mass Defect Plot for each of the classes under analysis. This is plotted based on Neutral
+Mass column selected.
+<br>
+Kendrick Nominal Mass and Mass Defect can be calculated in two ways:
+<br>
+- <strong>'Up'</strong>: by rounding the neutral mass up, thus the Mass Defects will vary between 0 and 1.
+<br>
+- <strong>'Nearest'</strong>: by rounding the neutral mass to the nearest integer, thus the Mass Defects will vary between -0.5 and 0.5.
+<br>
+<br>
+You can decide to colour the dots based on the chemical composition series they belong to ('CHO', 'CHON', 'CHOP', 'CHONSP',
+etc.) by selecting the formula columns of previous annotations, of the annotations performed in the software or a
+combination of them. When, for one peak, there are multiple candidate formulas and they do not belong to the same chemical
+composition series, they get assigned as <strong>'Ambiguous'</strong>. If <strong>None</strong> is selected, then the
+points are not coloured by chemical composition series.
+'''
+
+kmd_plots = pn.Column()
+
+kmd_page = pn.Column(pn.pane.HTML(kmd_opening_string), dataviz_store.controls_kmd, kmd_plots)
+
+
 ccs_page = pn.Column()
 
 data_viz_page = pn.Tabs(('Van Krevelen Plot', vk_page), ('Kendrick Mass Defect Plot', kmd_page),
