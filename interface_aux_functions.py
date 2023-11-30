@@ -536,13 +536,13 @@ def _plot_Venn_diagram(com_exc_compounds, target_list):
                                     duration=2000)
 
 
-def _plot_upsetplots(com_exc_compounds, groups_dict, ups):
-    "Plot an Upsetplot"
-    # Plotting UpSetPlot
+def _plot_intersection_plots(com_exc_compounds, groups_dict, ups):
+    "Plot an Intersection plot"
+    # Plotting Intersection Plot
     f,ax = plt.subplots(1,1, constrained_layout=True, dpi=400)
-    if com_exc_compounds.upset_include_counts_percentages == 'Show Nº and % of metabolites':
+    if com_exc_compounds.inter_include_counts_percentages == 'Show Nº and % of metabolites':
         include_counts, include_percentages = True, True
-    elif com_exc_compounds.upset_include_counts_percentages == 'Show Nº of metabolites':
+    elif com_exc_compounds.inter_include_counts_percentages == 'Show Nº of metabolites':
         include_counts, include_percentages = True, False
     else:
         include_counts, include_percentages = False, False
@@ -1385,3 +1385,44 @@ def _plot_KMD_plot_individual(filt_df, dataviz_store, group, neutral_mass_col):
         filename = filename + f'_{cl}'
 
     return fig, filename
+
+
+
+### Functions related to the Compound Finder search tool page of the graphical interface
+
+def build_annotation_to_idx_dict(metadata_df, col_list):
+    "Builds a dictionary with all the annotations found in the provided columns as keys and the idxs where they are as values."
+
+    # Filter the DataFrame given to only the columns provided
+    filt_df = metadata_df[col_list].dropna(how='all')
+
+    ann_to_idxs_dict = {}
+
+    # For each bucket label with the type of compound chosen
+    for idx in filt_df.index:
+        for col in col_list: # For each column corresponding to the type of column
+            # Get the annotations
+            annots = filt_df.loc[idx, col]
+
+            # If it is a single string annotation
+            if type(annots) == str:
+                if annots not in ann_to_idxs_dict.keys(): # And not added to the list
+                    # Add to the dict
+                    ann_to_idxs_dict[annots] = [idx, ]
+                else: # If already added to the list
+                    # Add the idx to the dict if it is different from what is there already
+                    if idx not in ann_to_idxs_dict[annots]:
+                        ann_to_idxs_dict[annots].append(idx)
+
+            # If it is a list-like annotation
+            elif type(annots) != float:
+                for c in annots: # Go through every annotated compound
+                    # Add to the dict when it is not already there
+                    if c not in ann_to_idxs_dict.keys():
+                        ann_to_idxs_dict[c] = [idx, ]
+                    else: # If already added to the list
+                        # Add the idx to the dict if it is different from what is there already
+                        if idx not in ann_to_idxs_dict[c]:
+                            ann_to_idxs_dict[c].append(idx)
+
+    return ann_to_idxs_dict

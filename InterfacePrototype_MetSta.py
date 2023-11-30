@@ -13,6 +13,7 @@ import scipy.cluster.hierarchy as hier
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from upsetplot import from_contents
+import pickle
 
 # File with functions to auxiliate the graphical interface
 import interface_aux_functions as iaf
@@ -23,7 +24,7 @@ import multianalysis as ma
 
 # The initial pages, especially the read file one does not have the nomenclature that I started using later on
 # for the different widgets as well as organization
-pn.extension('plotly', 'floatpanel', 'katex', 'gridstack', notifications=True)
+pn.extension('plotly', 'floatpanel', 'katex', notifications=True)
 hv.extension('plotly')
 pn.config.sizing_mode="stretch_width"
 
@@ -31,8 +32,8 @@ pn.config.sizing_mode="stretch_width"
 pd.DataFrame.iteritems = pd.DataFrame.items
 
 # TODO: Make a way to choose folder where all figures and tables downloaded go to
-# TODO: Change UpSetPlot name to IntersectionPlot everywhere
 # TODO: Updating packages made a series of future deprecation warnings appear - adapt code to them
+# TODO: Make an instructions page (known problems, how to use, maybe even how to install?)
 
 # Define pages as classes
 # Initial Pages class building with barebones for each class
@@ -44,15 +45,19 @@ class OpeningPage:
     def view(self):
         return self.content
 
+
 class DataReading:
     def __init__(self):
         self.content = pn.Column("# Section 1: Data Input", """Inputting your Excel or csv MetaboScape file.
                                  If your file is not from MetaboScape, it should have the _m/z_ peak column be called 'Bucket Label'.
+                                 An extra column called 'Neutral Mass' will be automatically added to your data if your 'Bucket Label' comes from MetaboScape or can be interpreted as a float.
+                                 Otherwise, a notification will inform that this column could not be added.
                                  After confirming your dataset and moving to the next page, you will not be able to change it unless you restart the program.""",
                                 section1page)
 
     def view(self):
         return self.content
+
 
 class DataMetadata:
     def __init__(self):
@@ -61,7 +66,8 @@ class DataMetadata:
 
     def view(self):
         return self.content
-    
+
+
 class DataFiltering:
     def __init__(self):
         self.content = pn.Column("# Section 1.2: Selecting Data Filtering Method",
@@ -78,7 +84,7 @@ class DataAnnotation:
     You can annotate with multiple databases. However, each database is annotated individually.
     Annotation works by assigning to a m/z peak / feature all metabolites of a database that are within the provided error margin.
     Annotation from two different databases might annotate different metabolites for the same m/z peak / feature.
-    Thus, each database annotation will generate 3 columns added to the metadata: one with the IDs of the metabolites annotated, another with their formula and another with their name.""",
+    Thus, each database annotation will generate **3 columns** added to the metadata: one with the **IDs** of the metabolites annotated, another with their **formula** and another with their **name**.""",
                                 page2)
 
     def view(self):
@@ -113,12 +119,13 @@ class TransitionalPage:
     def view(self):
         return self.content
 
+
 class CommonExclusivePage:
     def __init__(self):
 
         self.content = pn.Column("# Seeing Common and Exclusive Compounds Between Biological Classes",
-                                 "This includes an overview analysis as well as Venn Diagrams and UpSetPlots",
-                                 "##### Known problem: Repeating IDs leading to problems in Venn Diagrams and UpSetPlots appearing at the same time.",
+                                 "This includes an overview analysis as well as Venn Diagrams and Intersection Plots",
+                                 "##### Known problem: Repeating IDs leading to problems in Venn Diagrams and Intersection Plots appearing at the same time.",
                                  comexc_page)
 
     def view(self):
@@ -174,6 +181,27 @@ class DataVisualizationPage:
                                  **Note**: Press the button to generate the data and update the different sections with relevant information from your workflow.
                                  """, '', '#### Known Issue: Legend in Van Krevelen Plots does not appear. Randomly some Kendrick Mass Defect Plots have bigger points than others.',
                                  data_viz_page)
+
+    def view(self):
+        return self.content
+
+
+class PathwayAssignmentPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Pathway Assignment (HMDB Annotation)",
+                                 pn.pane.HTML("""This page allows you to assign or match known metabolic pathways to HMDB annotations only. This is made based on a file created from the
+                                              <strong>RAMP database</strong> (<a href="https://rampdb.nih.gov/" target="_blank" rel="nofollow">https://rampdb.nih.gov/</a>) where 55934 HMDB
+                                              compounds have at least 1 corresponding pathway. The pathways shown are aggregated from multiple sources: HMDB, Reactome, WikiPathways and KEGG; from
+                                              where RAMP provides the information
+                                              (<a href="https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287" target="_blank" rel="nofollow">https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287</a>).
+                                              <br>
+                                              Thus, for this, there must be a column with the <strong>HMDB identifiers</strong> (e.g. 'HMDB0000001') from which the assignment can be performed.
+                                              The output gives the HMDB IDs and annotation names (if possible) as index in a DataFrame and the name and id of the pathways that they belong to
+                                              according to this built file.
+                                              <br><br>
+                                              <strong>If no HMDB identifiers are present, you will not be able to perform this data analysis step</strong>."""),
+                                 path_assign_page)
 
     def view(self):
         return self.content
@@ -236,9 +264,8 @@ to the indications in the "Data Annotation" page.<br>
 <hr />
 <br>
 - Software made by: <strong>FT-ICR and Structural Mass Spectrometry Laboratory, BioISI, Faculdade de Ciências da
-Universidade de Lisboa</strong> (<a href="http://ft-icr.rd.ciencias.ulisboa.pt/" target="_blank" rel="nofollow">
-ft-icr.rd.ciencias.ulisboa.pt/
-</a>)
+Universidade de Lisboa</strong> (<a href="http://ft-icr.rd.ciencias.ulisboa.pt/" target="_blank"
+rel="nofollow">ft-icr.rd.ciencias.ulisboa.pt/</a>)
 <br>
 <br>
 If you use this software in your untargeted metabolomcis data analysis, we would be grateful if you cite our paper
@@ -1174,6 +1201,7 @@ def _confirm_button_next_step_5(event):
     page9_button.disabled = False
     page10_button.disabled = False
     page11_button.disabled = False
+    page12_button.disabled = False
 
     # Initial Calculations for PCA and storing initial plots
     principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(DataFrame_Store.treated_df,
@@ -1202,6 +1230,13 @@ def _confirm_button_next_step_5(event):
     PLSDA_store.n_folds_limits(target_list)
     RF_store.n_folds_limits(target_list)
 
+    # Updating Widgets for Pathway Assignment
+    PathAssign_store._update_widgets(DataFrame_Store.metadata_df, pathway_db)
+
+    # Obtaining possibilities to search for based on type of identifier for the compound finder tool
+    comp_finder._calculate_possible_options(DataFrame_Store.metadata_df, checkbox_annotation,
+                                        checkbox_formula, radiobox_neutral_mass)
+
     # Updating the layout for the transitional page
     main_area.clear()
     show_page(pages["Transitional Page"])
@@ -1223,6 +1258,7 @@ Univariate_A = pn.widgets.Button(name='Univariate Analysis', button_type='defaul
 DataViz_A = pn.widgets.Button(name='Data Visualization', button_type='default')
 
 # Buttons for the secondary analyses steps
+PathAssign_A = pn.widgets.Button(name='Pathway Assignment Analysis', button_type='default')
 BinSim_A = pn.widgets.Button(name='BinSim Specific Analysis', button_type='default')
 CompFinder_A = pn.widgets.Button(name='Compound Finder', button_type='default')
 ToBeAdded_A = pn.widgets.Button(name='More to be added', button_type='danger', disabled=True)
@@ -1253,6 +1289,11 @@ def _confirm_button_DataViz_A(event):
     show_page(pages["Data Visualization"])
 DataViz_A.on_click(_confirm_button_DataViz_A)
 
+def _confirm_button_PathAssign_A(event):
+    main_area.clear()
+    show_page(pages["Pathway Assignment"])
+PathAssign_A.on_click(_confirm_button_PathAssign_A)
+
 def _confirm_button_BinSim_A(event):
     main_area.clear()
     show_page(pages["BinSim Analysis"])
@@ -1266,7 +1307,7 @@ CompFinder_A.on_click(_confirm_button_CompFinder_A)
 # Transitional page Layout
 transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, DataViz_A),
                              '## Other Options:',
-                             pn.Row(BinSim_A, CompFinder_A, ToBeAdded_A))
+                             pn.Row(PathAssign_A, BinSim_A, CompFinder_A, ToBeAdded_A))
 
 
 
@@ -1277,7 +1318,7 @@ transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, Dat
 
 # Param Class to store parameters and data regarding Common and Exclusive Compounds
 class ComExc_Storage(param.Parameterized):
-    "Class to store all information on common and exclusive compounds and to plot Venn diagrams and UpSetPlots."
+    "Class to store all information on common and exclusive compounds and to plot Venn diagrams and Intersection Plots."
 
     # Dictionaries to group information
     groups = param.Dict(default={})
@@ -1308,14 +1349,14 @@ class ComExc_Storage(param.Parameterized):
     type_of_venn = param.String(default='All Metabolites (Annotated)')
     dpi_venn = param.Number(default=200)
 
-    # UpsetPlot parameters
-    upset_class_subset = param.List(default=list())
-    upset_include_counts_percentages = param.String(default='Show Nº of metabolites')
-    dpi_upset = param.Number(default=200)
+    # Intersection Plot parameters
+    inter_class_subset = param.List(default=list())
+    inter_include_counts_percentages = param.String(default='Show Nº of metabolites')
+    dpi_inter = param.Number(default=200)
 
     # Storing figure
     Venn_plot = param.List(default=['Pane for Venn Diagram'])
-    UpSetPlot = param.List(default=['Pane for UpSetPlot1', 'Pane for UpSetPlot2'])
+    IntersectionPlot = param.List(default=['Pane for Intersection Plot1', 'Pane for Intersection Plot2'])
 
 
     # Update the subset df plot based on specifications chosen
@@ -1385,33 +1426,33 @@ class ComExc_Storage(param.Parameterized):
         #    end_page_comexc[1] = venn_page
 
 
-    # Update the UpSetPlot based on specifications chosen
-    @param.depends('upset_class_subset', 'upset_include_counts_percentages', 'dpi_upset', watch=True)
-    def _update_Upsetplot(self):
-        "Update the UpSetPlots based on parameters given."
-        if 1 < len(self.upset_class_subset):
-            self.UpSetPlot = []
+    # Update the Intersection Plot based on specifications chosen
+    @param.depends('inter_class_subset', 'inter_include_counts_percentages', 'dpi_inter', watch=True)
+    def _update_Intersectionplot(self):
+        "Update the Intersection Plots based on parameters given."
+        if 1 < len(self.inter_class_subset):
+            self.IntersectionPlot = []
 
             # Select the relevant data - all metabolites and annotated metabolites
             groups_dict = {}
             groups_dict_ids = {}
-            for df in self.upset_class_subset:
+            for df in self.inter_class_subset:
                 groups_dict[df] = self.group_dfs[df].index
                 groups_dict_ids[df] = self.group_dfs_ids[df].index
 
             ups = from_contents(groups_dict)
-            self.UpSetPlot.append(iaf._plot_upsetplots(self, groups_dict, ups))
-            upset_page[2] = pn.pane.Matplotlib(self.UpSetPlot[0], height=300)
+            self.IntersectionPlot.append(iaf._plot_intersection_plots(self, groups_dict, ups))
+            interplot_page[2] = pn.pane.Matplotlib(self.IntersectionPlot[0], height=300)
             plt.close()
 
             ups_ids = from_contents(groups_dict_ids)
 
-            self.UpSetPlot.append(iaf._plot_upsetplots(self, groups_dict_ids, ups_ids))
+            self.IntersectionPlot.append(iaf._plot_intersection_plots(self, groups_dict_ids, ups_ids))
 
-            upset_page[5] = pn.pane.Matplotlib(self.UpSetPlot[1], height=300)
+            interplot_page[5] = pn.pane.Matplotlib(self.IntersectionPlot[1], height=300)
             plt.close()
         else:
-            pn.state.notifications.info(f'UpSetPlot can only be made with 2 or more classes. You currently have {len(self.upset_class_subset)} classes.')
+            pn.state.notifications.info(f'Intersection Plot can only be made with 2 or more classes. You currently have {len(self.inter_class_subset)} classes.')
 
 
     def _update_widgets(self):
@@ -1437,24 +1478,24 @@ class ComExc_Storage(param.Parameterized):
             'dpi_venn': pn.widgets.IntInput(name="DPI (Resolution)",
                                     value=200, step=10, start=100, disabled=False,
                                     description='Set the resolution of diagram'),
-            'upset_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
+            'inter_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
                                 options=target_list.classes, inline=False, disabled=False),
-            'upset_include_counts_percentages': pn.widgets.RadioBoxGroup(name='Show:',
+            'inter_include_counts_percentages': pn.widgets.RadioBoxGroup(name='Show:',
                                 value='Show Nº of metabolites', options=['Show Nº and % of metabolites',
                                 'Show Nº of metabolites', 'Show neither'], inline=False, disabled=False),
-            'dpi_upset': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
-                                    description='Set the resolution of UpSetPlots'),
+            'dpi_inter': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
+                                    description='Set the resolution of Intersection Plots'),
         }
         self.class_subset = []
         self.venn_class_subset = target_list.classes
-        self.upset_class_subset = target_list.classes
+        self.inter_class_subset = target_list.classes
 
-        # Control panel for the overview section, for the Venn diagram section and for the Upsetplot section
+        # Control panel for the overview section, for the Venn diagram section and for the Intersection plot section
         return (pn.Param(self, parameters=['class_subset', 'df_type', 'annot'], widgets=widgets, name='Subset of Data to See'),
                 pn.Param(self, parameters=['venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn'], widgets=widgets,
                          name='Parameters to draw Venn Diagram'),
-                pn.Param(self, parameters=['upset_class_subset', 'upset_include_counts_percentages','dpi_upset'],
-                         widgets=widgets, name='Parameters to draw UpSetPlots', default_layout=pn.Row))
+                pn.Param(self, parameters=['inter_class_subset', 'inter_include_counts_percentages','dpi_inter'],
+                         widgets=widgets, name='Parameters to draw Intersection Plots', default_layout=pn.Row))
 
 
     def __init__(self, **params):
@@ -1482,13 +1523,13 @@ class ComExc_Storage(param.Parameterized):
             'dpi_venn': pn.widgets.IntInput(name="DPI (Resolution)",
                                     value=200, step=10, start=100, disabled=False,
                                     description='Set the resolution of diagram'),
-            'upset_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
+            'inter_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
                                 options=target_list.classes, inline=False, disabled=False),
-            'upset_include_counts_percentages': pn.widgets.RadioBoxGroup(name='Show:',
+            'inter_include_counts_percentages': pn.widgets.RadioBoxGroup(name='Show:',
                                 value='Show Nº of metabolites', options=['Show Nº and % of metabolites',
                                 'Show Nº of metabolites', 'Show neither'], inline=False, disabled=False),
-            'dpi_upset': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
-                                    description='Set the resolution of UpSetPlots'),
+            'dpi_inter': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
+                                    description='Set the resolution of Intersection Plots'),
         }
 
         # Control panel for the overview section
@@ -1499,10 +1540,10 @@ class ComExc_Storage(param.Parameterized):
         self.venn_controls = pn.Param(self,
                                  parameters=['venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn'],
                                  widgets=widgets, name='Parameters to draw Venn Diagram')
-        # Control panel for the UpSetPlots section
-        self.upsetplot_controls = pn.Param(self, parameters=['upset_class_subset', 'upset_include_counts_percentages',
-                                                             'dpi_upset'],
-                                 widgets=widgets, name='Parameters to draw UpSetPlots', default_layout=pn.Row)
+        # Control panel for the Intersection Plots section
+        self.interplot_controls = pn.Param(self, parameters=['inter_class_subset', 'inter_include_counts_percentages',
+                                                             'dpi_inter'],
+                                 widgets=widgets, name='Parameters to draw Intersection Plots', default_layout=pn.Row)
 
 
 # Initialize common and exclusive compound storage
@@ -1510,8 +1551,8 @@ com_exc_compounds = ComExc_Storage()
 
 # Widgets for the page
 compute_ComExc_button = pn.widgets.Button(name='Compute', button_type='success', height=50)
-checkbox_com_exc = pn.widgets.CheckBoxGroup(name='Include:', value=['Venn Diagram', 'UpSetPlot'],
-                                            options=['Venn Diagram', 'UpSetPlot'], inline=True)
+checkbox_com_exc = pn.widgets.CheckBoxGroup(name='Include:', value=['Venn Diagram', 'Intersection Plot'],
+                                            options=['Venn Diagram', 'Intersection Plot'], inline=True)
 
 # When pressing the button, performs common and exclusive compound calculations, and sets up the different pages in the tabs section
 def _compute_ComExc_button(event):
@@ -1523,11 +1564,11 @@ def _compute_ComExc_button(event):
     new_controls = com_exc_compounds._update_widgets() # Update Widgets
     com_exc_compounds.controls = new_controls[0]
     com_exc_compounds.venn_controls = new_controls[1]
-    com_exc_compounds.upsetplot_controls = new_controls[2]
+    com_exc_compounds.interplot_controls = new_controls[2]
 
     subsetdf_comexc_section_page[0:2,0] = com_exc_compounds.controls
     venn_page[0,0][0] = com_exc_compounds.venn_controls
-    upset_page[0] = com_exc_compounds.upsetplot_controls
+    interplot_page[0] = com_exc_compounds.interplot_controls
 
     # Setting up the overview page
     if len(overview_page) == 0:
@@ -1550,12 +1591,12 @@ def _compute_ComExc_button(event):
 
     if 'Venn Diagram' in checkbox_com_exc.value:
         end_page_comexc.append(('Venn Diagram', venn_page))
-    if 'UpSetPlot' in checkbox_com_exc.value:
-        end_page_comexc.append(('UpSetPlot', upset_page))
+    if 'Intersection Plot' in checkbox_com_exc.value:
+        end_page_comexc.append(('Intersection Plot', interplot_page))
 
     com_exc_compounds._update_specific_cl_df() # Update the DataFrame shown in the overview tab
     com_exc_compounds.venn_class_subset = com_exc_compounds.venn_controls[1].value # Updating starting subset value for Venn diagram
-    com_exc_compounds.upset_class_subset = com_exc_compounds.upsetplot_controls[0][1].value # Updating starting subset value for UpSetPlots
+    com_exc_compounds.inter_class_subset = com_exc_compounds.interplot_controls[0][1].value # Updating starting subset value for Intersection Plots
 
 
 # Action when pressing the button
@@ -1647,30 +1688,30 @@ venn_page[0,0] = pn.Column(com_exc_compounds.venn_controls, save_Venn_diag_butto
 venn_page[0,1:3] = com_exc_compounds.Venn_plot[0]
 
 
-# Widgets to save UpSetPlots (needed since they are matplotlib plots instead of a plotly plots)
-save_UpSetPlot_allmets_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+# Widgets to save Intersection Plots (needed since they are matplotlib plots instead of a plotly plots)
+save_IntersectionPlot_allmets_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
                                          icon=iaf.download_icon)
-save_UpSetPlot_annotatedmets_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+save_IntersectionPlot_annotatedmets_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figures
-def _save_UpSetPlot_allmets_button(event):
-    com_exc_compounds.UpSetPlot[0].savefig('UpSetPlot_all_metabolites.png', dpi=com_exc_compounds.dpi_upset)
+def _save_IntersectionPlot_allmets_button(event):
+    com_exc_compounds.IntersectionPlot[0].savefig('IntersectionPlot_all_metabolites.png', dpi=com_exc_compounds.dpi_inter)
     pn.state.notifications.success(f'Intersection Plot (all metabolites) successfully saved.')
-save_UpSetPlot_allmets_button.on_click(_save_UpSetPlot_allmets_button)
+save_IntersectionPlot_allmets_button.on_click(_save_IntersectionPlot_allmets_button)
 
-def _save_UpSetPlot_annotatedmets_button(event):
-    com_exc_compounds.UpSetPlot[1].savefig('UpSetPlot_annotated_metabolites.png', dpi=com_exc_compounds.dpi_upset)
+def _save_IntersectionPlot_annotatedmets_button(event):
+    com_exc_compounds.IntersectionPlot[1].savefig('IntersectionPlot_annotated_metabolites.png', dpi=com_exc_compounds.dpi_inter)
     pn.state.notifications.success(f'Intersection Plot (annotated metabolites) successfully saved.')
-save_UpSetPlot_annotatedmets_button.on_click(_save_UpSetPlot_annotatedmets_button)
+save_IntersectionPlot_annotatedmets_button.on_click(_save_IntersectionPlot_annotatedmets_button)
 
-# Create specific section of the page for the UpSetPlot tab
-upset_page = pn.Column(com_exc_compounds.upsetplot_controls, # Control parameters for UpSetPlot
-                      '## UpSetPlot with all metabolites of the dataset',
-                       com_exc_compounds.UpSetPlot[0],
-                       save_UpSetPlot_allmets_button,
-                       '## UpSetPlot with only annotated metabolites in the dataset',
-                       com_exc_compounds.UpSetPlot[1],
-                       save_UpSetPlot_annotatedmets_button)
+# Create specific section of the page for the Intersection Plot tab
+interplot_page = pn.Column(com_exc_compounds.interplot_controls, # Control parameters for Intersection Plot
+                      '## Intersection Plot with all metabolites of the dataset',
+                       com_exc_compounds.IntersectionPlot[0],
+                       save_IntersectionPlot_allmets_button,
+                       '## Intersection Plot with only annotated metabolites in the dataset',
+                       com_exc_compounds.IntersectionPlot[1],
+                       save_IntersectionPlot_annotatedmets_button)
 
 
 end_page_comexc = pn.Accordion(toggle=True)
@@ -1994,9 +2035,9 @@ can be estimated by accuracy, recall, precision and F1-score (the latter 3 weigh
 cross-validation. This cross-validation will also be used to estimate feature importance - variable importance in projection
 (<strong>VIP</strong> scores). These are calculated based on Keiron Teilo O'Shea provided code in <a
 href="https://www.researchgate.net/post/How-can-I-compute-Variable-Importance-in-Projection-VIP-in-Partial-Least-Squares-PLS"
-target="_blank" rel="nofollow">
-https://www.researchgate.net/post/How-can-I-compute-Variable-Importance-in-Projection-VIP-in-Partial-Least-Squares-PLS
-</a>. This calculation can be slow when you have a high number of features. Importances estimated are then averaged across
+target="_blank"
+rel="nofollow">https://www.researchgate.net/post/How-can-I-compute-Variable-Importance-in-Projection-VIP-in-Partial-Least-Squares-PLS</a>.
+This calculation can be slow when you have a high number of features. Importances estimated are then averaged across
 the different folds. This can be iterated multiple times using randomized cross-validation folds. Model performance can
 also be estimated with a Receiver Operating Characteristic (ROC) curve when only 2 classes are present.
 <br>
@@ -3652,11 +3693,191 @@ data_viz_page = pn.Column(compute_vk_kmd_ccs_button, pn.Tabs(('Van Krevelen Plot
 
 
 
+# Page for Pathway Assignment (based on HMDB)
+# Param Class to store parameters and data regarding the Path Assignment Page
+class PathAssignment_Storage(param.Parameterized):
+    "Class to contain parameters and relevant DataFrames to the pathway matching to HMDB IDs."
+
+    # HMDB ID columns
+    hmdb_id_cols = param.List(default=[])
+
+    # DataFrame to store pathway information
+    pathway_db = param.DataFrame()
+
+    # DataFrame to store pathway assignments
+    pathway_assignments = param.DataFrame()
+
+    # In case specific HMDB are selected to see their attributions
+    chosen_hmdb_ids = param.List(default=[])
+    chosen_hmdb_ids_assigns = param.Dict()
+
+
+    def _update_widgets(self, metadata_df, pathway_db):
+        "Updates Widgets based on dataset information."
+
+        self.controls.widgets['hmdb_id_cols'].options = list(metadata_df.columns)
+
+        self.pathway_db = pathway_db
+        self.controls_hmdb.widgets['chosen_hmdb_ids'].options = list(pathway_db.index)
+
+
+    def reset(self):
+        "Resets all relevant parameters and Widgets."
+        self.hmdb_id_cols = []
+        self.controls.widgets['hmdb_id_cols'].options = [i for i in DataFrame_Store.metadata_df.columns]
+        self.pathway_assignments = param.DataFrame()
+        self.chosen_hmdb_ids = []
+        self.controls_hmdb.widgets['chosen_hmdb_ids'].value = []
+        self.chosen_hmdb_ids_assigns = param.Dict()
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        widgets_initial = {
+            'hmdb_id_cols': pn.widgets.CrossSelector(name='Choose data columns with HMDB IDs from metadata columns:',
+                value=[], options=[])
+        }
+
+        widgets_final = {
+            'chosen_hmdb_ids':pn.widgets.MultiChoice(name='Select HMDB ids which pathways you want to see in more detail:',
+                options=[], search_option_limit=10, placeholder='HMDB0000142')
+        }
+
+        self.controls = pn.Param(self, parameters=['hmdb_id_cols'], widgets=widgets_initial,
+                                 name='Choose data columns with HMDB IDs (in string or list format) from metadata columns:')
+
+        self.controls_hmdb = pn.Param(self, parameters=['chosen_hmdb_ids'], widgets=widgets_final,
+                                 name='Specific search of HMDBs in Database')
+
+
+# Load pathway database into a DataFrame
+with open('RAMP_ID_pathways.pickle', 'rb') as handle:
+    pathway_db = pickle.load(handle)
+pathway_db = pd.DataFrame(pathway_db)
+
+# Initialize store for PathwayAssignment parameters
+PathAssign_store = PathAssignment_Storage(pathway_db=pathway_db)
+
+# Widget to confirm the HMDB ID columns
+confirm_hmdb_cols_button = pn.widgets.Button(name='Confirm HMDB ID columns selected and perform Pathway Assignment',
+                                             button_type='success', icon=iaf.img_confirm_button)
+
+# Page layout
+path_assign_page = pn.Column(PathAssign_store.controls,
+          confirm_hmdb_cols_button,
+          PathAssign_store.controls_hmdb)
+
+
+
+
 # Page for BinSim Analysis
 binsim_analysis_page = pn.Column()
 
+
+
+
 # Page for Compound Finder
-comp_finder_page = pn.Column()
+class CompoundFinder(param.Parameterized):
+    "Class to contain parameters and figures related to a compound finder tool."
+
+    # Parameters to detect which compound to see
+    id_type = param.String(default='Metabolite Bucket Label')
+    id_comp = param.String()
+
+    # Store Possibilities
+    bucket_to_idxs = param.Dict()
+    name_to_idxs = param.Dict()
+    formula_to_idxs = param.Dict()
+    neutral_mass_to_idxs = param.Dict()
+
+    # DataFrame to store found ID
+    id_df = param.DataFrame()
+    current_params = param.Dict()
+
+    # Storing Figures
+    sample_bar_plot = param.List(default=['To plot a bar plot with sample intensities'])
+    class_bar_plot = param.List(default=['To plot a bar plot with class avg. intensities'])
+    class_boxplot = param.List(default=['To plot a boxplot with class avg. intensities'])
+
+
+    def _calculate_possible_options(self, metadata_df, checkbox_annotation, checkbox_formula, radiobox_neutral_mass):
+        "Obtain a dictionary detailing all the possible peak/annotation options and corresponding idxs where they appear."
+
+        # Get columns list for annotation possibilities
+        name_cols = checkbox_annotation.value + [
+            i for i in metadata_df.columns if i.startswith('Matched') and i.endswith('names')]
+        formula_cols = checkbox_formula.value + [
+            i for i in metadata_df.columns if i.startswith('Matched') and i.endswith('formulas')]
+
+        # Obtain the dictionaries (keys are type of identifiers and values are the idxs where they appear)
+        self.name_to_idxs = iaf.build_annotation_to_idx_dict(metadata_df, name_cols)
+        self.formula_to_idxs = iaf.build_annotation_to_idx_dict(metadata_df, formula_cols)
+        self.bucket_to_idxs = {idx:idx for idx in metadata_df.index}
+
+        # If there is a neutral mass column
+        if radiobox_neutral_mass.value != 'None':
+            self.neutral_mass_to_idxs = {
+                str(metadata_df.loc[idx, radiobox_neutral_mass.value]): idx for idx in metadata_df.index}
+
+        # If there isn't remove it as an option
+        else:
+            self.neutral_mass_to_idxs = {}
+            self.controls.widgets['id_type'].options = ['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula']
+
+        # Default option for id_type - setting up widgets
+        self.controls.widgets['id_comp'].options = list(metadata_df.index)
+        self.controls.widgets['id_comp'].placeholder = metadata_df.index[0]
+
+
+    # Update the Widget options
+    @param.depends('id_type', watch=True)
+    def _update_widgets(self):
+        "Update Widgets (specifically id_comp) based on the id_type chosen."
+
+        self.controls.widgets['id_comp'].value = '' # Reset the value
+        self.id_comp = ''
+
+        # Update the options based on id_type chosen
+        if self.id_type == 'Metabolite Bucket Label':
+            self.controls.widgets['id_comp'].options = list(self.bucket_to_idxs.keys())
+            self.controls.widgets['id_comp'].placeholder = list(self.bucket_to_idxs.keys())[0]
+
+        elif self.id_type == 'Metabolite Name':
+            self.controls.widgets['id_comp'].options = list(self.name_to_idxs.keys())
+            self.controls.widgets['id_comp'].placeholder = list(self.name_to_idxs.keys())[0]
+
+        elif self.id_type == 'Metabolite Formula':
+            self.controls.widgets['id_comp'].options = list(self.formula_to_idxs.keys())
+            self.controls.widgets['id_comp'].placeholder = list(self.formula_to_idxs.keys())[0]
+
+        else:
+            self.controls.widgets['id_comp'].options = list(self.neutral_mass_to_idxs.keys())
+            self.controls.widgets['id_comp'].placeholder = list(self.neutral_mass_to_idxs.keys())[0]
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'id_type': pn.widgets.RadioButtonGroup(name='Choose which type of identifier you want to use for your compound',
+                    value='Metabolite Bucket Label',
+                    options=['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula', 'Metabolite Neutral Mass'],
+                    button_type='success', description='Choose which type of identifier you want to use for your compound.'),
+            'id_comp': pn.widgets.AutocompleteInput(name="Type the compound identifier you want to see",
+                    value = '', options=[''], search_strategy='includes', case_sensitive=False,
+                    placeholder='Glutathione'),
+        }
+
+        self.controls = pn.Param(self, parameters=['id_type', 'id_comp'],
+                                 widgets=widgets, name='Compound Identifier to Find')
+
+# Initialize Store
+comp_finder = CompoundFinder()
+
+
+comp_finder_page = pn.Column(comp_finder.controls)
 
 
 
@@ -3677,6 +3898,7 @@ pages = {
     "Supervised Analysis": SupervisedAnalysisPage(),
     "Univariate Analysis": UnivariateAnalysisPage(),
     "Data Visualization": DataVisualizationPage(),
+    "Pathway Assignment": PathwayAssignmentPage(),
     "BinSim Analysis": BinSimPage(),
     "Compound Finder": CompoundFinderPage()
 }
@@ -3695,7 +3917,7 @@ def show_page(page_instance):
 # The sidebar will include buttons to every main page and will be used as a tool for navigation
 
 # Define buttons to navigate between pages
-index_button = pn.widgets.Button(name="Home", button_type="primary", icon=iaf.home_icon, disabled=False)
+index_button = pn.widgets.Button(name="Home", button_type="success", icon=iaf.home_icon, disabled=False)
 page1_button = pn.widgets.Button(name="Data Reading", button_type="primary")
 page1_1_button = pn.widgets.Button(name="Data Metadata", button_type="primary", disabled=True)
 page1_2_button = pn.widgets.Button(name="Data Filtering", button_type="primary", disabled=True)
@@ -3707,8 +3929,9 @@ page6_button = pn.widgets.Button(name="Unsupervised Analysis", button_type="defa
 page7_button = pn.widgets.Button(name="Supervised Analysis", button_type="default", disabled=True)
 page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="default", disabled=True)
 page9_button = pn.widgets.Button(name="Data Visualization", button_type="default", disabled=True)
-page10_button = pn.widgets.Button(name="BinSim Analysis", button_type="default", disabled=True)
-page11_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
+page10_button = pn.widgets.Button(name="Pathway Assignment", button_type="default", disabled=True)
+page11_button = pn.widgets.Button(name="BinSim Analysis", button_type="default", disabled=True)
+page12_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
 RESET_button = pn.widgets.Button(name="RESET", button_type="danger", disabled=False)
 
 # Set up button click callbacks
@@ -3724,8 +3947,9 @@ page6_button.on_click(lambda event: show_page(pages["Unsupervised Analysis"]))
 page7_button.on_click(lambda event: show_page(pages["Supervised Analysis"]))
 page8_button.on_click(lambda event: show_page(pages["Univariate Analysis"]))
 page9_button.on_click(lambda event: show_page(pages["Data Visualization"]))
-page10_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
-page11_button.on_click(lambda event: show_page(pages["Compound Finder"]))
+page10_button.on_click(lambda event: show_page(pages["Pathway Assignment"]))
+page11_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
+page12_button.on_click(lambda event: show_page(pages["Compound Finder"]))
 
 # Reset panel widgets
 reset_panel_float_text = pn.widgets.StaticText(name='', value='Do you want to reset all parameters of the software?')
@@ -3755,8 +3979,8 @@ reset_panel_float_no_button.on_click(No_Reset)
 #reset_panel_float_yes_button.on_click(Yes_Reset)
 
 sidebar = pn.Column(index_button, '## Data Pre-Processing and Pre-Treatment', page1_button, page1_1_button, page1_2_button, page2_button, page3_button, page4_button,
-                   '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button,
-                   page11_button, '## To Reset (TODO)', RESET_button)
+                   '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button, page11_button, page12_button,
+                   '## To Reset (TODO)', RESET_button)
 
 app = pn.template.FastListTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
 
