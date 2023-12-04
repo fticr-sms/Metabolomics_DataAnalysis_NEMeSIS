@@ -104,7 +104,8 @@ class DataPreTreatment:
 class ClassColours:
     def __init__(self):
 
-        self.content = pn.Column("# Section 3.1: Select Colours for each Class", "These colours will be used in the different figures made hereafter.",
+        self.content = pn.Column("# Section 3.1: Select Colours for each Class",
+                                 "These colours will be used in the different figures made hereafter (Venn diagrams, PCA, HCA, PLS-DA, Chemical Composition Series and plots in the Compound Finder search tool).",
                                  "### Choose the colours for each class", page4)
 
     def view(self):
@@ -221,7 +222,12 @@ class BinSimPage:
 class CompoundFinderPage:
     def __init__(self):
 
-        self.content = pn.Column("# Find a specific compound", "Observe barplots and boxplots of that specific feature",
+        self.content = pn.Column("# Find a specific compound",
+                                 """Observe barplots and boxplots of a specific selected compound. The plots using averages and standard deviations of the classes **ignore missing values** of samples in those classes by default.
+                                 See the sample bar plot to observe if there are low number of missing values in the classes for the searched compound.
+                                 The class bar plots are only usable as good approximations if so. If not, they should be ignored, since missingness is an important part of the observed compound behaviour in the dataset.
+                                 Missing values can be accounted for as 0 if that option is preferred however this is also not ideal. There are **2 checkboxes** for this parameter (2 plots) so the last one you have changed is the one that remains true for both plots.
+                                 Check figure save name to confirm the exact parameters of how the figure was made if you do not remember the last one you have changed.""",
                                  comp_finder_page)
 
     def view(self):
@@ -3456,7 +3462,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
         # For each class
         for g in group_dfs:
             # Calculating H/C and O/C ratios and series classes for data diversity plots.
-            forms = com_exc_compounds.group_dfs[g].dropna(subset=self.ccs_formula_to_consider, how='all')
+            forms = group_dfs[g].dropna(subset=self.ccs_formula_to_consider, how='all')
             elems = iaf.create_element_counts(forms, formula_subset=self.ccs_formula_to_consider)
 
             # Calculating counts of each series for each class
@@ -3465,9 +3471,9 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
 
             # Adding the class' bars to the plot
             if self.ccs_bar_plot_type == 'Horizontal': # Horizontal bar plot
-                fig.add_trace(go.Bar(name=g, x=counts, y=series_order, orientation='h'))
+                fig.add_trace(go.Bar(name=g, x=counts, y=series_order, orientation='h', marker_color=target_list.color_classes[g]))
             else: # Vertical bar plot
-                fig.add_trace(go.Bar(name=g, x=series_order, y=counts, orientation='v'))
+                fig.add_trace(go.Bar(name=g, x=series_order, y=counts, orientation='v', marker_color=target_list.color_classes[g]))
 
             # Adding to the description
             n_peaks = pd.Series(elems.index).value_counts().shape[0]
@@ -3784,6 +3790,7 @@ class CompoundFinder(param.Parameterized):
     # Parameters to detect which compound to see
     id_type = param.String(default='Metabolite Bucket Label')
     id_comp = param.String()
+    confirm_id_button = param.Boolean(default=False)
 
     # Store Possibilities
     bucket_to_idxs = param.Dict()
@@ -3794,6 +3801,12 @@ class CompoundFinder(param.Parameterized):
     # DataFrame to store found ID
     id_df = param.DataFrame()
     current_params = param.Dict()
+
+    # Figure parameters
+    sample_bar_plot_type = param.String(default='Horizontal')
+    class_bar_plot_type = param.String(default='Horizontal')
+    class_boxplot_points = param.String(default='Only outliers')
+    ignore_missing_values = param.Boolean(default=True)
 
     # Storing Figures
     sample_bar_plot = param.List(default=['To plot a bar plot with sample intensities'])
@@ -3813,12 +3826,14 @@ class CompoundFinder(param.Parameterized):
         # Obtain the dictionaries (keys are type of identifiers and values are the idxs where they appear)
         self.name_to_idxs = iaf.build_annotation_to_idx_dict(metadata_df, name_cols)
         self.formula_to_idxs = iaf.build_annotation_to_idx_dict(metadata_df, formula_cols)
-        self.bucket_to_idxs = {idx:idx for idx in metadata_df.index}
+        self.bucket_to_idxs = {str(idx): [idx] for idx in metadata_df.index}
 
         # If there is a neutral mass column
         if radiobox_neutral_mass.value != 'None':
             self.neutral_mass_to_idxs = {
-                str(metadata_df.loc[idx, radiobox_neutral_mass.value]): idx for idx in metadata_df.index}
+                str(metadata_df.loc[idx, radiobox_neutral_mass.value]): [idx] for idx in metadata_df.index}
+            self.controls.widgets['id_type'].options = ['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula',
+                                                       'Metabolite Neutral Mass']
 
         # If there isn't remove it as an option
         else:
@@ -3828,6 +3843,65 @@ class CompoundFinder(param.Parameterized):
         # Default option for id_type - setting up widgets
         self.controls.widgets['id_comp'].options = list(metadata_df.index)
         self.controls.widgets['id_comp'].placeholder = metadata_df.index[0]
+
+
+    def find_id_df(self, processed_df, groups):
+        "Find the DataFrame subsection correponding to the identifier given."
+
+        # Finding the DataFrame
+        if self.id_type == 'Metabolite Bucket Label':
+            finder = processed_df.loc[self.bucket_to_idxs[self.id_comp]].copy()
+        elif self.id_type == 'Metabolite Formula':
+            finder = processed_df.loc[self.formula_to_idxs[self.id_comp]].copy()
+        elif self.id_type == 'Metabolite Name':
+            finder = processed_df.loc[self.name_to_idxs[self.id_comp]].copy()
+        elif self.id_type == 'Metabolite Neutral Mass':
+            finder = processed_df.loc[self.neutral_mass_to_idxs[self.id_comp]].copy()
+        else:
+            pn.state.notifications('Type of identifier provided not recognized.')
+
+        # Adding Average and Standard Deviation columns for each class
+        for g in groups:
+            finder[g+' Average'] = finder[finder.columns.intersection(groups[g])].mean(axis=1)
+            finder[g+' std'] = finder[finder.columns.intersection(groups[g])].std(axis=1)
+
+        return finder # Return DataFrame
+
+
+    def _confirm_id_button(self, event):
+        "Actions to find the identifier provided and plot the plots."
+
+        # Calculate specific class DataFrames in case it has not been calculated before
+        if com_exc_compounds.group_dfs == {}:
+            iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
+
+        # Saving parameters
+        self.current_params = {'id_type': self.id_type, 'id_comp': self.id_comp}
+
+        # Obtaining the DataFrame from the processed data
+        self.id_df = self.find_id_df(DataFrame_Store.processed_df, com_exc_compounds.groups)
+
+        # Plotting the sample bar plot
+        self.sample_bar_plot[0] = iaf.plot_sample_bar_plot(self, target_list, com_exc_compounds)
+
+        # Plotting the class bar plot
+        self.class_bar_plot[0] = iaf.plot_class_bar_plot(self, target_list, com_exc_compounds)
+
+        # Plotting the class boxplot
+        self.class_boxplot[0] = iaf.plot_class_boxplot(self, target_list, com_exc_compounds)
+
+        # Update the layout
+        comp_finder_page[1] = pn.pane.DataFrame(comp_finder.id_df)
+        comp_finder_page[3] = pn.pane.Plotly(self.sample_bar_plot[0], config={'toImageButtonOptions': {
+                   'filename': f'NormInt_SampleBarPlot_{self.id_type}_{self.id_comp}', 'scale':4}})
+        if self.ignore_missing_values:
+            mv = 'Ignored'
+        else:
+            mv = 'As0'
+        comp_finder_page[5] = pn.pane.Plotly(self.class_bar_plot[0], config={'toImageButtonOptions': {
+                   'filename': f'NormInt_ClassBarPlot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
+        comp_finder_page[7] = pn.pane.Plotly(self.class_boxplot[0], config={'toImageButtonOptions': {
+                   'filename': f'NormInt_ClassBoxplot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
 
 
     # Update the Widget options
@@ -3856,6 +3930,44 @@ class CompoundFinder(param.Parameterized):
             self.controls.widgets['id_comp'].placeholder = list(self.neutral_mass_to_idxs.keys())[0]
 
 
+    @param.depends('sample_bar_plot_type', watch=True)
+    def _update_sample_bar_plot(self):
+        "Update the normalized sample bar plot (horizontal or vertical)."
+        # Plotting the sample bar plot
+        self.sample_bar_plot[0] = iaf.plot_sample_bar_plot(self, target_list, com_exc_compounds)
+        # Update the layout
+        comp_finder_page[3] = pn.pane.Plotly(self.sample_bar_plot[0], config={'toImageButtonOptions': {
+                   'filename': f'NormInt_SampleBarPlot_{self.id_type}_{self.id_comp}', 'scale':4}})
+
+
+    @param.depends('class_bar_plot_type', 'ignore_missing_values', watch=True)
+    def _update_class_bar_plot(self):
+        "Update the normalized class bar plot."
+        # Plotting the class bar plot
+        self.class_bar_plot[0] = iaf.plot_class_bar_plot(self, target_list, com_exc_compounds)
+        # Update the layout
+        if self.ignore_missing_values:
+            mv = 'Ignored'
+        else:
+            mv = 'As0'
+        comp_finder_page[5] = pn.pane.Plotly(self.class_bar_plot[0], config={'toImageButtonOptions': {
+                   'filename': f'NormInt_ClassBarPlot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
+
+
+    @param.depends('class_boxplot_points', 'ignore_missing_values', watch=True)
+    def _update_class_boxplot(self):
+        "Update the normalized class boxplot."
+        # Plotting the class boxplot
+        self.class_boxplot[0] = iaf.plot_class_boxplot(self, target_list, com_exc_compounds)
+        # Update the layout
+        if self.ignore_missing_values:
+            mv = 'Ignored'
+        else:
+            mv = 'As0'
+        comp_finder_page[7] = pn.pane.Plotly(self.class_boxplot[0], config={'toImageButtonOptions': {
+                   'filename': f'NormInt_ClassBoxplot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
+
+
     def __init__(self, **params):
 
         super().__init__(**params)
@@ -3868,16 +3980,46 @@ class CompoundFinder(param.Parameterized):
             'id_comp': pn.widgets.AutocompleteInput(name="Type the compound identifier you want to see",
                     value = '', options=[''], search_strategy='includes', case_sensitive=False,
                     placeholder='Glutathione'),
+            'confirm_id_button': pn.widgets.Button(name="Find Compound", button_type='primary'),
         }
 
-        self.controls = pn.Param(self, parameters=['id_type', 'id_comp'],
+        # Widget Figure params
+        widgets_fig_param = {
+            'sample_bar_plot_type': pn.widgets.Select(name='Type of bar plot:',
+                                value='Horizontal', options=['Horizontal', 'Vertical']),
+            'class_bar_plot_type': pn.widgets.Select(name='Type of bar plot:',
+                                value='Horizontal', options=['Horizontal', 'Vertical']),
+            'class_boxplot_points': pn.widgets.Select(name='Type of bar plot:',
+                                value='Only Outliers', options=['Only outliers', 'All points']),
+            'ignore_missing_values': pn.widgets.Checkbox(value=True,
+                name='Class based plots ignore missing values (if not selected missing values are treated as 0).')
+        }
+
+        self.controls = pn.Param(self, parameters=['id_type', 'id_comp', 'confirm_id_button'],
                                  widgets=widgets, name='Compound Identifier to Find')
+
+        self.controls_fig = pn.Param(self, parameters=['sample_bar_plot_type', 'class_bar_plot_type',
+                                                       'class_boxplot_points', 'ignore_missing_values'],
+                                 widgets=widgets_fig_param, name='Figure Parameters')
 
 # Initialize Store
 comp_finder = CompoundFinder()
 
+# Calling the function when the button is pressed
+comp_finder.controls.widgets['confirm_id_button'].on_click(comp_finder._confirm_id_button)
 
-comp_finder_page = pn.Column(comp_finder.controls)
+
+# Initializing the layout of the page
+comp_finder_page = pn.Column(comp_finder.controls,
+                            'DataFrame of the Searched Compound',
+                             comp_finder.controls_fig.widgets['sample_bar_plot_type'],
+                            'Sample Bar Plot of the Searched Compound',
+                             pn.Column(comp_finder.controls_fig.widgets['class_bar_plot_type'],
+                                    comp_finder.controls_fig.widgets['ignore_missing_values']),
+                            'Class Bar Plot of the Searched Compound',
+                            pn.Column(comp_finder.controls_fig.widgets['class_boxplot_points'],
+                                    comp_finder.controls_fig.widgets['ignore_missing_values']),
+                            'Class Boxplot of the Searched Compound',)
 
 
 

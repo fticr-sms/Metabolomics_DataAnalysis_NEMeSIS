@@ -21,6 +21,7 @@ import upsetplot
 import holoviews as hv
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # metanalysis_standard.py file
 import metanalysis_standard as metsta
@@ -82,7 +83,7 @@ def read_file(filename, target_in_file):
         if target_in_file: # If you have the target in the file
             file = pd.read_csv(filename, header=[0,1])
             colnames = [renamer(i) for i in file.columns.get_level_values(0)]
-            target_file = dict(zip(colnames, file.columns.get_level_values(1)))
+            target_file = dict(zip(colnames, file.columns.get_level_values(1).astype(str)))
             file.columns = colnames
 
         else: # If you do not have the target in the file
@@ -96,7 +97,7 @@ def read_file(filename, target_in_file):
         if target_in_file: # If you have the target in the file
             file = pd.read_excel(filename, header=[0,1])
             colnames = [renamer(i) for i in file.columns.get_level_values(0)]
-            target_file = dict(zip(colnames, file.columns.get_level_values(1)))
+            target_file = dict(zip(colnames, file.columns.get_level_values(1).astype(str)))
             file.columns = colnames
 
         else: # If you do not have the target in the file
@@ -1426,3 +1427,244 @@ def build_annotation_to_idx_dict(metadata_df, col_list):
                             ann_to_idxs_dict[c].append(idx)
 
     return ann_to_idxs_dict
+
+
+def plot_sample_bar_plot(comp_finder, target_list, com_exc_compounds):
+    "Plot the normalized intensity by sample bar plot."
+
+    # Defining x and y labels for horizontal and vertical barplots
+    if comp_finder.sample_bar_plot_type == 'Horizontal': # Horizontal bar plot
+        xlabel = 'Normalized Intensity'
+        ylabel = 'Samples'
+    else: # Vertical bar plot
+        xlabel = 'Samples'
+        ylabel = 'Normalized Intensity'
+
+    # Different plot behaviour if there is only one index to plot or more than 1
+    # In case there is one
+    if len(comp_finder.id_df) == 1:
+        # Initialize figure
+        fig = go.Figure()
+
+        if comp_finder.sample_bar_plot_type == 'Horizontal': # Horizontal bar plot
+            for g in target_list.color_classes: # Add a trace per group
+                fig.add_trace(go.Bar(name=g,
+                                     x=comp_finder.id_df[com_exc_compounds.groups[g]].values[0], y=com_exc_compounds.groups[g],
+                                     orientation='h', marker_color=target_list.color_classes[g]))
+
+        else: # Vertical bar plot
+            for g in target_list.color_classes: # Add a trace per group
+                fig.add_trace(go.Bar(name=g,
+                                     x=com_exc_compounds.groups[g], y=comp_finder.id_df[com_exc_compounds.groups[g]].values[0],
+                                     orientation='v', marker_color=target_list.color_classes[g]))
+
+        # Update other characteristics of the plot
+        fig.update_layout(legend_title_text='Classes',
+                     title=comp_finder.id_type + ' - ' + comp_finder.id_comp,
+                    xaxis_title=xlabel,
+                    yaxis_title=ylabel)
+
+
+    # In case there is more than one index
+    else:
+        # Initialize a subplot with n cols equal to the number of idxs
+        if comp_finder.sample_bar_plot_type == 'Horizontal': # Horizontal bar plot
+            fig = make_subplots(rows=1, cols=len(comp_finder.id_df), subplot_titles=comp_finder.id_df.index)
+
+            for a in range(len(comp_finder.id_df)): # For each index
+                for g in target_list.color_classes: # Plot the bar in the corresponding subplot
+                    fig.add_trace(go.Bar(name=g + ' - col ' + str(a+1),
+                                         x=comp_finder.id_df[com_exc_compounds.groups[g]].values[a], y=com_exc_compounds.groups[g],
+                                         orientation='h', marker_color=target_list.color_classes[g]),
+                                row=1, col=a+1)
+
+                # Update the axis titles
+                fig.update_xaxes(title_text=xlabel, row=1, col=a+1,
+                                 range=(0, comp_finder.id_df[target_list.sample_cols].max().max()*1.1))
+            # Update the axis titles
+            fig.update_yaxes(title_text=ylabel, row=1, col=1)
+
+
+        else: # Vertical bar plot
+            fig = make_subplots(rows=1, cols=len(comp_finder.id_df), subplot_titles=comp_finder.id_df.index, shared_yaxes=True)
+
+            for a in range(len(comp_finder.id_df)): # For each index
+                for g in target_list.color_classes: # Plot the bar in the corresponding subplot
+                    fig.add_trace(go.Bar(name=g + ' - col ' + str(a+1),
+                                         x=com_exc_compounds.groups[g], y=comp_finder.id_df[com_exc_compounds.groups[g]].values[a],
+                                         orientation='v', marker_color=target_list.color_classes[g]),
+                                row=1, col=a+1)
+
+                # Update the axis titles
+                fig.update_xaxes(title_text=xlabel, row=1, col=a+1)
+            # Update the axis titles
+            fig.update_yaxes(title_text=ylabel, row=1, col=1)
+
+        # Update other characteristics of the plot
+        fig.update_layout(legend_title_text='Classes',
+                         title=comp_finder.id_type + ' - ' + comp_finder.id_comp)
+
+    return fig
+
+
+def plot_class_bar_plot(comp_finder, target_list, com_exc_compounds):
+    "Plot the normalized intensity by class bar plot."
+
+    # Defining x and y labels for horizontal and vertical barplots
+    if comp_finder.class_bar_plot_type == 'Horizontal': # Horizontal bar plot
+        xlabel = 'Avg. Normalized Intensity (± St. Deviation)'
+        ylabel = 'Classes'
+    else: # Vertical bar plot
+        xlabel = 'Classes'
+        ylabel = 'Avg. Normalized Intensity (± St. Deviation)'
+
+    avg_cols = [col for col in comp_finder.id_df.columns if 'Average' in col]
+
+    # Ignore missing values or treat them as 0
+    if comp_finder.ignore_missing_values:
+        finder = comp_finder.id_df.copy()
+    else:
+        finder = comp_finder.id_df.copy().replace({np.nan:0})
+        for g in com_exc_compounds.groups:
+            finder[g+' Average'] = finder[finder.columns.intersection(com_exc_compounds.groups[g])].mean(axis=1)
+            finder[g+' std'] = finder[finder.columns.intersection(com_exc_compounds.groups[g])].std(axis=1)
+
+
+    # Different plot behaviour if there is only one index to plot or more than 1
+    # In case there is one
+    if len(finder) == 1:
+        # Initialize figure
+        fig = go.Figure()
+
+        if comp_finder.class_bar_plot_type == 'Horizontal': # Horizontal bar plot
+            for g_avg in avg_cols: # Add a trace per group
+                g = g_avg.split(' Average')[0]
+                fig.add_trace(go.Bar(name=g,
+                            x=finder[g_avg].values, y=[g], error_x=dict(array=finder[g+' std']),
+                            orientation='h', marker_color=target_list.color_classes[g]))
+
+        else: # Vertical bar plot
+            for g_avg in avg_cols: # Add a trace per group
+                g = g_avg.split(' Average')[0]
+                fig.add_trace(go.Bar(name=g,
+                            x=[g], y=finder[g_avg].values, error_y=dict(array=finder[g+' std']),
+                            orientation='v', marker_color=target_list.color_classes[g]))
+
+        # Update other characteristics of the plot
+        fig.update_layout(legend_title_text='Classes',
+                     title=comp_finder.id_type + ' - ' + comp_finder.id_comp,
+                    xaxis_title=xlabel,
+                    yaxis_title=ylabel)
+
+
+    # In case there is more than one index
+    else:
+        # Initialize a subplot with n cols equal to the number of idxs
+        if comp_finder.class_bar_plot_type == 'Horizontal': # Horizontal bar plot
+            fig = make_subplots(rows=1, cols=len(finder), subplot_titles=finder.index)
+
+            for a in range(len(finder)): # For each index
+                for g_avg in avg_cols: # Plot the bar in the corresponding subplot
+                    g = g_avg.split(' Average')[0]
+                    fig.add_trace(go.Bar(name=g + ' - col ' + str(a+1),
+                                         x=[finder[g_avg].iloc[a]], y=[g],
+                                         error_x=dict(array=[finder[g+' std'].iloc[a]]),
+                                         orientation='h', marker_color=target_list.color_classes[g]),
+                                row=1, col=a+1)
+
+                # Update the axis titles
+                fig.update_xaxes(title_text=xlabel, row=1, col=a+1,
+                                 range=(0, finder[target_list.sample_cols].max().max()*1.1))
+            # Update the axis titles
+            fig.update_yaxes(title_text=ylabel, row=1, col=1)
+
+
+        else: # Vertical bar plot
+            fig = make_subplots(rows=1, cols=len(finder), subplot_titles=finder.index, shared_yaxes=True)
+
+            for a in range(len(finder)): # For each index
+                for g_avg in avg_cols: # Plot the bar in the corresponding subplot
+                    g = g_avg.split(' Average')[0]
+                    fig.add_trace(go.Bar(name=g + ' - col ' + str(a+1),
+                                         x=[g], y=[finder[g_avg].iloc[a]],
+                                         error_y=dict(array=[finder[g+' std'].iloc[a]]),
+                                         orientation='v', marker_color=target_list.color_classes[g]),
+                                row=1, col=a+1)
+
+                # Update the axis titles
+                fig.update_xaxes(title_text=xlabel, row=1, col=a+1)
+            # Update the axis titles
+            fig.update_yaxes(title_text=ylabel, row=1, col=1)
+
+        # Update other characteristics of the plot
+        fig.update_layout(legend_title_text='Classes',
+                         title=comp_finder.id_type + ' - ' + comp_finder.id_comp)
+
+    return fig
+
+
+def plot_class_boxplot(comp_finder, target_list, com_exc_compounds):
+    "Plot the normalized intensity by sample bar plot."
+
+    # Defining x and y labels for horizontal and vertical barplots
+    if comp_finder.sample_bar_plot_type == 'Horizontal': # Horizontal bar plot
+        xlabel = 'Avg. Normalized Intensity'
+        ylabel = 'Classes'
+    else: # Vertical bar plot
+        xlabel = 'Classes'
+        ylabel = 'Avg. Normalized Intensity'
+
+    if comp_finder.class_boxplot_points == 'Only outliers':
+        boxpoints = 'outliers'
+    else:
+        boxpoints = 'all'
+
+    # Ignore missing values or treat them as 0
+    if comp_finder.ignore_missing_values:
+        finder = comp_finder.id_df.copy()
+    else:
+        finder = comp_finder.id_df.copy().replace({np.nan:0})
+        for g in com_exc_compounds.groups:
+            finder[g+' Average'] = finder[finder.columns.intersection(com_exc_compounds.groups[g])].mean(axis=1)
+            finder[g+' std'] = finder[finder.columns.intersection(com_exc_compounds.groups[g])].std(axis=1)
+
+    # Different plot behaviour if there is only one index to plot or more than 1
+    # In case there is one
+    if len(finder) == 1:
+        # Initialize figure
+        fig = go.Figure()
+
+        for g in target_list.color_classes: # Add a trace per group with correct colour
+            fig.add_trace(go.Box(name=g,
+                                 y=finder[com_exc_compounds.groups[g]].values[0],
+                                 marker_color=target_list.color_classes[g], boxpoints=boxpoints))
+
+        # Update other characteristics of the plot
+        fig.update_layout(legend_title_text='Classes',
+                     title=comp_finder.id_type + ' - ' + comp_finder.id_comp,
+                    xaxis_title=xlabel,
+                    yaxis_title=ylabel)
+
+
+    # In case there is more than one index
+    else:
+        # Initialize a subplot with n cols equal to the number of idxs
+        fig = make_subplots(rows=1, cols=len(finder), subplot_titles=finder.index, shared_yaxes=True)
+
+        for a in range(len(finder)): # For each index
+            for g in target_list.color_classes: # Plot the bar in the corresponding subplot
+                fig.add_trace(go.Box(name=g + ' - col ' + str(a+1),
+                                     y=finder[com_exc_compounds.groups[g]].values[a],
+                                     marker_color=target_list.color_classes[g], boxpoints=boxpoints),
+                            row=1, col=a+1)
+
+            # Update the axis titles
+            fig.update_xaxes(title_text=xlabel, row=1, col=a+1)
+        # Update the axis titles
+        fig.update_yaxes(title_text=ylabel, row=1, col=1)
+
+        # Update other characteristics of the plot
+        fig.update_layout(legend_title_text='Classes',
+                         title=comp_finder.id_type + ' - ' + comp_finder.id_comp)
+
+    return fig

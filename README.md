@@ -114,6 +114,10 @@ However, in the future, these databases will have corresponding python files tha
 - Bugfix in chemical composition series plots where using multiple database formula annotations would only include formulas assigned in all chosen databases instead of in at least one of them.
 - Small change in Kendrick Mass Defect plots allowing points to be coloured by chemical composition series based on database formula annotation performed in the notebook instead of only being able if formulas came from MetaboScape 'SmartFormula'.
 
+#### Current Patch modifications (04/12/2023)
+
+- Small bugfix in compound finder search tool when looking for m/z values, finder DataFrame would not update.
+
 #### In Future Patches:
 
 - Re-update all section 7 of notebook for better functionality.
