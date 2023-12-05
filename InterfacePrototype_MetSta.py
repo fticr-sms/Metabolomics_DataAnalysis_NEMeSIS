@@ -1113,10 +1113,12 @@ def _confirm_button_next_step_4(event):
     target_list(target_widget.value.split(','), colours)
 
     # Setting up the layout of page 4
+    page4.clear()
     n_classes = len(target_list.color_classes)
     for row in range(0, n_classes, 5):
         new_row = pn.Row()
-        for col in range(5):
+        n_max = min([5, n_classes-row])
+        for col in range(n_max):
             key = list(target_list.color_classes.keys())[row+col]
             new_row.append(pn.widgets.ColorPicker(value=target_list.color_classes[key], name=str(key)))
 
@@ -1195,7 +1197,8 @@ def _confirm_button_next_step_5(event):
     # Pass the colours picked to the target storage
     n_classes = len(target_list.color_classes)
     for row in range(0, n_classes, 5):
-        for col in range(5):
+        n_max = min([5, n_classes-row])
+        for col in range(n_max):
             key = list(target_list.color_classes.keys())[row+col]
             target_list.color_classes[key] = page4[row//5][col].value
 
@@ -1217,7 +1220,13 @@ def _confirm_button_next_step_5(event):
     PCA_params.explained_variance = var
     PCA_params.pca_loadings = pd.DataFrame(loadings)
     PCA_params.PCA_plot[0] = iaf._plot_PCA(PCA_params, target_list)
-    middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot', 'scale':4,}})
+    PCA_filename_string = 'PCA_plot'
+    if PCA_params.ellipse_draw:
+        if PCA_params.confidence != 0:
+            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params.confidence*100}%confidence)'
+        else:
+            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params.confidence_std}std)'
+    middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0], config = {'toImageButtonOptions': {'filename': PCA_filename_string, 'scale':4,}})
     PCA_params.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(PCA_params)
     end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot', 'scale':4,}})
     PCA_params.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params, target_list)
@@ -1233,8 +1242,8 @@ def _confirm_button_next_step_5(event):
     UnivarA_Store._update_widgets()
 
     # Updating Widgets for Supervised Analysis
-    PLSDA_store.n_folds_limits(target_list)
-    RF_store.n_folds_limits(target_list)
+    PLSDA_store.n_folds_limits_and_class_update(target_list)
+    RF_store.n_folds_limits_and_class_update(target_list)
 
     # Updating Widgets for Pathway Assignment
     PathAssign_store._update_widgets(DataFrame_Store.metadata_df, pathway_db)
@@ -1684,7 +1693,10 @@ save_Venn_diag_button = pn.widgets.Button(name='Save as a png (in current folder
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figure
 def _save_Venn_diag_button(event):
-    com_exc_compounds.Venn_plot[0].savefig('Venn_diagram.png', dpi=com_exc_compounds.dpi_venn)
+    filename_string = f'Venn_diagram_{com_exc_compounds.type_of_venn}_classes'
+    for cl in com_exc_compounds.venn_class_subset:
+        filename_string = filename_string + '_'+cl
+    com_exc_compounds.Venn_plot[0].savefig(filename_string, dpi=com_exc_compounds.dpi_venn)
     pn.state.notifications.success(f'Venn Diagram successfully saved.')
 save_Venn_diag_button.on_click(_save_Venn_diag_button)
 
@@ -1771,7 +1783,13 @@ class PCA_Storage(param.Parameterized):
     @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size', watch=True)
     def _update_PCA_plot(self):
         self.PCA_plot[0] = iaf._plot_PCA(PCA_params, target_list)
-        middle_page_PCA[0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_plot', 'scale':4}})
+        filename_string = 'PCA_plot'
+        if self.ellipse_draw:
+            if self.confidence != 0:
+                filename_string = filename_string + f'_ellipse({self.confidence*100}%confidence)'
+            else:
+                filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
+        middle_page_PCA[0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
     def __init__(self, **params):
 
@@ -1994,7 +2012,8 @@ save_HCA_plot_button = pn.widgets.Button(name='Save as a png (in current folder)
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figure
 def _save_HCA_plot_button(event):
-    HCA_params.HCA_plot[0].savefig('HCA_plot.png', dpi=HCA_params.dpi)
+    filename = f'HCA_plot_{HCA_params.dist_metric}Dist_{HCA_params.link_metric}Linkage.png'
+    HCA_params.HCA_plot[0].savefig(filename, dpi=HCA_params.dpi)
     pn.state.notifications.success(f'Dendrogram successfully saved.')
 save_HCA_plot_button.on_click(_save_HCA_plot_button)
 
@@ -2106,16 +2125,19 @@ class PLSDA_Storage(param.Parameterized):
     current_plsda_params_permutation = param.Dict()
 
     # ROC Curve
+    positive_class = param.String(default='')
+    roc_n_iter = param.Number(default=10)
+    confirm_button_roc = param.Boolean(default=False)
 
     # Storing figures
     optim_figure = param.List(default=['To Plot the Optimization PLS Figure'])
     PLS_plot = param.List(default=['To Plot the PLS Projection Figure'])
-    ROC_figure = param.List(default=['a'])
+    ROC_figure = param.List(default=['To Plot the ROC Curve(s)'])
     perm_figure = param.List(default=['To Plot the Permutation Test Figure'])
 
     # Update number of folds limits
-    def n_folds_limits(self, target_list):
-        "Updates the limits of the cross-validation fold number based on the number of samples per class."
+    def n_folds_limits_and_class_update(self, target_list):
+        "Updates the limits of the CV fold number based on the number of samples per class and classes to choose for ROC curve."
         # Updating the end value limits
         min_samples_in_class = pd.Series(target_list.target).value_counts().min()
         self.controls_optim.widgets['n_fold'].end = min_samples_in_class
@@ -2126,6 +2148,18 @@ class PLSDA_Storage(param.Parameterized):
             self.controls_optim.widgets['n_fold'].value = min_samples_in_class
             self.controls.widgets['n_fold'].value = min_samples_in_class
             self.n_fold = min_samples_in_class
+
+        # Updating the classes available to choose as the positive for ROC curve
+        if len(target_list.classes) == 2:
+            self.controls_roc.widgets['positive_class'].options = target_list.classes
+            self.controls_roc.widgets['positive_class'].value = target_list.classes[0]
+            self.controls_roc.widgets['positive_class'].disabled = False
+            self.positive_class = target_list.classes[0]
+        else:
+            self.controls_roc.widgets['positive_class'].options = ['Not Available']
+            self.controls_roc.widgets['positive_class'].value = 'Not Available'
+            self.controls_roc.widgets['positive_class'].disabled = True
+            self.positive_class = 'Not Available'
 
 
     # Function to confirm the optimization
@@ -2251,6 +2285,9 @@ class PLSDA_Storage(param.Parameterized):
                                                 pn.pane.LaTeX(pvalue_equation_string, styles={'font-size': '14pt'})))
             pls_results_section.append(pn.Row(self.controls_permutation,
                                         self.perm_figure[0]))
+            pls_results_section.append('### PLS-DA Receiver Operating Characteristic (ROC) Curve Section')
+            pls_results_section.append(pn.pane.HTML(ROC_curve_description))
+            pls_results_section.append(pn.Row(self.controls_roc, self.ROC_figure[0]))
 
 
     # Update the PLS Projection plot
@@ -2309,6 +2346,22 @@ class PLSDA_Storage(param.Parameterized):
         # Update the layout
         pls_results_section[9][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
         self.controls_permutation.widgets['save_figure_button_permutation'].disabled = False
+
+
+    # Function to confirm the ROC Curves to plot
+    def _confirm_button_roc(self, event):
+        "Plots a ROC Curve to assess PLS-DA model performance and updates the layout."
+
+        # Loading Widget while the ROC Curves are being computed
+        pls_results_section[12][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+                                                            name='Computing Receiver Operating Characteristic Curves...')
+
+        # Computes the ROC Curve (whether you have 2 or more classes) and returns the plots and corresponding filenames
+        self.ROC_figure[0], filename = iaf._plot_PLSDA_ROC_curve(self, DataFrame_Store.treated_df, target_list)
+
+        # Update the layouts
+        pls_results_section[12][1] = pn.pane.Plotly(self.ROC_figure[0],
+                                                config={'toImageButtonOptions': {'filename': filename, 'scale':4}})
 
 
     def __init__(self, **params):
@@ -2397,6 +2450,20 @@ class PLSDA_Storage(param.Parameterized):
                 button_type='success', icon=iaf.download_icon, disabled=True),
         }
 
+        widgets_PLS_ROC = {'n_components': pn.widgets.IntInput(name='Number of Components for PLS-DA model',
+                start=1, end=40, value=5, step=1, disabled=True,
+                description='This parameter was chosen when fitting the PLS-DA model and assessing its performance'),
+            'n_fold': pn.widgets.IntInput(name="Number of folds for stratified cross-validation",
+                value=5, start=2, end=20, disabled=True,
+                description='This parameter was chosen when fitting the PLS-DA model and assessing its performance'),
+            'scale': pn.widgets.Checkbox(name='Check if you did not perform scaling in the pre-treatment section. Performs auto scale.',
+                value=False, disabled=True),
+            'positive_class': pn.widgets.Select(name='Choose the positive class:', value='', options=['']),
+            'roc_n_iter': pn.widgets.IntSlider(name="Nº of Iterations to perform", start=1, value=10, end=50,
+                step=1),
+            'confirm_button_roc': pn.widgets.Button(name="Compute ROC Curve", button_type='primary'),
+        }
+
         self.controls = pn.Param(self, parameters=['n_components', 'n_iterations', 'n_fold', 'scale', 'static_text_metrics',
                                                    'metrics_to_use', 'imp_feature_metric', 'confirm_plsda_button'],
                                  widgets=widgets, name='Parameters for PLS-DA model fitting')
@@ -2412,6 +2479,10 @@ class PLSDA_Storage(param.Parameterized):
                                                                'dpi', 'confirm_button_permutation',
                                                                'save_figure_button_permutation'],
                                  widgets=widgets_PLS_perm, name='Parameters for PLS-DA Permutation Test')
+
+        self.controls_roc = pn.Param(self, parameters=['n_components', 'n_fold', 'scale', 'positive_class',
+                                                        'roc_n_iter', 'confirm_button_roc'],
+                                 widgets=widgets_PLS_ROC, name='Parameters for PLS-DA ROC Curve')
 
 # Running initial param to store PLSDA details
 PLSDA_store = PLSDA_Storage()
@@ -2435,6 +2506,9 @@ def _save_figure_button_permutation_PLSDA(event):
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 # Click button to save the aforementioned figure
 PLSDA_store.controls_permutation.widgets['save_figure_button_permutation'].on_click(_save_figure_button_permutation_PLSDA)
+
+# Click button to compute PLS-DA model ROC curves and obtain the corresponding plots
+PLSDA_store.controls_roc.widgets['confirm_button_roc'].on_click(PLSDA_store._confirm_button_roc)
 
 # Widget to add recommended number of components to page
 rec_comp_indicator_widget = pn.indicators.Number(name='Recommended Components (based on max. Q2)', font_size='14pt', title_size='14pt',
@@ -2548,6 +2622,26 @@ P-value is calculated using the following equation:'''
 pvalue_equation_string = r'p-value = \(\frac{1 + \text{times permutated model has better performance than non-permutated model}}{\text{number of permutations}}\)'
 
 
+# ROC Curves Description
+# This description will also be used for the Random Forest section
+ROC_curve_description = '''
+<strong>ROC Curves</strong> are types of representation of the performance of supervised model that plot the True Positive
+Rate by the False Positive Rate. Hence, one class has to be considered as the <strong><em>positive</em></strong> class.
+Thus, this methodology, although possible in multiclass cases, is more suited for when you have a dataset with 2 classes.
+When you have more than 2 classes, a ROC curve will be computed for each class considered as the positive by fitting a
+"1vsAll" model, that is the class of each sample is either the current positive class or "Other". Thus, there will likely
+be many more negative samples than positive samples in each case, greatly increasing the importance of the latter for the
+curve of each class.
+<br>
+<br>
+The model performance is determined by the <strong>Area Under the Curve</strong> or (<strong>AUC</strong>). When it is 1,
+the model is perfect for classifying your data; when it is 0.5, the model is no better than a random coin toss.
+<br>
+<br>
+Number of Iterations indicates how many times ROC curve results are computed with random k-fold stratified cross-validation.
+This can help to have a more detailed ROC Curve especially when your dataset has a low number of samples.'''
+
+
 # PLS projection section of the page
 pls_proj_page = pn.GridSpec(mode='override')
 pls_proj_page[0,0] = PLSDA_store.controls_projection
@@ -2625,15 +2719,18 @@ class RF_Storage(param.Parameterized):
     current_rf_params_permutation = param.Dict()
 
     # ROC Curve
+    positive_class = param.String(default='')
+    roc_n_iter = param.Number(default=10)
+    confirm_button_roc = param.Boolean(default=False)
 
     # Storing figures
     optim_figure = param.List(default=['To Plot the Optimization RF Figure'])
-    ROC_figure = param.List(default=['a'])
+    ROC_figure = param.List(default=['To Plot the ROC Curve(s)'])
     perm_figure = param.List(default=['To Plot the Permutation Test Figure'])
 
     # Update number of folds limits
-    def n_folds_limits(self, target_list):
-        "Updates the limits of the cross-validation fold number based on the number of samples per class."
+    def n_folds_limits_and_class_update(self, target_list):
+        "Updates the limits of the CV fold number based on the number of samples per class and classes to choose for ROC curve."
         # Updating the end value limits
         min_samples_in_class = pd.Series(target_list.target).value_counts().min()
         self.controls_optim.widgets['n_fold'].end = min_samples_in_class
@@ -2644,6 +2741,18 @@ class RF_Storage(param.Parameterized):
             self.controls_optim.widgets['n_fold'].value = min_samples_in_class
             self.controls.widgets['n_fold'].value = min_samples_in_class
             self.n_fold = min_samples_in_class
+
+        # Updating the classes available to choose as the positive for ROC curve
+        if len(target_list.classes) == 2:
+            self.controls_roc.widgets['positive_class'].options = target_list.classes
+            self.controls_roc.widgets['positive_class'].value = target_list.classes[0]
+            self.controls_roc.widgets['positive_class'].disabled = False
+            self.positive_class = target_list.classes[0]
+        else:
+            self.controls_roc.widgets['positive_class'].options = ['Not Available']
+            self.controls_roc.widgets['positive_class'].value = 'Not Available'
+            self.controls_roc.widgets['positive_class'].disabled = True
+            self.positive_class = 'Not Available'
 
 
     # Function to confirm the optimization
@@ -2735,6 +2844,9 @@ class RF_Storage(param.Parameterized):
                                                  pn.pane.LaTeX(pvalue_equation_string, styles={'font-size': '14pt'})))
             rf_results_section.append(pn.Row(self.controls_permutation,
                                           self.perm_figure[0]))
+            rf_results_section.append('### Random Forest Receiver Operating Characteristic (ROC) Curve Section')
+            rf_results_section.append(pn.pane.HTML(ROC_curve_description))
+            rf_results_section.append(pn.Row(self.controls_roc, self.ROC_figure[0]))
 
 
     # Function to confirm the permutation test to perform
@@ -2775,6 +2887,22 @@ class RF_Storage(param.Parameterized):
         # Update the layout
         rf_results_section[7][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
         self.controls_permutation.widgets['save_figure_button_permutation'].disabled = False
+
+
+    # Function to confirm the ROC Curves to plot
+    def _confirm_button_roc(self, event):
+        "Plots a ROC Curve to assess Random Forest model performance and updates the layout."
+
+        # Loading Widget while the ROC Curves are being computed
+        rf_results_section[10][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+                                                            name='Computing Receiver Operating Characteristic Curves...')
+
+        # Computes the ROC Curve (whether you have 2 or more classes) and returns the plots and corresponding filenames
+        self.ROC_figure[0], filename = iaf._plot_RF_ROC_curve(self, DataFrame_Store.treated_df, target_list)
+
+        # Update the layouts
+        rf_results_section[10][1] = pn.pane.Plotly(self.ROC_figure[0],
+                                                config={'toImageButtonOptions': {'filename': filename, 'scale':4}})
 
 
     def __init__(self, **params):
@@ -2832,6 +2960,19 @@ class RF_Storage(param.Parameterized):
                 button_type='success', icon=iaf.download_icon, disabled=True),
         }
 
+        widgets_RF_ROC = {'n_trees': pn.widgets.IntInput(name='Number of Trees for Random Forest model',
+                start=1, end=600, value=200, step=1, disabled=True,
+                description='This parameter was chosen when fitting the Random Forest model and assessing its performance'),
+            'n_fold': pn.widgets.IntInput(name="Number of folds for stratified cross-validation",
+                value=5, start=2, end=20, disabled=True,
+                description='This parameter was chosen when fitting the Random Forest model and assessing its performance'),
+            'positive_class': pn.widgets.Select(name='Choose the positive class:', value='', options=['']),
+            'roc_n_iter': pn.widgets.IntSlider(name="Nº of Iterations to perform", start=1, value=10, end=50,
+                step=1),
+            'confirm_button_roc': pn.widgets.Button(name="Compute ROC Curve", button_type='primary'),
+        }
+
+
         self.controls = pn.Param(self, parameters=['n_trees', 'n_iterations', 'n_fold', 'static_text_metrics',
                                                    'metrics_to_use', 'confirm_rf_button'],
                                  widgets=widgets, name='Parameters for Random Forest model fitting')
@@ -2843,6 +2984,10 @@ class RF_Storage(param.Parameterized):
                                                                'dpi', 'confirm_button_permutation',
                                                                'save_figure_button_permutation'],
                                  widgets=widgets_perm, name='Parameters for Random Forest Permutation Test')
+
+        self.controls_roc = pn.Param(self, parameters=['n_trees', 'n_fold', 'positive_class',
+                                                        'roc_n_iter', 'confirm_button_roc'],
+                                 widgets=widgets_RF_ROC, name='Parameters for Random Forest ROC Curve')
 
 # Running initial param to store RF details
 RF_store = RF_Storage()
@@ -2865,6 +3010,9 @@ def _save_figure_button_permutation_RF(event):
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 # Click button to save the aforementioned figure
 RF_store.controls_permutation.widgets['save_figure_button_permutation'].on_click(_save_figure_button_permutation_RF)
+
+# Click button to compute Random Forest model ROC curves and obtain the corresponding plots
+RF_store.controls_roc.widgets['confirm_button_roc'].on_click(RF_store._confirm_button_roc)
 
 
 # Optimization section of the page

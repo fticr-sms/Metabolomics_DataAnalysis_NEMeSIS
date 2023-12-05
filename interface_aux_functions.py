@@ -909,6 +909,96 @@ def _plot_PLS(PLSDA_store, target_list):
     return final_PLS_plot
 
 
+def _plot_PLSDA_ROC_curve(PLSDA_store, treated_df, target_list):
+    "Plots the ROC Curve of PLS-DA models."
+
+    if len(target_list.classes) == 2: # When you only have 2 classes
+
+        # Compute ROC Curve
+        resROC_PLSDA = metsta.PLSDA_ROC_cv(treated_df, target_list.target, # Data and target
+                        pos_label=PLSDA_store.positive_class, # Positive class chosen
+                        n_comp=PLSDA_store.n_components, # Number of components
+                        scale=PLSDA_store.scale, # Set scale to True only scaling was not performed
+                        n_iter=PLSDA_store.roc_n_iter, # Number of iterations to repeat
+                        cv=None, n_fold=PLSDA_store.n_fold) # Number of folds
+
+        mean_fpr = [0,] + list(resROC_PLSDA['average fpr'])
+        mean_tpr = [0,] + list(resROC_PLSDA['average tpr'])
+        mean_auc = resROC_PLSDA['mean AUC']
+
+        # Plotting the ROC Curve
+        fig = px.area(
+            x=mean_fpr, y=mean_tpr,
+            title=f'PLS-DA ROC Curve, AUC = {mean_auc:.3f}',
+            labels=dict(x='False Positive Rate', y='True Positive Rate'), range_x=(-0.01, 1.001),
+        )
+
+        # Dotted line representing worse-case scenario
+        fig.add_shape(
+            type='line', line=dict(dash='dash'), line_width=3,
+            x0=0, x1=1, y0=0, y1=1
+        )
+
+        # Setting up filename
+        filename = f'PLSDA_ROCcurve_{PLSDA_store.positive_class}PosClass_{PLSDA_store.n_components}components_'
+        filename = filename + f'{PLSDA_store.n_fold}-foldStratCV_{PLSDA_store.roc_n_iter}iterations_scale{PLSDA_store.scale}'
+
+    else: # When you have more than 2 classes, plot a ROC curve for each class in a "1vsAll" fitted models
+
+        # Create storage for results
+        total_ROC_res = {}
+        # Then for each class, build a custom target where samples of those classes are labelled correctly
+        # And the remaining samples are labelled as 'Other'
+        for cl in target_list.classes:
+            temp_tg = []
+            for t in target_list.target:
+                if t == cl:
+                    temp_tg.append(cl)
+                else:
+                    temp_tg.append('Other')
+
+            # Use this makeshift target to fit "1vsAll" model and obtain ROC results
+            total_ROC_res[cl] =  metsta.PLSDA_ROC_cv(treated_df, temp_tg, # Data and target
+                            pos_label=cl, # Positive class is the current class
+                            n_comp=PLSDA_store.n_components, # Number of components
+                            scale=PLSDA_store.scale, # Set scale to True only scaling was not performed
+                            n_iter=PLSDA_store.roc_n_iter, # Number of iterations to repeat
+                            cv=None, n_fold=PLSDA_store.n_fold) # Number of folds
+
+        # After having the results plot them in a Figure
+        # Initialize the figure
+        fig = go.Figure()
+        for cl in total_ROC_res: # For each class results
+
+            # Extract the relevant data
+            mean_fpr = [0,] + list(total_ROC_res[cl]['average fpr'])
+            mean_tpr = [0,] + list(total_ROC_res[cl]['average tpr'])
+            mean_auc = total_ROC_res[cl]['mean AUC']
+
+            # And plot the correspondign ROC Curve with the correct label
+            fig.add_trace(go.Scatter(name=f'{cl} (AUC={mean_auc:.3f})',
+                         x=mean_fpr, y=mean_tpr))
+
+        # After plotting all curves, plot the dotted line representing worse-case scenario
+        fig.add_shape(
+        type='line', line=dict(dash='dash'), line_width=3,
+        x0=0, x1=1, y0=0, y1=1
+        )
+
+        # Update other characteristics of the plot
+        fig.update_layout(legend_title_text='Classes',
+                     title='PLS-DA ROC Curves',
+                    xaxis_range=(-0.01, 1.001),
+                    xaxis_title='False Positive Rate',
+                    yaxis_title='True Positive Rate')
+
+        # Setting up filename
+        filename = f'PLSDA_ROCcurve_1vsAllModels_{PLSDA_store.n_components}components_{PLSDA_store.n_fold}-foldStratCV'
+        filename = filename + f'_{PLSDA_store.roc_n_iter}iterations_scale{PLSDA_store.scale}'
+
+    return fig, filename
+
+
 ## Functions for RF section
 
 def _optimization_n_trees_rf(RF_store, data, target):
@@ -925,6 +1015,95 @@ def _optimization_n_trees_rf(RF_store, data, target):
     clf.fit(data, target)
 
     return clf.cv_results_
+
+
+def _plot_RF_ROC_curve(RF_store, treated_df, target_list):
+    "Plots the ROC Curve of Random Forest models."
+
+    if len(target_list.classes) == 2: # When you only have 2 classes
+
+        # Compute ROC Curve
+        resROC_RF = metsta.RF_ROC_cv(treated_df, target_list.target, # Data and target
+                                    pos_label=RF_store.positive_class, # Positive class chosen
+                                    n_trees=RF_store.n_trees, # Number of trees of RF
+                                    n_iter=RF_store.roc_n_iter, # Number of iterations to repeat
+                                    cv=None, n_fold=RF_store.n_fold) # Number of folds
+
+        mean_fpr = [0,] + list(resROC_RF['average fpr'])
+        mean_tpr = [0,] + list(resROC_RF['average tpr'])
+        mean_auc = resROC_RF['mean AUC']
+
+        # Plotting the ROC Curve
+        fig = px.area(
+            x=mean_fpr, y=mean_tpr,
+            title=f'Random Forest ROC Curve, AUC = {mean_auc:.3f}',
+            labels=dict(x='False Positive Rate', y='True Positive Rate'), range_x=(-0.01, 1.001),
+        )
+
+        # Dotted line representing worse-case scenario
+        fig.add_shape(
+            type='line', line=dict(dash='dash'), line_width=3,
+            x0=0, x1=1, y0=0, y1=1
+        )
+
+        # Setting up filename
+        filename = f'RF_ROCcurve_{RF_store.positive_class}PosClass_{RF_store.n_trees}trees_'
+        filename = filename + f'{RF_store.n_fold}-foldStratCV_{RF_store.roc_n_iter}iterations'
+
+    else: # When you have more than 2 classes, plot a ROC curve for each class in a "1vsAll" fitted models
+
+        # Create storage for results
+        total_ROC_res = {}
+        # Then for each class, build a custom target where samples of those classes are labelled correctly
+        # And the remaining samples are labelled as 'Other'
+        for cl in target_list.classes:
+            temp_tg = []
+            for t in target_list.target:
+                if t == cl:
+                    temp_tg.append(cl)
+                else:
+                    temp_tg.append('Other')
+
+            # Use this makeshift target to fit "1vsAll" model and obtain ROC results
+            total_ROC_res[cl] =  metsta.RF_ROC_cv(treated_df, temp_tg, # Data and target
+                                    pos_label=cl, # Positive class chosen
+                                    n_trees=RF_store.n_trees, # Number of trees of RF
+                                    n_iter=RF_store.roc_n_iter, # Number of iterations to repeat
+                                    cv=None, n_fold=RF_store.n_fold) # Number of folds
+
+        # After having the results plot them in a Figure
+        # Initialize the figure
+        fig = go.Figure()
+        for cl in total_ROC_res: # For each class results
+
+            # Extract the relevant data
+            mean_fpr = [0,] + list(total_ROC_res[cl]['average fpr'])
+            mean_tpr = [0,] + list(total_ROC_res[cl]['average tpr'])
+            mean_auc = total_ROC_res[cl]['mean AUC']
+
+            # And plot the correspondign ROC Curve with the correct label
+            fig.add_trace(go.Scatter(name=f'{cl} (AUC={mean_auc:.3f})',
+                         x=mean_fpr, y=mean_tpr))
+
+        # After plotting all curves, plot the dotted line representing worse-case scenario
+        fig.add_shape(
+        type='line', line=dict(dash='dash'), line_width=3,
+        x0=0, x1=1, y0=0, y1=1
+        )
+
+        # Update other characteristics of the plot
+        fig.update_layout(legend_title_text='Classes',
+                     title='Random Forest ROC Curves',
+                    xaxis_range=(-0.01, 1.001),
+                    xaxis_title='False Positive Rate',
+                    yaxis_title='True Positive Rate')
+
+        # Setting up filename
+        filename = f'RF_ROCcurve_1vsAllModels_{RF_store.n_trees}trees_{RF_store.n_fold}-foldStratCV'
+        filename = filename + f'_{RF_store.roc_n_iter}iterations'
+
+    return fig, filename
+
 
 
 ### Functions related to the Univariate analysis page of the graphical interface
