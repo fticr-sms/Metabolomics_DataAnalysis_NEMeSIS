@@ -1,11 +1,11 @@
 # Metabolomics_DataAnalysis_Pipeline
-Repository for the metabolomics data analysis pipeline
+Repository for the metabolomics data analysis pipeline. This pipeline includes both a jupyter notebook version and a graphical interface version.
 
 ## Repository by:
 
 - FT-ICR-MS-Lisboa Laboratory Group
 
-# Required Python Packages and Database File Examples
+# Required Python Packages and Database File Examples (for both versions)
 
 **Anaconda and Anaconda related packages**
 
@@ -30,7 +30,7 @@ Right now, the HMDB, LOTUS and DrugBank databases that are used in the Jupyter n
 
 However, in the future, these databases will have corresponding python files that you can run to extract, parse and automatically treat them so you can always have the most current version of them.
 
-# Patch Notes
+# Jupyter Notebook Version Patch Notes
 
 #### V1.0 - Release Version (03/10/2022)
 
@@ -126,3 +126,21 @@ However, in the future, these databases will have corresponding python files tha
 - Add customization of fonts in figures.
 - Grant possiblity of extracting more dataframes.
 - (Long term) provide graphical user interface as notebook alternative.
+
+
+# Graphical Interface Version Patch Notes
+
+#### Version Alpha.0 (In Development)
+
+### Open the Graphical Interface
+
+- Open Visual Studio Code or other equivalent editor.
+- Open Folder where these files are located.
+- Open and Run "InterfaceProtoype_MetSta.py".
+
+### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
+
+- panel >= 1.3.4
+- param >= 2.0.1
+- holoviews >= 1.18.1
+- plotly >= 5.18.0
