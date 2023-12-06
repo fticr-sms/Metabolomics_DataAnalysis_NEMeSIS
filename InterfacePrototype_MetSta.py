@@ -56,11 +56,8 @@ class InstructionPage:
 
 class DataReading:
     def __init__(self):
-        self.content = pn.Column("# Section 1: Data Input", """Inputting your Excel or csv MetaboScape file.
-                                 If your file is not from MetaboScape, it should have the _m/z_ peak column be called 'Bucket Label'.
-                                 An extra column called 'Neutral Mass' will be automatically added to your data if your 'Bucket Label' comes from MetaboScape or can be interpreted as a float.
-                                 Otherwise, a notification will inform that this column could not be added.
-                                 After confirming your dataset and moving to the next page, you will not be able to change it unless you restart the program.""",
+        self.content = pn.Column("# Section 1: Data Input",
+                                 pn.pane.HTML(desc_str.data_reading_opening_string),
                                 section1page)
 
     def view(self):
@@ -70,6 +67,7 @@ class DataReading:
 class DataMetadata:
     def __init__(self):
         self.content = pn.Column("# Section 1.1: Selecting Metadata columns and defining your target",
+                                 "Metadata columns are split into 4 categories: Formula, Annotated (compound name), Neutral Mass and Other columns. Sample columns are every column which was not selected in any metadata column.",
                                 page1_1)
 
     def view(self):
@@ -91,6 +89,7 @@ class DataAnnotation:
     """Perform Annotations based on available databases. **Cannot perform annotation without a selected Neutral Mass column.**
     You can annotate with multiple databases. However, each database is annotated individually.
     Annotation works by assigning to a m/z peak / feature all metabolites of a database that are within the provided error margin.
+    **Currently, no adduct search is done to perform annotations (MetaboScape Data's Bucket Label should already take adducts into account).**
     Annotation from two different databases might annotate different metabolites for the same m/z peak / feature.
     Thus, each database annotation will generate **3 columns** added to the metadata: one with the **IDs** of the metabolites annotated, another with their **formula** and another with their **name**.""",
                                 page2)
@@ -114,6 +113,7 @@ class ClassColours:
 
         self.content = pn.Column("# Section 3.1: Select Colours for each Class",
                                  "These colours will be used in the different figures made hereafter (Venn diagrams, PCA, HCA, PLS-DA, Chemical Composition Series and plots in the Compound Finder search tool).",
+                                 "If you are repating analysis after having modified the dataset or the pre-treatment, a bunch of notifications may appear. Do not worry.",
                                  "### Choose the colours for each class", page4)
 
     def view(self):
@@ -200,7 +200,7 @@ class PathwayAssignmentPage:
 
         self.content = pn.Column("# Pathway Assignment (HMDB Annotation)",
                                  pn.pane.HTML("""This page allows you to assign or match known metabolic pathways to HMDB annotations only. This is made based on a file created from the
-                                              <strong>RAMP database</strong> (<a href="https://rampdb.nih.gov/" target="_blank" rel="nofollow">https://rampdb.nih.gov/</a>) where 55934 HMDB
+                                              <strong>RAMP database</strong> (<a href="https://rampdb.nih.gov/" target="_blank" rel="nofollow">https://rampdb.nih.gov/</a>) where 55872 HMDB
                                               compounds have at least 1 corresponding pathway. The pathways shown are aggregated from multiple sources: HMDB, Reactome, WikiPathways and KEGG; from
                                               where RAMP provides the information
                                               (<a href="https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287" target="_blank" rel="nofollow">https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287</a>).
@@ -292,31 +292,65 @@ class DataFrame_Storage(param.Parameterized):
     # BinSim treated DataFrame
     binsim_df = param.DataFrame()
 
+
+    def concat_annots(_, MS_df, annot_df):
+        "Joins m/z peak data with annotation data in a single DataFrame."
+        return pd.concat((MS_df, annot_df), axis=1)
+
+
+    def reset(self):
+        "Resets all relevant parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
+
+
     def __init__(self, **params):
 
         super().__init__(**params)
 
         self.controls = pn.Param(self, parameters=['treated_df'], name='Pre-Treatment Selection')
 
-    def concat_annots(_, MS_df, annot_df):
-        "Joins m/z peak data with annotation data in a single DataFrame."
-        return pd.concat((MS_df, annot_df), axis=1)
-
 # Initializing the Store
 DataFrame_Store = DataFrame_Storage()
 
 
 
-# TODO: Make Reset button to read other datasets.
+# Function to ensure statistical analysis buttons are disabled when data pre-treatment is changed
 
+def _disabling_stat_analysis_buttons():
+    "Disabling statistical analysis."
+    # Enable all statistical analysis related buttons
+    page5_button.disabled = True
+    page6_button.disabled = True
+    page7_button.disabled = True
+    page8_button.disabled = True
+    page9_button.disabled = True
+    page10_button.disabled = True
+    page11_button.disabled = True
+    page12_button.disabled = True
+    page13_button.disabled = True
+
+
+
+
+# TODO: Make Reset button to read other datasets.
+# TODO: Data Visualization page does not reset figure parameters to default
 
 # Page 1 - Reading File
+# TODO: Make it be able to read positive and negative ionization mode obtained data.
 
 class FileReading(param.Parameterized):
     """Class to store as attributes file read."""
 
     temp_target = param.Dict()
     read_df = param.DataFrame(pd.DataFrame())
+
+    def reset(self):
+        "Resets all relevant parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
 
     def __init__(self, **params):
 
@@ -361,6 +395,7 @@ load_example_df_button = pn.widgets.Button(name='Load Example Dataset', button_t
 tooltip_example_df = pn.widgets.TooltipIcon(
     value="""Example Data consists of 15 FT-ICR-MS samples of 5 strains of the Yeast Saccharomyces cerevisiae with previsouly assigned annotations.""")
 
+
 def _load_example_df_button(event):
     "Reads the example file ofthe software."
 
@@ -382,6 +417,8 @@ def _confirm_step1(event):
     load_example_df_button.disabled = True
     target_included_in_file.disabled = True
     filename.disabled = True
+    confirm_button_target.disabled=True
+    confirm_button_next_step_1_1.disabled=True
 
     DataFrame_Store.read_df = file.read_df # Update DataFrame store
 
@@ -456,6 +493,7 @@ def _update_confirm_column_selection(event):
                     if col not in checkbox_others.value:
                         sample_cols.append(col)
     target_widget.disabled = False # Make you able to type in the target
+    confirm_button_target.disabled = False
     
     checkbox_samples.value = sample_cols # Update the samples checkbox
     target_list.sample_cols = sample_cols # Save the sample cols
@@ -479,9 +517,27 @@ def _update_confirm_column_selection(event):
     
 confirm_button_column_selection.on_click(_update_confirm_column_selection)
 
+# Disable further analysis when this is changed
+@pn.depends(checkbox_formula.param.value, checkbox_annotation.param.value, radiobox_neutral_mass.param.value,
+            checkbox_others.param.value, watch=True)
+def _disable_remaining_analysis_from_metadata(a,b,c,d):
+    "Disable analysis further on the pipeline"
+    # Disable widgets on the current page
+    confirm_button_target.disabled=True
+    confirm_button_next_step_1_1.disabled=True
+
+    # Disable sidebar buttons
+    page1_2_button.disabled = True
+    page2_button.disabled = True
+    page3_button.disabled = True
+    page4_button.disabled = True
+
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
 # Make the target widget
 target_placeholder = "A,A,A,A,A,B,B,B,B,B"
-target_widget = pn.widgets.TextAreaInput(name='Target - Class Labels', placeholder=target_placeholder, 
+target_widget = pn.widgets.TextAreaInput(name='Define your Target (Class Labels)', placeholder=target_placeholder,
                                          max_length=5000, height=100, disabled=True)
 target_tooltip = pn.widgets.TooltipIcon(value="Provide the class labels of your samples. No spaces between labels.")
 # Create button widgets
@@ -508,8 +564,19 @@ def _update_confirm_target(event):
     if len(sample_cols) != len(target):
         pn.state.notifications.error(
             f'Number of class labels ({len(target)}) is different than the number of sample columns ({len(sample_cols)}).')
+        confirm_button_next_step_1_1.disabled = True
     else:
         confirm_button_next_step_1_1.disabled = False
+
+    # Disable sidebar buttons
+    page1_2_button.disabled = True
+    page2_button.disabled = True
+    page3_button.disabled = True
+    page4_button.disabled = True
+
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
 
 # Call the function
 confirm_button_target.on_click(_update_confirm_target)
@@ -517,6 +584,7 @@ confirm_button_target.on_click(_update_confirm_target)
 # Going to the next step function
 def _confirm_button_next_step_1_1(event):
     page1_2_button.disabled = False
+    confirm_button_next_step_2.disabled = True
     #page2_button.disabled = False
     main_area.clear()
     show_page(pages["Data Filtering"])
@@ -593,6 +661,8 @@ def _confirm_button_initial_filtering(event):
     # Locking in the parameters used for feature filtering
     UnivarA_Store.locking_filtering_params(filt_method, filt_kw)
 
+    confirm_button_next_step_2.disabled = False
+
     # Setup the page if not setup yet
     if len(page1_2) == 3:
         page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',filtered_df,
@@ -605,6 +675,8 @@ confirm_button_initial_filtering.on_click(_confirm_button_initial_filtering)
 def _confirm_button_next_step_1_2(event):
     "Ends step 1-2 and goes to Data Annotation page."
     page2_button.disabled = False
+    confirm_button_next_step_3.disabled = True
+
     main_area.clear()
     show_page(pages["Data Annotation"])
 confirm_button_next_step_2.on_click(_confirm_button_next_step_1_2)
@@ -617,6 +689,7 @@ page1_2 = pn.Column(pn.Row(filt_method, filt_method_tooltip), pn.Row(filt_kw, fi
 
 
 # Page 2 - Annotation of Metabolites
+# TODO: Make it selectable if you want to search for possible adducts
 
 # Widgets for selecting number of databases
 n_databases_show = pn.widgets.IntInput(name='Nº of Databases to annotate', value=1, step=1, start=0, end=5)
@@ -902,6 +975,7 @@ def _press_confirm_annotation_perform(event):
     confirm_button_annotation_perform.disabled=True
     # Perform metabolite annotation
     metabolite_annotation()
+    confirm_button_next_step_3.disabled = False
     page2.append(confirm_button_next_step_3)
 
 confirm_button_annotation_perform.on_click(_press_confirm_annotation_perform)
@@ -913,6 +987,8 @@ confirm_button_next_step_3 = pn.widgets.Button(icon=iaf.img_confirm_button, name
 # Go to next step function and calling it
 def _confirm_button_next_step_3(event):
     page3_button.disabled = False
+    confirm_button_next_step_4.disabled = True
+    save_data_dataframes_button.disabled = True
     # Join Filtered and Annotated dfs to make the original DataFrame for pre-treatment
     DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
     # Creates in the DataFrame a column ('Has Match?') that indicates if a feature was annotated either previously to being
@@ -961,6 +1037,7 @@ class PreTreatment(param.Parameterized):
     # Confirm Pre-Treatment Selection
     confirm_button = param.Boolean(default=False)
 
+
     # Function to confirm Pre-Treatment Selection and Updating DataFrames
     # TODO: Make Metadata appear in a cleaner way
     def _confirm_button_press(self, event):
@@ -978,6 +1055,13 @@ class PreTreatment(param.Parameterized):
             ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
         confirm_button_next_step_4.disabled = False
         save_data_dataframes_button.disabled = False
+
+
+    def reset(self):
+        "Resets all relevant parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
 
 
     def __init__(self, **params):
@@ -1150,6 +1234,12 @@ class TargetStorage(param.Parameterized):
     color_classes = param.Dict(default={}) # Colours assigned to classes
     sample_cols = param.List(default=checkbox_samples.value) # Columns related to samples
 
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name", "updater"]:
+                setattr(self, param, self.param[param].default)
+
     def __init__(self, **params):
         super().__init__(**params)
 
@@ -1160,6 +1250,7 @@ class TargetStorage(param.Parameterized):
 
 # Initialize the target store
 target_list = TargetStorage()
+
 
 # Button to next step and to confirm colours
 confirm_button_next_step_transitionalpage = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Analysis',
@@ -1174,6 +1265,71 @@ def _confirm_button_next_step_5(event):
         for col in range(n_max):
             key = list(target_list.color_classes.keys())[row+col]
             target_list.color_classes[key] = page4[row//5][col].value
+
+    # Resetting all statistical analysis performed before (if repeating analysis)
+    if reset_time.value == 0:
+        if confirm_button_next_step_transitionalpage.clicks > 1:
+            # Common and Exclusive Compound page . Has to be after Data diversity visualization reset
+            com_exc_compounds.reset()
+            while len(end_page_comexc) > 0:
+                end_page_comexc.pop(-1)
+
+            # Unsupervised Analysis page
+            PCA_params.reset()
+            HCA_params.reset()
+
+            # Supervised Analysis page
+            plsda_feat_imp_show_annots_only.value = False
+            plsda_feat_imp_show_annots_only.disabled = True
+            rec_comp_indicator_widget.value = None
+            PLSDA_store.soft_reset()
+            pls_optim_section[1] = PLSDA_store.optim_figure[0]
+            save_plsda_feat_imp_button.disabled = True
+            while len(pls_results_section) > 5:
+                pls_results_section.pop(-1)
+            pls_results_section[0][1][1] = PLSDA_store.n_results
+            pls_results_section[3] = pn.pane.DataFrame(PLSDA_store.feat_impor)
+
+            rf_feat_imp_show_annots_only.value = False
+            rf_feat_imp_show_annots_only.disabled = True
+            RF_store.reset()
+            rf_optim_section[1] = RF_store.optim_figure[0]
+            save_rf_feat_imp_button.disabled = True
+            while len(rf_results_section) > 5:
+                rf_results_section.pop(-1)
+            rf_results_section[0][1][1] = RF_store.n_results
+            rf_results_section[3] = pn.pane.DataFrame(RF_store.feat_impor)
+
+            # Univariate Analysis page
+            UnivarA_Store.reset()
+            while len(univar_analysis_page) > 2:
+                univar_analysis_page.pop(-1)
+
+            # Data Diversity Visualization page
+            iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add temporary compounds per class dfs
+            dataviz_store.reset()
+            vk_plots.clear()
+            kmd_plots.clear()
+            while len(ccs_page) > 2:
+                ccs_page.pop(-1)
+
+            # Pathway Assignment page
+            PathAssign_store.reset()
+            while len(vk_page) > 1:
+                vk_page.pop(-1)
+            while len(kmd_page) > 1:
+                kmd_page.pop(-1)
+            while len(ccs_page) > 1:
+                ccs_page.pop(-1)
+
+            # Compound Finder search tool page
+            comp_finder.reset()
+            comp_finder_page[1] = 'DataFrame of the Searched Compound'
+            comp_finder_page[3] = 'Sample Bar Plot of the Searched Compound'
+            comp_finder_page[5] = 'Class Bar Plot of the Searched Compound'
+            comp_finder_page[7] = 'Class Boxplot of the Searched Compound'
+            com_exc_compounds.reset()
+    reset_time.value = 0
 
     # Enable all statistical analysis related buttons
     page5_button.disabled = False
@@ -1212,7 +1368,7 @@ def _confirm_button_next_step_5(event):
     HCA_params.HCA_plot[0] = _plot_HCA()
     page_HCA[0:6,1:4] = HCA_params.HCA_plot[0]
 
-    # Updating Widgets for Unsupervised Analysis
+    # Updating Widgets for Univariate Analysis
     UnivarA_Store._update_widgets()
 
     # Updating Widgets for Supervised Analysis
@@ -1310,9 +1466,9 @@ class ComExc_Storage(param.Parameterized):
     "Class to store all information on common and exclusive compounds and to plot Venn diagrams and Intersection Plots."
 
     # Dictionaries to group information
-    groups = param.Dict(default={})
-    group_dfs = param.Dict(default={})
-    group_dfs_ids = param.Dict(default={})
+    groups = param.Dict()
+    group_dfs = param.Dict()
+    group_dfs_ids = param.Dict()
     groups_description = param.String(default='')
 
     # DataFrame with the common metabolites
@@ -1320,8 +1476,8 @@ class ComExc_Storage(param.Parameterized):
     common_all_id = param.DataFrame()
 
     # Dictionary with DataFrames for exclusive compounds
-    exclusives = param.Dict(default={})
-    exclusives_id = param.Dict(default={})
+    exclusives = param.Dict()
+    exclusives_id = param.Dict()
 
     com_exc_desc = param.String(default='')
 
@@ -1485,6 +1641,13 @@ class ComExc_Storage(param.Parameterized):
                          name='Parameters to draw Venn Diagram'),
                 pn.Param(self, parameters=['inter_class_subset', 'inter_include_counts_percentages','dpi_inter'],
                          widgets=widgets, name='Parameters to draw Intersection Plots', default_layout=pn.Row))
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
 
 
     def __init__(self, **params):
@@ -1765,6 +1928,14 @@ class PCA_Storage(param.Parameterized):
                 filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
         middle_page_PCA[0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
+
+
     def __init__(self, **params):
 
         super().__init__(**params)
@@ -1919,6 +2090,7 @@ class HCA_Storage(param.Parameterized):
     # Storing figure
     HCA_plot = param.List(default=['Pane to Plot a HCA Dendrogram'])
 
+
     # Update the HCA plot
     @param.depends('dist_metric', 'link_metric', watch=True)
     def _update_HCA_compute_plot(self):
@@ -1929,10 +2101,20 @@ class HCA_Storage(param.Parameterized):
         self.HCA_plot[0] = _plot_HCA()
         page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
 
+
     @param.depends('fig_text', 'fig_x', 'fig_y', 'col_threshold', 'dpi', watch=True)
     def _update_HCA_plot(self):
-        self.HCA_plot[0] = _plot_HCA()
-        page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+        if type(self.Z) == np.ndarray:
+            self.HCA_plot[0] = _plot_HCA()
+            page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
+
 
     def __init__(self, **params):
 
@@ -2130,7 +2312,7 @@ class PLSDA_Storage(param.Parameterized):
 
         # Plot the figure
         rec_comp, fig = iaf._plot_PLS_optimization_components_fig(pls_joined)
-        self.optim_figure[0] = fig
+        self.optim_figure = [fig,]
         self.rec_components = rec_comp
         # Update the layout
         pls_optim_section[1] = pn.pane.Plotly(self.optim_figure[0],
@@ -2192,6 +2374,7 @@ class PLSDA_Storage(param.Parameterized):
         pls_results_section[0][1][1] = pn.pane.DataFrame(self.n_results)
         pls_results_section[3] = pn.pane.DataFrame(self.feat_impor, height=600)
         plsda_feat_imp_show_annots_only.value = False
+        plsda_feat_imp_show_annots_only.disabled = False
         save_plsda_feat_imp_button.disabled = False
 
         # Fit a PLS-DA model with all samples and store model and x_scores
@@ -2200,6 +2383,7 @@ class PLSDA_Storage(param.Parameterized):
             n_comp=self.n_components, return_scores=True,
             scale=self.scale,
             encode2as1vector=True, lv_prefix='LV ', label_name='Label')
+        self.complete_soft_reset()
 
         # Name of the file
         filename_string = f'PLS_plot_({self.n_components}comp)'
@@ -2276,8 +2460,9 @@ class PLSDA_Storage(param.Parameterized):
                                      'perm_metric': self.perm_metric}
 
         # Plot the permutation test
-        self.perm_figure[0] = iaf._plot_permutation_test(perm_results_PLSDA, DataFrame_Store, self.n_fold,
+        perm_figure = iaf._plot_permutation_test(perm_results_PLSDA, DataFrame_Store, self.n_fold,
                                                      self.perm_metric, 'PLS-DA Permutation Test')
+        self.perm_figure =[perm_figure,]
 
         # Update the layout
         pls_results_section[9][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
@@ -2293,11 +2478,23 @@ class PLSDA_Storage(param.Parameterized):
                                                             name='Computing Receiver Operating Characteristic Curves...')
 
         # Computes the ROC Curve (whether you have 2 or more classes) and returns the plots and corresponding filenames
-        self.ROC_figure[0], filename = iaf._plot_PLSDA_ROC_curve(self, DataFrame_Store.treated_df, target_list)
+        roc_fig, filename = iaf._plot_PLSDA_ROC_curve(self, DataFrame_Store.treated_df, target_list)
+        self.ROC_figure = [roc_fig,]
 
         # Update the layouts
         pls_results_section[12][1] = pn.pane.Plotly(self.ROC_figure[0],
                                                 config={'toImageButtonOptions': {'filename': filename, 'scale':4}})
+
+
+    def soft_reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name", 'n_dimensions', 'LVx', 'LVy', 'LVz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size']:
+                setattr(self, param, self.param[param].default)
+
+    def complete_soft_reset(self):
+        for param in ['n_dimensions', 'LVx', 'LVy', 'LVz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size']:
+            setattr(self, param, self.param[param].default)
 
 
     def __init__(self, **params):
@@ -2319,7 +2516,7 @@ class PLSDA_Storage(param.Parameterized):
 
         widgets = {
             'n_components': pn.widgets.IntSlider(name='Number of Components for PLS-DA model',
-                start=1, end=40, value=5, step=1, styles={'font-weight': 'bold'}),
+                start=3, end=40, value=5, step=1, styles={'font-weight': 'bold'}),
             'n_iterations': pn.widgets.IntInput(name='Number of Times to repeat analysis',
                 start=1, value=10, step=1),
             'n_fold': pn.widgets.IntInput(name="Number of folds for stratified cross-validation",
@@ -2341,7 +2538,7 @@ class PLSDA_Storage(param.Parameterized):
         }
 
         widgets_PLS_proj = {'n_components': pn.widgets.IntInput(name='Number of Components for PLS-DA model',
-                start=1, end=40, value=5, step=1, disabled=True,
+                start=3, end=40, value=5, step=1, disabled=True,
                 description='This parameter was chosen when fitting the PLS-DA model and assessing its performance'),
             'n_dimensions': pn.widgets.RadioBoxGroup(name="n_dimensions",
                 value = '2 Components', options=['2 Components', '3 Components'], inline = True),
@@ -2365,7 +2562,7 @@ class PLSDA_Storage(param.Parameterized):
         }
 
         widgets_PLS_perm = {'n_components': pn.widgets.IntInput(name='Number of Components for PLS-DA model',
-                start=1, end=40, value=5, step=1, disabled=True,
+                start=3, end=40, value=5, step=1, disabled=True,
                 description='This parameter was chosen when fitting the PLS-DA model and assessing its performance'),
             'n_fold': pn.widgets.IntInput(name="Number of folds for stratified cross-validation",
                 value=5, start=2, end=20, disabled=True,
@@ -2459,7 +2656,7 @@ pls_optim_section = pn.Row(pn.Column(PLSDA_store.controls_optim, rec_comp_indica
 # Results Section of the PLS-DA page
 # Specific Widget for PLS results section of the page, shows DataFrame with only annotated metabolites or all metabolites
 plsda_feat_imp_show_annots_only = pn.widgets.Checkbox(name='Only show annotated metabolites in feature importance table',
-                                                       value=False)
+                                                       value=False, disabled=True)
 
 # Change the DataFrame shown based on checkbox
 @pn.depends(plsda_feat_imp_show_annots_only.param.value, watch=True)
@@ -2689,10 +2886,10 @@ class RF_Storage(param.Parameterized):
         # RF optimization Figure
         rf_optim_results = pd.DataFrame([self.optim_ntrees, self.optim_scores],
                                        index=['Number of Trees', 'Model Accuracy (estimated by CV)']).T
-        self.optim_figure[0] = px.line(rf_optim_results, x='Number of Trees', y='Model Accuracy (estimated by CV)',
+        self.optim_figure = [px.line(rf_optim_results, x='Number of Trees', y='Model Accuracy (estimated by CV)',
                 title='Random Forest Optimization Plot', range_y=(0, 1.05),
                 range_x=(self.n_min_max_trees[0] - 10, self.n_min_max_trees[1] + 10)
-                 )
+                 ),]
 
         # Update the layout
         filename_string = f'RF_optim_plot_{self.n_fold}-stratCV'
@@ -2751,6 +2948,7 @@ class RF_Storage(param.Parameterized):
         rf_results_section[0][1][1] = pn.pane.DataFrame(self.n_results)
         rf_results_section[3] = pn.pane.DataFrame(self.feat_impor, height=600)
         rf_feat_imp_show_annots_only.value = False
+        rf_feat_imp_show_annots_only.disabled = False
         save_rf_feat_imp_button.disabled = False
 
         if len(rf_results_section) == 5:
@@ -2796,8 +2994,9 @@ class RF_Storage(param.Parameterized):
                                      'n_permutations': self.n_perm, 'perm_metric': self.perm_metric}
 
         # Plot the permutation test
-        self.perm_figure[0] = iaf._plot_permutation_test(perm_results_RF, DataFrame_Store, self.n_fold,
+        perm_figure = iaf._plot_permutation_test(perm_results_RF, DataFrame_Store, self.n_fold,
                                                      self.perm_metric, 'Random Forest Permutation Test')
+        self.perm_figure = [perm_figure,]
 
         # Update the layout
         rf_results_section[7][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
@@ -2813,11 +3012,19 @@ class RF_Storage(param.Parameterized):
                                                             name='Computing Receiver Operating Characteristic Curves...')
 
         # Computes the ROC Curve (whether you have 2 or more classes) and returns the plots and corresponding filenames
-        self.ROC_figure[0], filename = iaf._plot_RF_ROC_curve(self, DataFrame_Store.treated_df, target_list)
+        roc_fig, filename = iaf._plot_RF_ROC_curve(self, DataFrame_Store.treated_df, target_list)
+        self.ROC_figure = [roc_fig,]
 
         # Update the layouts
         rf_results_section[10][1] = pn.pane.Plotly(self.ROC_figure[0],
                                                 config={'toImageButtonOptions': {'filename': filename, 'scale':4}})
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
 
 
     def __init__(self, **params):
@@ -2938,7 +3145,7 @@ rf_optim_section = pn.Row(RF_store.controls_optim, RF_store.optim_figure[0])
 # Results Section of the Random Forest page
 # Specific Widget for Random Forest results section, shows DataFrame with only annotated metabolites or all metabolites
 rf_feat_imp_show_annots_only = pn.widgets.Checkbox(name='Only show annotated metabolites in feature importance table',
-                                                       value=False)
+                                                       value=False, disabled=True)
 
 # Change the DataFrame shown based on checkbox
 @pn.depends(rf_feat_imp_show_annots_only.param.value, watch=True)
@@ -3149,7 +3356,8 @@ class UnivariateAnalysis_Store(param.Parameterized):
                 expression.append('Upregulated')
         results_df['Expression'] = expression
 
-        self.Volcano_fig[0] = iaf._plot_Volcano_plot(results_df, UnivarA_Store, )
+        Volcano_fig = iaf._plot_Volcano_plot(results_df, UnivarA_Store,)
+        self.Volcano_fig = [Volcano_fig,]
         # Update the layout
         layout_volcano[0,1:3] = pn.pane.Plotly(UnivarA_Store.Volcano_fig[0], config={'toImageButtonOptions': {
                    'filename': f'VolcanoPlot - {UnivarA_Store.test_class}/{UnivarA_Store.control_class}', 'scale':4}})
@@ -3161,6 +3369,14 @@ class UnivariateAnalysis_Store(param.Parameterized):
         iaf._univariate_intersections(self, DataFrame_Store)
         layout_final_section[0][1] = UnivarA_Store.inter_description
         layout_final_section[1] = pn.pane.DataFrame(UnivarA_Store.specific_cl_df, height=600)
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name", 'color_non_sig', 'color_down_sig', 'color_up_sig', 'filt_method', 'filt_kw', 'mvi_method',
+                             'mvi_kw', 'norm_method', 'norm_kw', 'tf_method', 'tf_kw', 'scaling_method', 'scaling_kw']:
+                setattr(self, param, self.param[param].default)
 
 
     def __init__(self, **params):
@@ -3416,7 +3632,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
     def _compute_VK_plots(self):
         "Computes Van Krevelen Plots and updates layout and widgets."
 
-        if len(self.ccs_formula_to_consider) == 0:
+        if len(self.vk_formula_to_consider) == 0:
             pn.state.notifications.error('At least 1 Formula Annotation column must be provided for VK plot.')
             raise ValueError('At least 1 Formula Annotation column must be provided for VK plot.')
 
@@ -3505,7 +3721,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
 
     # Update the CCS Plot
     @param.depends('ccs_bar_plot_type', 'ccs_formula_to_consider', watch=True)
-    def _compute_CCS_plot(self, group_dfs=com_exc_compounds.group_dfs,
+    def _compute_CCS_plot(self,
                           series_order=('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP', 'other')):
         "Computes and plots the chemical compostion series plot, updating the corresponding layout."
 
@@ -3523,9 +3739,9 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
         desc_string = [f'**Description with number of formulas assigned considered**', '']
 
         # For each class
-        for g in group_dfs:
+        for g in com_exc_compounds.group_dfs:
             # Calculating H/C and O/C ratios and series classes for data diversity plots.
-            forms = group_dfs[g].dropna(subset=self.ccs_formula_to_consider, how='all')
+            forms = com_exc_compounds.group_dfs[g].dropna(subset=self.ccs_formula_to_consider, how='all')
             elems = iaf.create_element_counts(forms, formula_subset=self.ccs_formula_to_consider)
 
             # Calculating counts of each series for each class
@@ -3582,7 +3798,10 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
     def update_widgets(self):
         "Update the needed widget values."
         # Calculate specific class DataFrames in case it has not been calculated before
-        if com_exc_compounds.group_dfs == {}:
+        try:
+            for g in com_exc_compounds.group_dfs:
+                g
+        except:
             iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
 
         formula_cols = checkbox_formula.value + [i for i in DataFrame_Store.metadata_df.columns if i.startswith('Matched') and i.endswith('formulas')]
@@ -3600,7 +3819,18 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
         # CCS
         self.controls_ccs.widgets['ccs_formula_to_consider'].options = formula_cols
         self.controls_ccs.widgets['ccs_formula_to_consider'].value = formula_cols
-        self._compute_CCS_plot(com_exc_compounds.group_dfs)
+        self._compute_CCS_plot()
+
+
+    def reset(self):
+        "Reset parameters."
+        self.vk_highlight_by = 'None'
+        for param in self.param:
+            if param not in ["name", 'vk_formula_to_consider', 'kmd_formula_to_consider', 'ccs_formula_to_consider', 'vk_highlight_by']:
+                setattr(self, param, self.param[param].default)
+        self.vk_highlight_by = 'Rank'
+        for param in ['vk_formula_to_consider', 'kmd_formula_to_consider', 'ccs_formula_to_consider']:
+            setattr(self, param, self.param[param].default)
 
 
     def __init__(self, **params):
@@ -3680,6 +3910,14 @@ dataviz_store = VanKrev_KMD_CCS_Storage()
 compute_vk_kmd_ccs_button = pn.widgets.Button(
     name='Compute Van Krevelen, Kendrick Mass Defect and Chemical Composition Series Plots', button_type='success')
 def _compute_vk_kmd_ccs_button(event):
+    if len(vk_page) == 1:
+        vk_page.append(dataviz_store.controls_vk)
+        vk_page.append(vk_plots)
+    if len(kmd_page) == 1:
+        kmd_page.append(dataviz_store.controls_kmd)
+        kmd_page.append(kmd_plots)
+    if len(ccs_page) == 1:
+        ccs_page.append(dataviz_store.controls_ccs)
     dataviz_store.update_widgets()
 compute_vk_kmd_ccs_button.on_click(_compute_vk_kmd_ccs_button)
 
@@ -3705,7 +3943,7 @@ more bluish colour, while those above have a redder colour.
 
 vk_plots = pn.Column()
 
-vk_page = pn.Column(pn.pane.HTML(vk_opening_string), dataviz_store.controls_vk, vk_plots)
+vk_page = pn.Column(pn.pane.HTML(vk_opening_string))
 
 
 # Kendrick Mass Defect Plot Section
@@ -3731,7 +3969,7 @@ points are not coloured by chemical composition series.
 
 kmd_plots = pn.Column()
 
-kmd_page = pn.Column(pn.pane.HTML(kmd_opening_string), dataviz_store.controls_kmd, kmd_plots)
+kmd_page = pn.Column(pn.pane.HTML(kmd_opening_string))
 
 
 # Chemical Composition Series Section
@@ -3753,7 +3991,7 @@ detailing how many formulas are being considered for each class and from how man
 they came from.
 '''
 
-ccs_page = pn.Column(pn.pane.HTML(ccs_opening_string), dataviz_store.controls_ccs)
+ccs_page = pn.Column(pn.pane.HTML(ccs_opening_string))
 
 
 data_viz_page = pn.Column(compute_vk_kmd_ccs_button, pn.Tabs(('Van Krevelen Plot', vk_page), ('Kendrick Mass Defect Plot', kmd_page),
@@ -3791,13 +4029,10 @@ class PathAssignment_Storage(param.Parameterized):
 
 
     def reset(self):
-        "Resets all relevant parameters and Widgets."
-        self.hmdb_id_cols = []
-        self.controls.widgets['hmdb_id_cols'].options = [i for i in DataFrame_Store.metadata_df.columns]
-        self.pathway_assignments = param.DataFrame()
-        self.chosen_hmdb_ids = []
-        self.controls_hmdb.widgets['chosen_hmdb_ids'].value = []
-        self.chosen_hmdb_ids_assigns = param.Dict()
+        "Resets all relevant parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
 
 
     def __init__(self, **params):
@@ -3821,9 +4056,8 @@ class PathAssignment_Storage(param.Parameterized):
 
 
 # Load pathway database into a DataFrame
-with open('RAMP_ID_pathways.pickle', 'rb') as handle:
+with open('RAMP_ID_pathways_improved.pickle', 'rb') as handle:
     pathway_db = pickle.load(handle)
-pathway_db = pd.DataFrame(pathway_db)
 
 # Initialize store for PathwayAssignment parameters
 PathAssign_store = PathAssignment_Storage(pathway_db=pathway_db)
@@ -3834,8 +4068,8 @@ confirm_hmdb_cols_button = pn.widgets.Button(name='Confirm HMDB ID columns selec
 
 # Page layout
 path_assign_page = pn.Column(PathAssign_store.controls,
-          confirm_hmdb_cols_button,
-          PathAssign_store.controls_hmdb)
+          confirm_hmdb_cols_button)#,
+          #PathAssign_store.controls_hmdb)
 
 
 
@@ -3935,7 +4169,7 @@ class CompoundFinder(param.Parameterized):
         "Actions to find the identifier provided and plot the plots."
 
         # Calculate specific class DataFrames in case it has not been calculated before
-        if com_exc_compounds.group_dfs == {}:
+        if type(com_exc_compounds.group_dfs) != dict:
             iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
 
         # Saving parameters
@@ -3965,6 +4199,25 @@ class CompoundFinder(param.Parameterized):
                    'filename': f'NormInt_ClassBarPlot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
         comp_finder_page[7] = pn.pane.Plotly(self.class_boxplot[0], config={'toImageButtonOptions': {
                    'filename': f'NormInt_ClassBoxplot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
+
+
+    def reset(self):
+        "Resets all relevant parameters and Widgets."
+        self.name_to_idxs = None
+        self.formula_to_idxs = None
+        self.neutral_mass_to_idxs = None
+        self.id_df = None
+        self.current_params = None
+        self.sample_bar_plot = ['To plot a bar plot with sample intensities']
+        self.class_bar_plot = ['To plot a bar plot with class avg. intensities']
+        self.class_boxplot = ['To plot a boxplot with class avg. intensities']
+        self.id_type = 'Metabolite Bucket Label'
+        self.controls.widgets['id_type'].value = 'Metabolite Bucket Label'
+        self.controls.widgets['id_type'].options = ['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula', 'Metabolite Neutral Mass']
+        self.id_comp = self.param['id_comp'].default
+        self.controls.widgets['id_comp'].options = ['']
+        self.controls.widgets['id_comp'].placeholder = ''
+        self.bucket_to_idxs = None
 
 
     # Update the Widget options
@@ -4140,7 +4393,7 @@ page7_button = pn.widgets.Button(name="Supervised Analysis", button_type="defaul
 page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="default", disabled=True)
 page9_button = pn.widgets.Button(name="Data Visualization", button_type="default", disabled=True)
 page10_button = pn.widgets.Button(name="Pathway Assignment", button_type="default", disabled=True)
-page11_button = pn.widgets.Button(name="BinSim Analysis", button_type="default", disabled=True)
+page11_button = pn.widgets.Button(name="BinSim Analysis (TODO)", button_type="default", disabled=True)
 page12_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
 page13_button = pn.widgets.Button(name="Report Generation", button_type="default", disabled=True)
 RESET_button = pn.widgets.Button(name="RESET", button_type="danger", disabled=False)
@@ -4164,7 +4417,7 @@ page11_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
 page12_button.on_click(lambda event: show_page(pages["Compound Finder"]))
 
 # Reset panel widgets
-reset_panel_float_text = pn.widgets.StaticText(name='', value='Do you want to reset all parameters of the software?')
+reset_panel_float_text = pn.widgets.StaticText(name='', value='Do you want to reset all parameters of the software? (This is a faux Reset with a few tricks but it seems to do the job)')
 reset_panel_float_yes_button = pn.widgets.Button(name='Yes', button_type='danger')
 reset_panel_float_no_button = pn.widgets.Button(name='No', button_type='default')
 reset_floatpanel = pn.layout.FloatPanel(reset_panel_float_text, reset_panel_float_yes_button, reset_panel_float_no_button,
@@ -4183,17 +4436,118 @@ def No_Reset(event):
     reset_floatpanel.status = 'closed'
     main_area.pop(-1)
 
-#def Yes_Reset(event):
+reset_time = pn.widgets.IntInput(value=0)
+def Yes_Reset(event):
+    "Resetting the program and all variables."
+    # Resetting pre-treatment steps
+
+    # Resetting Data Reading page speficically (parameters and widgets)
+    file.reset()
+    filename.value = None
+    filename.disabled = False
+    target_included_in_file.value = False
+    target_included_in_file.disabled = False
+    load_example_df_button.disabled = False
+    confirm_button_filename.disabled = True
+    confirm_button_step1.disabled = True
+    section1page[2] = file.read_df
+
+    # Resetting other Pre-Treatment related Param classes
+    PreTreatment_Method.reset()
+
+    # Disable all sidebar buttons except data reading
+    page1_1_button.disabled = True
+    page1_2_button.disabled = True
+    page2_button.disabled = True
+    page3_button.disabled = True
+    page4_button.disabled = True
+    _disabling_stat_analysis_buttons()
+
+    # Resetting all statistical analysis performed
+
+    # Common and Exclusive Compound page
+    com_exc_compounds.reset()
+    while len(end_page_comexc) > 0:
+        end_page_comexc.pop(-1)
+
+    # Unsupervised Analysis page
+    PCA_params.reset()
+    HCA_params.reset()
+
+    # Supervised Analysis page
+    plsda_feat_imp_show_annots_only.value = False
+    plsda_feat_imp_show_annots_only.disabled = True
+    rec_comp_indicator_widget.value = None
+    PLSDA_store.soft_reset()
+    pls_optim_section[1] = PLSDA_store.optim_figure[0]
+    save_plsda_feat_imp_button.disabled = True
+    while len(pls_results_section) > 5:
+        pls_results_section.pop(-1)
+    pls_results_section[0][1][1] = PLSDA_store.n_results
+    pls_results_section[3] = pn.pane.DataFrame(PLSDA_store.feat_impor)
+
+    rf_feat_imp_show_annots_only.value = False
+    rf_feat_imp_show_annots_only.disabled = True
+    RF_store.reset()
+    rf_optim_section[1] = RF_store.optim_figure[0]
+    save_rf_feat_imp_button.disabled = True
+    while len(rf_results_section) > 5:
+        rf_results_section.pop(-1)
+    rf_results_section[0][1][1] = RF_store.n_results
+    rf_results_section[3] = pn.pane.DataFrame(RF_store.feat_impor)
+
+    # Univariate Analysis page
+    UnivarA_Store.reset()
+    while len(univar_analysis_page) > 2:
+        univar_analysis_page.pop(-1)
+
+    # Data Diversity Visualization page
+    iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
+    dataviz_store.reset()
+    vk_plots.clear()
+    kmd_plots.clear()
+    while len(ccs_page) > 2:
+        ccs_page.pop(-1)
+
+    # Pathway Assignment page
+    PathAssign_store.reset()
+    while len(vk_page) > 1:
+        vk_page.pop(-1)
+    while len(kmd_page) > 1:
+        kmd_page.pop(-1)
+    while len(ccs_page) > 1:
+        ccs_page.pop(-1)
+
+    # Compound Finder search tool page
+    comp_finder.reset()
+    comp_finder_page[1] = 'DataFrame of the Searched Compound'
+    comp_finder_page[3] = 'Sample Bar Plot of the Searched Compound'
+    comp_finder_page[5] = 'Class Bar Plot of the Searched Compound'
+    comp_finder_page[7] = 'Class Boxplot of the Searched Compound'
+    com_exc_compounds.reset()
+
+    # Target reset
+    target_list.reset()
+    reset_time.value = 1
+
+    # Close the floatpanel
+    reset_floatpanel.status = 'closed'
+    main_area.pop(-1)
+
+    # Show the homepage
+    # Update the Main page
+    main_area.clear()
+    show_page(pages["Index"])
 
 
 RESET_button.on_click(RESET)
 reset_panel_float_no_button.on_click(No_Reset)
-#reset_panel_float_yes_button.on_click(Yes_Reset)
+reset_panel_float_yes_button.on_click(Yes_Reset)
 
 sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing and Pre-Treatment', page1_button, page1_1_button, page1_2_button, page2_button, page3_button, page4_button,
                    '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button, page11_button, page12_button,
                    '## Report Generation (TODO)', page13_button, '## To Reset (TODO)', RESET_button)
 
-app = pn.template.FastListTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
+app = pn.template.BootstrapTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
 
 app.show()

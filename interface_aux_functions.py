@@ -128,6 +128,7 @@ def read_file(filename, target_in_file):
     return file, target_file
 
 
+
 # Functions related to Data pre-processing and pre-treatment that needed to be adapted for the graphical interface
 
 def initial_filtering(df, sample_cols, target=None, filt_method='total_samples', filt_kw=2):
@@ -309,6 +310,7 @@ def _group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store):
     "Creates a DataFrame per biological class with the features that appear in samples of said class (and provides a description of each DataFrame)."
 
     # Creating the dictionary with information about which samples belong to which classes
+    com_exc_compounds.groups = {}
     for cl in target_list.color_classes.keys(): # Setting up the keys (classes)
         com_exc_compounds.groups[cl] = []
 
@@ -319,6 +321,8 @@ def _group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store):
 
     # Creating the DataFrame for each class by dropping features of the processed complete DataFrame if they do not appear in any sample of the class
     # One DataFrame is made considering every feature in the dataset, and another considering only annotated features
+    com_exc_compounds.group_dfs = {}
+    com_exc_compounds.group_dfs_ids = {}
     for g in com_exc_compounds.groups:
         for c, t in zip(target_list.sample_cols, target_list.target):
             if g == t:
@@ -1151,7 +1155,7 @@ def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list, fi
         filt_uni_results = filt_uni_results.drop(columns='abs_log2FC')
 
         # Returns results (for 2 classes, there is no comprehensive dictionary of results)
-        return univariate_df, {}, filt_uni_results, univariate_results, {}
+        return univariate_df, {UnivarA_Store.test_class:univariate_df}, filt_uni_results, univariate_results, {UnivarA_Store.test_class:filt_uni_results}
 
 
     # More than 2 classes

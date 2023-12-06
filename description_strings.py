@@ -68,6 +68,10 @@ Reading</strong> which is the only one unlocked at the begginning. When reaching
 unlocked (as well as <strong>Report Generation</strong> - still <strong>TODO</strong>). These steps are generally
 independent of one another and can be done in any order or skipped based on the type of analysis to be performed. As with
 every Metabolomics experiment, statistical analysis results will depend on the filtering and pre-treatment methods used.</p>
+<p>- If you <strong>change any part of the pre-treatment steps</strong>, posterior pre-treatment steps and statistical
+analysis will immediately <strong>be locked</strong> and will <strong>erase previous statistical analysis</strong>, so you
+will have to repeat data pre-treatments. This is to avoid situations where the user wanted to change the pre-treatment but
+forgot to re-apply posterior pre-treatment steps.</p>
 <p>- While there is an effort for figures and tables produced that can be downloaded to have the relevant parameters used
 to build them in the name, it is a good practice to keep in mind what parameters were used to make these figures and tables,
 especially those that do not update with every parameter change to safeguard possible errors that may arise in the filenames
@@ -94,11 +98,10 @@ style="width: 22px; height: 20.9px;">&nbsp;aspect.</p>
 <p>- The main overarching problem when running the program is the de-formatting of the pages that can happen when you go
 back and forth between different pages causing artifactss of different pages or empty spaces before the pages to show up.
 We currently believe this is an issue with the panel package we are basing this software on. Fortunately, this can be
-mostly solved when using the program by toggling the program theme (near the top-right of the page). Although, this does
-not change anything since there is not a dark theme implemented, it will reset the layout of the page. However, <strong>do
-not use&nbsp;</strong>this trick on the <strong>common and exclusive compound page</strong> since this will de-format the
-page and more importantly make the sidebar to navigate the software disappear, rendering it unoperable and needing to be
-closed and opened again.</p>
+mostly solved when using the program by refreshing the page in the browser. Although, this will reset the layout of the page.
+However, <strong>do not use&nbsp;</strong>this trick on the <strong>common and exclusive compound page</strong> since this
+will de-format the page and more importantly make the sidebar to navigate the software disappear, rendering it unoperable
+and needing to be closed and opened again.</p>
 <p>- Other known issues have smaller consequences and affect specific pages. When they exist, a little note in bold will
 indicate the problem at the beginning of the corresponding page. In general, there is in average 1 possible issue in each
 page of the analysis section.</p>
@@ -114,6 +117,31 @@ be analyzed, the slower the analysis is and vice-versa.</p>
 <p><br></p>
 <p>With our best regards,</p>
 <p>The FT-ICR-SMS Laboratory MetsTA Development Team</p>'''
+
+
+# Data Reading Description HTML in string format
+
+data_reading_opening_string ='''<strong>Input your Excel or csv MetaboScape file.</strong>
+<br>
+If your file is not from MetaboScape, it should have the feature peak column be called 'Bucket Label'. This column should
+represent the metabolic features "neutral mass" if possible. Albeit not necessary, it will allow to perform annotation
+later on in the software.
+<br>
+<br>
+In general, your file should have your detected features in the rows and sample data and meta data in the columns. The
+detected features should be in the first column which must be named 'Bucket Label'. You will be asked later to identify the
+meta data columns to separate them from the remaining ones.
+<br>
+<br>
+If the 'Bucket Label' comes from MetaboScape or can be interpreted as a float (number), an extra columns called 'Neutral Mass'
+will be automatically added to your data.
+<br>
+Otherwise, a notification will inform that this column could not be added. If a Neutral Mass column does not exist and could
+not be created in this way, you will not be able to perform annotation using this software.
+<br>
+Currently, after confirming your dataset and moving to the next page, you will not be able to change it unless you restart
+the program or reset every variable.
+'''
 
 
 # PLS-DA Description HTML in string format
