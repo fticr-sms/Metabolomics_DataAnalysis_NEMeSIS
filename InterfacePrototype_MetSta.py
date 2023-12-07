@@ -586,6 +586,9 @@ def _confirm_button_next_step_1_1(event):
     page1_2_button.disabled = False
     confirm_button_next_step_2.disabled = True
     #page2_button.disabled = False
+    # Assuring the initial layout of data filtering page
+    while len(page1_2) > 3:
+        page1_2.pop(-1)
     main_area.clear()
     show_page(pages["Data Filtering"])
 
@@ -664,9 +667,10 @@ def _confirm_button_initial_filtering(event):
     confirm_button_next_step_2.disabled = False
 
     # Setup the page if not setup yet
-    if len(page1_2) == 3:
-        page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',filtered_df,
-                       confirm_button_next_step_2])
+    while len(page1_2) > 3:
+        page1_2.pop(-1)
+    page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',filtered_df,
+                    confirm_button_next_step_2])
 
 # Call the function
 confirm_button_initial_filtering.on_click(_confirm_button_initial_filtering)
@@ -676,6 +680,9 @@ def _confirm_button_next_step_1_2(event):
     "Ends step 1-2 and goes to Data Annotation page."
     page2_button.disabled = False
     confirm_button_next_step_3.disabled = True
+
+    while len(page2) > 1:
+        page2.pop(-1)
 
     main_area.clear()
     show_page(pages["Data Annotation"])
@@ -803,15 +810,22 @@ class DatabaseSection():
 # Have the maximum 5 database sections ready and organized
 DB_dict = {'1':DatabaseSection(), '2':DatabaseSection(), '3':DatabaseSection(), '4':DatabaseSection(),
            '5':DatabaseSection()}
+
+def DB_dict_reset(DB_dict):
+    "Resets the DB_dict section."
+    for i in DB_dict.keys():
+        DB_dict[i] = ['1']
+        DB_dict[i] = DatabaseSection()
         
 dbs_arrangement_all = pn.Row(DB_dict['1'].content, DB_dict['2'].content, DB_dict['3'].content,
                    DB_dict['4'].content, DB_dict['5'].content)
+dbs_arrangement = pn.Row()
 
 # Make the designated number of database sections appear
 def _confirm_button_n_databases(event):
     n_databases.value = n_databases_show.value
     titles = pn.Row()
-    dbs_arrangement = pn.Row()
+    dbs_arrangement.clear()
     for i in range(n_databases.value):
         dbs_arrangement.append(dbs_arrangement_all[i])
         titles.append(f'#### Database {i+1}')
@@ -829,6 +843,8 @@ def _confirm_button_n_databases(event):
     if n_databases.value == 0: # Case where no database is going to be used for annotation
         page2.append(confirm_button_databases_read)
         confirm_button_databases_read.disabled = False
+    else:
+        confirm_button_databases_read.disabled = True
 
 confirm_button_n_databases.on_click(_confirm_button_n_databases)
 
@@ -899,6 +915,7 @@ annotated_df = pn.widgets.DataFrame(pd.DataFrame(index=filtered_df.value.index))
 def metabolite_annotation():
     "Perform metabolite annotation for every database loaded."
 
+    performing_annotation_arrangement.clear()
     # For each database, perform annotation adding a section with 4 columns (ID, metabolite name, formula and number of matches)
     for i in range(n_databases.value):
         # Get the correct database
@@ -918,6 +935,7 @@ def metabolite_annotation():
         if len(performing_annotation_arrangement) == i:
             performing_annotation_arrangement.append(pn.Row(f'Annotating {DB_dict[db_to_use].abv} Database:',
                                                             tqdm_database[i+1], verbose_annotated_compounds[i+1]))
+        # Unnecessary I believe
         else:
             performing_annotation_arrangement[i] = pn.Row(f'Annotating {DB_dict[db_to_use].abv} Database:',
                                                             tqdm_database[i+1], verbose_annotated_compounds[i+1])
@@ -1024,7 +1042,7 @@ class PreTreatment(param.Parameterized):
 
     # Normalization
     norm_method = param.Selector(default="Total Intensity Sum")
-    norm_kw = param.Selector(default=None)
+    norm_kw = param.List(default=[])
 
     # Transformation
     tf_method = param.Selector(default="Generalized Logarithmic Transformation (glog)")
@@ -4529,6 +4547,38 @@ def Yes_Reset(event):
     # Target reset
     target_list.reset()
     reset_time.value = 1
+
+    # Resetting page layouts of the pre-treatment section
+    # Data Metadata page
+    checkbox_formula.value = ['Formula',]
+    checkbox_annotation.value = ['Name',]
+    radiobox_neutral_mass.value = 'Neutral Mass'
+    checkbox_others.value = []
+    checkbox_samples.value = []
+    target_widget.disabled = True
+    target_widget.value = ''
+
+    # Data Filtering page
+    filt_method.value = "Total Samples"
+    filt_kw.value = 2
+    while len(page1_2) > 3:
+        page1_2.pop(-1)
+
+    # Data Annotation page
+    n_databases_show.value = 1
+    n_databases.value = 1
+    annotation_margin_method_radio.value = 'PPM Deviation'
+    annotation_ppm_deviation.value = 1
+    annotation_Da_deviation.value = 0.001
+    annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
+    DB_dict_reset(DB_dict)
+    dbs_arrangement.clear()
+    dbs_arrangement_all.clear()
+    dbs_arrangement_all.extend([DB_dict['1'].content, DB_dict['2'].content, DB_dict['3'].content,
+                   DB_dict['4'].content, DB_dict['5'].content])
+    while len(page2) > 1:
+        page2.pop(-1)
+
 
     # Close the floatpanel
     reset_floatpanel.status = 'closed'
