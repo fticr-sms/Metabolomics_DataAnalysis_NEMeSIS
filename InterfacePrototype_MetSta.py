@@ -207,7 +207,7 @@ class PathwayAssignmentPage:
                                               <br>
                                               Thus, for this, there must be a column with the <strong>HMDB identifiers</strong> (e.g. 'HMDB0000001') from which the assignment can be performed.
                                               The output gives the HMDB IDs and annotation names (if possible) as index in a DataFrame and the name and id of the pathways that they belong to
-                                              according to this built file.
+                                              according to this built file. Your identifiers should have 7 numbers after "HMDB".
                                               <br><br>
                                               <strong>If no HMDB identifiers are present, you will not be able to perform this data analysis step</strong>."""),
                                  path_assign_page)
@@ -1328,17 +1328,19 @@ def _confirm_button_next_step_5(event):
             dataviz_store.reset()
             vk_plots.clear()
             kmd_plots.clear()
-            while len(ccs_page) > 2:
-                ccs_page.pop(-1)
-
-            # Pathway Assignment page
-            PathAssign_store.reset()
             while len(vk_page) > 1:
                 vk_page.pop(-1)
             while len(kmd_page) > 1:
                 kmd_page.pop(-1)
             while len(ccs_page) > 1:
                 ccs_page.pop(-1)
+
+            # Pathway Assignment page
+            PathAssign_store.reset()
+            while len(path_matching_section) > 3:
+                path_matching_section.pop(-1)
+            while len(hmdb_id_searching_section) > 3:
+                hmdb_id_searching_section.pop(-1)
 
             # Compound Finder search tool page
             comp_finder.reset()
@@ -4030,11 +4032,119 @@ class PathAssignment_Storage(param.Parameterized):
     pathway_db = param.DataFrame()
 
     # DataFrame to store pathway assignments
-    pathway_assignments = param.DataFrame()
+    pathway_assignments = param.DataFrame(pd.DataFrame(columns=pathway_db.columns))
+    assign_desc = param.String()
 
     # In case specific HMDB are selected to see their attributions
-    chosen_hmdb_ids = param.List(default=[])
-    chosen_hmdb_ids_assigns = param.Dict()
+    chosen_hmdb_ids = param.String()
+    chosen_hmdb_ids_assigns = param.Dict({})
+
+
+    def _pathway_assignments(self, metadata_df, pathway_db):
+        "Performs pathway matching between HMDB IDs found and the pathway database."
+
+        # Obtain the list of every HMDB ID annotated in the columns given
+        HMDB_list = [] # To store
+        error_cols = []
+
+        # Go through every hmdb_id_cols provided
+        for id_cols in self.hmdb_id_cols:
+            # Get the column and dropna null values
+            filt_df = metadata_df[id_cols].dropna()
+
+            # Every idx
+            for idx in filt_df.index:
+                value = filt_df.loc[idx]
+                # If a single string HMDB idx
+                if type(value) == str:
+                    try:
+                        if value not in HMDB_list: # Add if not already present
+                            HMDB_list.append(value)
+                    except: # If not a string
+                        if id_cols not in error_cols:
+                            error_cols.append(id_cols)
+
+                # If a list of HMDB idxs
+                else:
+                    try:
+                        for hmdb_idx in range(len(filt_df.loc[idx])):
+                            curr_id = filt_df.loc[idx][hmdb_idx]
+                            if curr_id not in HMDB_list: # Add if not already present
+                                HMDB_list.append(curr_id)
+                    except: # If not a list-like or has non string values in the list
+                        if id_cols not in error_cols:
+                            error_cols.append(id_cols)
+
+        for col in error_cols:
+            pn.state.notifications.info(f'{col} provided contained values that were not strings, list-like iterable of strings or nulls as values. Or it had non-string elements in the list-like iterable.')
+
+        # Build the pathways assignment DataFrame
+        pathways_assignment = pd.DataFrame(index=HMDB_list, columns=pathway_db.columns)
+        # Match the HMDB IDs to their information in the pathway db (if it exists)
+        for idx in pathways_assignment.index:
+            if idx in pathway_db.index:
+                pathways_assignment.loc[idx] = pathway_db.loc[idx]
+
+        # Assign to attribute
+        self.pathway_assignments = pathways_assignment
+
+    def _path_assign_describer(self):
+        "Generates Description of assignment made."
+
+        hmdb_ids = [] # Get actual HMDB IDs found
+        complete_len = len(self.pathway_assignments.index)
+        for idx in self.pathway_assignments.index:
+            # Has to fulfill these conditions
+            if len(idx) == 11:
+                if idx.startswith('HMDB'):
+                    hmdb_ids.append(idx)
+
+        path_filt = self.pathway_assignments.dropna()
+        self.assign_desc = f'From the **{complete_len}** IDs provided, **{len(hmdb_ids)}** were HMDB-like IDs. From those, **{len(path_filt)}** were matched to the pathway database.'
+
+
+    def _hmdb_id_search(self, pathway_db):
+        "Searches provdied list of HMDB IDs in the pathway db and in the dataset and returns results based on what was found."
+
+        # Obtain the IDs inputted in the text box
+        chosen_ids = self.chosen_hmdb_ids.split('\n')
+
+        # Clear the dictionary to start with
+        self.chosen_hmdb_ids_assigns.clear()
+
+        for hmdb_id in chosen_ids:
+            # See if the hmdb_id is in the database and see if it is in your data
+            hmdb_id_in_db = False
+            hmdb_id_in_dataset = False
+            if hmdb_id in pathway_db.index:
+                hmdb_id_in_db = True
+            if hmdb_id in PathAssign_store.pathway_assignments.index:
+                hmdb_id_in_dataset = True
+
+            # If no pathway matching is found in our pathway database for the hmdb id we are looking for
+            if not hmdb_id_in_db:
+                # But it is found annotated in the dataset
+                if hmdb_id_in_dataset:
+                    desc = f'**{hmdb_id}** was annotated in the current dataset but no pathway matching was found in our database.'
+                    self.chosen_hmdb_ids_assigns[hmdb_id] = desc
+
+                # And also it is not found annotated in the dataset
+                else:
+                    desc = f'**{hmdb_id}** neither was annotated in the current dataset or was associated with pathways in our database.'
+                    self.chosen_hmdb_ids_assigns[hmdb_id] = desc
+
+            # If there is pathway matching found in our pathway database
+            if hmdb_id_in_db:
+                # And it is also found annotated in the dataset
+                if hmdb_id_in_dataset:
+                    df = pathway_db.loc[[hmdb_id]].explode(column=['Pathway Name', 'Pathway ID'])
+                    PathAssign_store.chosen_hmdb_ids_assigns[hmdb_id] = df
+
+                # But it is not found annotated in the dataset
+                else:
+                    df = pathway_db.loc[[hmdb_id]].explode(column=['Pathway Name', 'Pathway ID'])
+                    desc = f'**{hmdb_id}** ({df["HMDB Name"].iloc[0]}) was associated with pathways in our database (see below) but was **NOT found in the current dataset**.'
+                    self.chosen_hmdb_ids_assigns[hmdb_id] = [desc, df]
 
 
     def _update_widgets(self, metadata_df, pathway_db):
@@ -4062,8 +4172,9 @@ class PathAssignment_Storage(param.Parameterized):
         }
 
         widgets_final = {
-            'chosen_hmdb_ids':pn.widgets.MultiChoice(name='Select HMDB ids which pathways you want to see in more detail:',
-                options=[], search_option_limit=10, placeholder='HMDB0000142')
+            'chosen_hmdb_ids':pn.widgets.TextAreaInput(
+                name='Enter specific HMDB IDs to search for (follow placeholder formatting):',
+                rows=10, placeholder='''HMDB0000001\nHMDB0001045\nHMDB0000125\nHMDB0123678''', max_length=20000)
         }
 
         self.controls = pn.Param(self, parameters=['hmdb_id_cols'], widgets=widgets_initial,
@@ -4076,18 +4187,136 @@ class PathAssignment_Storage(param.Parameterized):
 # Load pathway database into a DataFrame
 with open('RAMP_ID_pathways_improved.pickle', 'rb') as handle:
     pathway_db = pickle.load(handle)
+pathway_db = pathway_db[['HMDB Name', 'Pathway Name', 'Pathway ID']]
 
 # Initialize store for PathwayAssignment parameters
 PathAssign_store = PathAssignment_Storage(pathway_db=pathway_db)
 
+# Pathway matching section widgets
 # Widget to confirm the HMDB ID columns
 confirm_hmdb_cols_button = pn.widgets.Button(name='Confirm HMDB ID columns selected and perform Pathway Assignment',
                                              button_type='success', icon=iaf.img_confirm_button)
+def _confirm_hmdb_cols_button(event):
+    "Perform the pathway assignment matching to the HMDB IDs."
+    confirm_hmdb_ids_to_search_button.disabled = False
+    # Perform the assignment
+    PathAssign_store._pathway_assignments(DataFrame_Store.metadata_df, pathway_db)
+    PathAssign_store._path_assign_describer() # Get the description of the assignment
 
-# Page layout
-path_assign_page = pn.Column(PathAssign_store.controls,
-          confirm_hmdb_cols_button)#,
-          #PathAssign_store.controls_hmdb)
+    # Update page layout
+    while len(path_matching_section) > 3:
+        path_matching_section.pop(-1)
+    path_matching_section.append(PathAssign_store.assign_desc)
+    path_matching_section.append(pathassign_show_matched_only)
+    if len(PathAssign_store.pathway_assignments) > 5:
+        path_matching_section.append(pn.pane.DataFrame(PathAssign_store.pathway_assignments, height=800))
+    else:
+        path_matching_section[5].append(pn.pane.DataFrame(PathAssign_store.pathway_assignments, height=800))
+    path_matching_section.append(save_pathway_assignments_button)
+# Calling the button function
+confirm_hmdb_cols_button.on_click(_confirm_hmdb_cols_button)
+
+
+# Specific Widget for middle section of the page, shows DataFrame with all metabolites annotated or only those with matched pathways
+pathassign_show_matched_only = pn.widgets.Checkbox(name='Only show HMDB ID metabolites with matched pathways', value=False)
+
+# Change the DataFrame shown based on checkbox
+@pn.depends(pathassign_show_matched_only.param.value, watch=True)
+def _pathway_assignments_df(pathassign_show_matched_only):
+    "Update the layout based on if we are showing all annotated metabolites or only ones with matching pathways."
+    # Select DataFrame
+    if pathassign_show_matched_only:
+        df_to_show = PathAssign_store.pathway_assignments.dropna()
+    else:
+        df_to_show = PathAssign_store.pathway_assignments
+
+    # Update the layout
+    if len(path_matching_section) > 5:
+        if len(df_to_show) > 5:
+            path_matching_section[5] = pn.pane.DataFrame(df_to_show, height=800)
+        else:
+            path_matching_section[5] = pn.pane.DataFrame(df_to_show, height=800)
+
+# Widget to save dataframe of univariate analysis performed in .csv format
+save_pathway_assignments_button = pn.widgets.Button(name='Save pathway matching DataFrame as .xlsx (in current folder)',
+                                                button_type='warning', icon=iaf.download_icon)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_pathway_assignments_button(event):
+    "Save pathway assignments made."
+    # Building the datafile name
+    filename_string = f'HMDB_IDs_PathwaysMatching_to_IDs_in'
+    for col in PathAssign_store.hmdb_id_cols:
+        filename_string = filename_string + f'_{col}'
+    filename_string = filename_string + '.xlsx'
+
+    # Saving the file
+    PathAssign_store.pathway_assignments.to_excel(filename_string)
+    pn.state.notifications.success(f'{filename_string} successfully saved.')
+# Calling the function
+save_pathway_assignments_button.on_click(_save_pathway_assignments_button)
+
+
+# Pathway matching section page layout
+path_matching_section = pn.Column('## Pathway Assignment and Matching Section',
+                                  PathAssign_store.controls, confirm_hmdb_cols_button)
+
+
+# HMDB ID searching section page widgets
+# Widget to confirm the HMDB ID columns
+confirm_hmdb_ids_to_search_button = pn.widgets.Button(name='Confirm HMDB IDs selected to search for associated pathways',
+                                             button_type='success', icon=iaf.img_confirm_button, disabled=True)
+def _confirm_hmdb_ids_to_search_button(event):
+    "Search for the HMDB IDs provided on the pathway database and onthe dataset analysed and update page layout accordingly."
+
+    # Perform the search
+    PathAssign_store._hmdb_id_search(pathway_db)
+
+    # Reset the layout for each search
+    while len(hmdb_id_searching_section) > 3:
+        hmdb_id_searching_section.pop(-1)
+
+    # Update the page layout according to the HMDB searched and the results found
+    for key, value in PathAssign_store.chosen_hmdb_ids_assigns.items():
+
+        # If it is a string, this means the HMDB identifier was not found in the database
+        if type(value) == str:
+            compound_section = pn.Column(f'### {key}', value)
+            hmdb_id_searching_section.append(compound_section)
+
+        # If it is a list, this means the HMDB identifier was found in the database but was not in the dataset
+        elif type(value) == list:
+            if len(value[1]) > 20:
+                compound_section = pn.Column(f'### {key} - {value[1]["HMDB Name"].iloc[0]}',
+                                            pn.pane.Alert(value[0], alert_type='warning'),
+                                            pn.pane.DataFrame(value[1], height=600))
+            else:
+                compound_section = pn.Column(f'### {key} - {value[1]["HMDB Name"].iloc[0]}',
+                                            pn.pane.Alert(value[0], alert_type='warning'),
+                                            pn.pane.DataFrame(value[1]))
+            hmdb_id_searching_section.append(compound_section)
+
+        # If it is a DataFrame, this means the HMDB identifier was found in the database and in the dataset
+        else:
+            if len(value) > 20:
+                compound_section = pn.Column(f'### {key} - {value["HMDB Name"].iloc[0]}',
+                                            pn.pane.DataFrame(value, height=600))
+            else:
+                compound_section = pn.Column(f'### {key} - {value["HMDB Name"].iloc[0]}',
+                                            pn.pane.DataFrame(value))
+            hmdb_id_searching_section.append(compound_section)
+
+# Calling the button function
+confirm_hmdb_ids_to_search_button.on_click(_confirm_hmdb_ids_to_search_button)
+
+# HMDB ID searching page layout
+hmdb_id_searching_section = pn.Column('## HMDB ID Pathway Searching Section',
+                                      PathAssign_store.controls_hmdb,
+                                      confirm_hmdb_ids_to_search_button)
+
+
+# Overall Page layout
+path_assign_page = pn.Column(path_matching_section, hmdb_id_searching_section)
 
 
 
@@ -4434,7 +4663,7 @@ page10_button.on_click(lambda event: show_page(pages["Pathway Assignment"]))
 page11_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
 page12_button.on_click(lambda event: show_page(pages["Compound Finder"]))
 
-# Reset panel widgets
+# Reset panel widgets and associated functions
 reset_panel_float_text = pn.widgets.StaticText(name='', value='Do you want to reset all parameters of the software? (This is a faux Reset with a few tricks but it seems to do the job)')
 reset_panel_float_yes_button = pn.widgets.Button(name='Yes', button_type='danger')
 reset_panel_float_no_button = pn.widgets.Button(name='No', button_type='default')
@@ -4524,17 +4753,19 @@ def Yes_Reset(event):
     dataviz_store.reset()
     vk_plots.clear()
     kmd_plots.clear()
-    while len(ccs_page) > 2:
-        ccs_page.pop(-1)
-
-    # Pathway Assignment page
-    PathAssign_store.reset()
     while len(vk_page) > 1:
         vk_page.pop(-1)
     while len(kmd_page) > 1:
         kmd_page.pop(-1)
     while len(ccs_page) > 1:
         ccs_page.pop(-1)
+
+    # Pathway Assignment page
+    PathAssign_store.reset()
+    while len(path_matching_section) > 3:
+        path_matching_section.pop(-1)
+    while len(hmdb_id_searching_section) > 3:
+        hmdb_id_searching_section.pop(-1)
 
     # Compound Finder search tool page
     comp_finder.reset()
@@ -4571,14 +4802,13 @@ def Yes_Reset(event):
     annotation_ppm_deviation.value = 1
     annotation_Da_deviation.value = 0.001
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
-    DB_dict_reset(DB_dict)
+    #DB_dict_reset(DB_dict)
     dbs_arrangement.clear()
     dbs_arrangement_all.clear()
     dbs_arrangement_all.extend([DB_dict['1'].content, DB_dict['2'].content, DB_dict['3'].content,
                    DB_dict['4'].content, DB_dict['5'].content])
     while len(page2) > 1:
         page2.pop(-1)
-
 
     # Close the floatpanel
     reset_floatpanel.status = 'closed'
