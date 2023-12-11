@@ -132,15 +132,31 @@ However, in the future, these databases will have corresponding python files tha
 
 #### Version Alpha.0 (In Development)
 
-### Open the Graphical Interface
-
-- Open Visual Studio Code or other equivalent editor.
-- Open Folder where these files are located.
-- Open and Run "InterfaceProtoype_MetSta.py".
-
 ### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
 
 - panel >= 1.3.4
 - param >= 2.0.1
 - holoviews >= 1.18.1
 - plotly >= 5.18.0
+
+To install these packages run in the command line (or AnacondaPrompt):
+- conda install -c pyviz panel
+- conda install -c anaconda param
+- conda install -c conda-forge holoviews
+- conda install -c plotly plotly
+
+The other packages mentioned at the begginning are also needed.
+
+### How to Open the Graphical Interface
+
+#### Path 1 (More complex but allows to look at the code)
+
+- Open Visual Studio Code or other equivalent editor.
+- Open Folder where these files are located.
+- Open and Run "InterfaceProtoype_MetSta.py".
+- To close, go back to your editor terminal and press 'Ctrl+C'.
+
+#### Path 2 (Quicker)
+
+- Run 'OpenGraphicalInterface.bat' (this will open a command line and the interface in a browser)
+- To close the program, go to the command line and press 'Ctrl+C'.
