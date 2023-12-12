@@ -144,6 +144,50 @@ the program or reset every variable.
 '''
 
 
+# Data Multiple Annotation De-Duplication Description HTML in string format
+
+annotation_deduplication_opening_string = '''<p>Due to the proximity of mass values, the same compound (or formula) can be
+annotated to the different metabolic features.</p>
+<p>Since one (adduct of one) compound should result in only one (monoisotopic) mass, this section <strong>can merge
+metabolic features that share compound annotations into one single metabolic feature</strong>. For example, there is no
+biological reason for multiple peaks being associated with a compound. Most of the time, there is one <em>&apos;main&apos;
+peak</em> with much higher intensities across the samples, although this is not always observed.</p>
+<p>This section is the least streamlined and automatized part of the data analysis pipeline we present. This is due to the
+multiple situations that can arise with different possible solutions, specifically a situation that warrants individual
+attention that can arise when multiple annotations are performed on the data. When finding different metabolic features
+with the same annotation in a database used, featuress are <strong>merged by keeping the highest intensity value in each
+sample </strong>of the features with the same annotations. Thus, there is a total of 4 possible situations:</p>
+<p>- <strong>Situation 1 (Overwrite)</strong>: Multiple metabolic features have the same annotation for one annotation
+database (and no other database has different annotations for those features) with the highest intensity values coming all
+from one metabolic feature that becomes the <em>de facto</em> metabolic feature with others being erased.</p>
+<p>- <strong>Situation 2&nbsp;(Merge Same Adducts)</strong>: Multiple metabolic features have the same annotation for one
+annotation database (and no other database has different annotations for those features) with the highest intensity coming
+from at least two different metabolic features and <strong>ALL</strong> features come from the same adduct (<u>including
+ones that are not used for the merge</u>). &apos;Bucket Label&apos; and &apos;Neutral Mass&apos; columns become the weighted
+average (based on the average intensity of the features) of all the features with the same annotation. Since this software
+does not yet allow for adduct information, this is the approach used always between situation 2 and 3.</p>
+<p>&nbsp;- <strong>Situation 3&nbsp;(Merge Different Adducts)</strong>: Identical to Situation 2 but there is at least one
+metabolic feature that comes from a different adduct. Since this sofware does not yet allow for adduct information, this is
+the approach used always between situation 2 and 3.</p>
+<p>- <strong>Situation 4&nbsp;(Contradictions - Possible Problem Situation)</strong>: Multiple metabolic features have the
+same annotation for one annotation database and different for another annotation database. Most of the time there is no issue.
+For example, imagine a case where we have annotated with two databases: HMDB and LOTUS. <strong>Scenario 1:</strong> We find
+that HMDB puts two different compounds for 2 metabolic features and LOTUS puts the same compound. Here, it is fair to treat
+them as different features and this is the default behaviour. However, if one annotation is less reliable, for example a
+formula annotation, you may prefer to merge the peaks despite this. <strong>Scenario 2:</strong> However, rarely, there can
+be a case where there are <strong>more than 2 metabolic features</strong> with the same compound annotated in HMDB. This
+should <strong>be quite rare and it is from where the problem arises</strong>. A scenario can arise where HMDB puts the same
+compound for 4 features and LOTUS assigns to one of them one compound, to a second one a different compound and the last two
+ones does not assign a compound at all. What is the correct course of action? &nbsp;Perhaps merging the two peaks with no
+annotation by LOTUS, maybe merging those two peaks with one of those annotated by LOTUS since they would be normally merged
+if not for the existence of two different LOTUS annotations. Hence, the problem. We concluded that they should be seen on a
+<strong>case-by-case basis&nbsp;</strong>with the user deciding which (if any) peaks they prefer to merge.</p>
+<p><strong>Currently, these problematic cases cannot be addressed, only observed - TODO</strong></p>
+<p><br></p>
+<p><h3>Initial report of the observable multiple annotations for each annotation (including formula
+annotation) performed</h3></p>'''
+
+
 # PLS-DA Description HTML in string format
 
 plsda_opening_string = """Here, <strong>Partial Least Squares - Discriminant Analysis</strong> models can be built.

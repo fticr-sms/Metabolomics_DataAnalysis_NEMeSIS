@@ -98,6 +98,15 @@ class DataAnnotation:
         return self.content
 
 
+class AnnDeDuplication:
+    def __init__(self):
+        self.content = pn.Column("# Section 2.1: Data Multiple Annotation De-Duplication - Metabolic Feature Merging",
+                                page2_1)
+
+    def view(self):
+        return self.content
+
+
 class DataPreTreatment:
     def __init__(self):
         
@@ -334,11 +343,10 @@ def _disabling_stat_analysis_buttons():
 
 
 
-# TODO: Make Reset button to read other datasets.
-# TODO: Data Visualization page does not reset figure parameters to default
+# TODO: Data Visualization page does not reset figure parameters to default (Volcano plot does not reset colours but that is okay)
 
 # Page 1 - Reading File
-# TODO: Make it be able to read positive and negative ionization mode obtained data.
+# TODO: Make it be able to read positive and negative ionization mode obtained data perhaps so it is not just suited to MetaboScape
 
 class FileReading(param.Parameterized):
     """Class to store as attributes file read."""
@@ -529,6 +537,7 @@ def _disable_remaining_analysis_from_metadata(a,b,c,d):
     # Disable sidebar buttons
     page1_2_button.disabled = True
     page2_button.disabled = True
+    page2_1_button.disabled = True
     page3_button.disabled = True
     page4_button.disabled = True
 
@@ -571,6 +580,7 @@ def _update_confirm_target(event):
     # Disable sidebar buttons
     page1_2_button.disabled = True
     page2_button.disabled = True
+    page2_1_button.disabled = True
     page3_button.disabled = True
     page4_button.disabled = True
 
@@ -664,6 +674,14 @@ def _confirm_button_initial_filtering(event):
     # Locking in the parameters used for feature filtering
     UnivarA_Store.locking_filtering_params(filt_method, filt_kw)
 
+    # Disable posterior sidebar buttons
+    page2_button.disabled = True
+    page2_1_button.disabled = True
+    page3_button.disabled = True
+    page4_button.disabled = True
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
     confirm_button_next_step_2.disabled = False
 
     # Setup the page if not setup yet
@@ -679,7 +697,7 @@ confirm_button_initial_filtering.on_click(_confirm_button_initial_filtering)
 def _confirm_button_next_step_1_2(event):
     "Ends step 1-2 and goes to Data Annotation page."
     page2_button.disabled = False
-    confirm_button_next_step_3.disabled = True
+    confirm_button_next_step_2_1.disabled = True
 
     while len(page2) > 1:
         page2.pop(-1)
@@ -696,7 +714,7 @@ page1_2 = pn.Column(pn.Row(filt_method, filt_method_tooltip), pn.Row(filt_kw, fi
 
 
 # Page 2 - Annotation of Metabolites
-# TODO: Make it selectable if you want to search for possible adducts
+# TODO: Make it selectable if you want to search for possible adducts (if added possibility to read positive and negative m/z indexes)
 
 # Widgets for selecting number of databases
 n_databases_show = pn.widgets.IntInput(name='Nº of Databases to annotate', value=1, step=1, start=0, end=5)
@@ -788,7 +806,7 @@ class DatabaseSection():
                 # If re-reading the databases, eliminate elements after database reading from the page to re-run them after.
                 while len(page2)>4:
                     page2.pop(-1)
-                confirm_button_databases_read.disabled = False
+                #confirm_button_databases_read.disabled = False
                 confirm_button_annotation_perform.disabled = True
 
         # Initial parameters of the Database section so we can grab values easier down the line
@@ -823,10 +841,18 @@ dbs_arrangement = pn.Row()
 
 # Make the designated number of database sections appear
 def _confirm_button_n_databases(event):
+    # Updating the value
     n_databases.value = n_databases_show.value
+    # Setting the databases read attribute to False
+    for i in DB_dict:
+        DB_dict[i].read.value = False
+
+    # Setting up the layout to show
     titles = pn.Row()
     dbs_arrangement.clear()
     for i in range(n_databases.value):
+        if len(dbs_arrangement_all[i]) == 7:
+            dbs_arrangement_all[i].pop(-1)
         dbs_arrangement.append(dbs_arrangement_all[i])
         titles.append(f'#### Database {i+1}')
     
@@ -840,11 +866,10 @@ def _confirm_button_n_databases(event):
         page2[1] = pn.Row(titles)
         page2[2] = dbs_arrangement
 
+    page2.append(confirm_button_databases_read)
+    confirm_button_databases_read.disabled = True
     if n_databases.value == 0: # Case where no database is going to be used for annotation
-        page2.append(confirm_button_databases_read)
         confirm_button_databases_read.disabled = False
-    else:
-        confirm_button_databases_read.disabled = True
 
 confirm_button_n_databases.on_click(_confirm_button_n_databases)
 
@@ -870,7 +895,7 @@ def _press_confirm_button_db(db1, db2, db3, db4, db5):
         else:
             break
     if all_read:
-        page2.append(confirm_button_databases_read)
+        confirm_button_databases_read.disabled=False
 
 # Annotation parameters widgets
 annotation_margin_method_radio = pn.widgets.RadioBoxGroup(name='Annotation Margin Method', value='PPM Deviation',
@@ -987,23 +1012,209 @@ def metabolite_annotation():
 # Perform annotation, update page layout
 def _press_confirm_annotation_perform(event):
     "Perform metabolite annotation and update the page layout accordingly."
+    # Update layout of the page
     while len(performing_annotation_arrangement)>0:
         performing_annotation_arrangement.pop(-1)
     page2.append(performing_annotation_arrangement)
     confirm_button_annotation_perform.disabled=True
+
     # Perform metabolite annotation
     metabolite_annotation()
-    confirm_button_next_step_3.disabled = False
-    page2.append(confirm_button_next_step_3)
+
+    # Update the information for annotation de-duplication
+    data_ann_deduplicator.update_columns_with_annotations(annotated_df.value, checkbox_annotation, checkbox_formula)
+    DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
+    iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
+    data_ann_deduplicator.annotated_df = DataFrame_Store.original_df
+    data_ann_deduplicator.create_multiple_annotation_report()
+
+    # Disable posterior sidebar buttons
+    page2_1_button.disabled = True
+    page3_button.disabled = True
+    page4_button.disabled = True
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
+    # Layout after annotation
+    confirm_button_next_step_2_1.disabled = False
+    page2.append(confirm_button_next_step_2_1)
 
 confirm_button_annotation_perform.on_click(_press_confirm_annotation_perform)
 
 # Button to next step
-confirm_button_next_step_3 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Data Pre-Treatment',
+confirm_button_next_step_2_1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Annotation De-Duplication',
                                                      button_type='success', disabled=False)
 
 # Go to next step function and calling it
-def _confirm_button_next_step_3(event):
+def _confirm_button_next_step_2_1(event):
+    page2_1_button.disabled = False
+    confirm_button_next_step_3.disabled = True
+
+    # Reset the next page layout
+    while len(page2_1)>3:
+        page2_1.pop(-1)
+
+    # Updating next page layout
+    page2_1[1] = pn.pane.DataFrame(data_ann_deduplicator.mult_ann_report)
+
+    # Update to show the Data Pre-Treatment page
+    main_area.clear()
+    show_page(pages["Annotation De-Duplication"])
+confirm_button_next_step_2_1.on_click(_confirm_button_next_step_2_1)
+
+#### This marks the separation to use mainly param instead of only panel
+
+
+
+
+# Data Multiple Annotaton De-Duplication and Peak Merging Page
+
+# Param Class to store parameters and data regarding Annotation De-Duplication
+class AnnDeDuplication_Storage(param.Parameterized):
+    "Class to store all information on Annotation De-Duplication."
+
+    # Original DataFrame to work with
+    annotated_df = param.DataFrame()
+
+    # Columns with annotations
+    mcid = param.List([])
+    mcid_alt = param.Dict({}) # Alternate names including mentioning Previous Annotations
+
+    # DataFrames to group information
+    mult_ann_report = param.DataFrame(pd.DataFrame())
+    mergings_performed = param.DataFrame()
+    merge_description = param.DataFrame()
+    merge_situations = param.DataFrame()
+    full_merge_problems = param.DataFrame()
+    merge_problems = param.DataFrame()
+    merge_report = param.String()
+
+    # Params used
+    current_params = param.Dict()
+
+    # Parameters for de-duplication
+    consider_formula_cols = param.Boolean(default=True)
+    text_problem_condition = param.String('How to Treat Scenarion 1 of Situation 4')
+    problem_condition = param.String(default='Scenario 1 of Situation 4 like cases are not merged and are not shown.')
+
+
+    def update_columns_with_annotations(self, ann_df, checkbox_annotation, checkbox_formula):
+        "Creates the list with the annotation (compund and formula) columns in the data and update attributes."
+        # Previous Annotations columns
+        mcid_alt = {i:i+' - Prev. Ann.' for i in checkbox_annotation.value}
+        mcid  = [i for i in checkbox_annotation.value]
+
+        # Annotations columns made in the software
+        for col in ann_df.columns:
+            if col.startswith('Matched ') and col.endswith(' IDs'):
+                mcid.append(col)
+                mcid_alt[col] = col
+
+        # Previous Formula Annotation columns
+        mcid  = mcid + checkbox_formula.value
+        for i in checkbox_formula.value:
+            mcid_alt[i] = i+' - Prev. Ann.'
+
+        # Updating attributes
+        self.mcid = mcid
+        self.mcid_alt = mcid_alt
+
+
+    def create_multiple_annotation_report(self):
+        "Builds DataFrame with report of possible multiple of the same annotations for each annotation used."
+        # Set the DataFrame
+        self.mult_ann_report = pd.DataFrame(index=['Nº of same annotations on multiple peaks',
+                                                     'Total number of annotations for these cases',
+                                                     'Maximum number of peaks with the same annotation'])
+
+        try:
+            for col in self.mcid:
+                # See multiple annotations
+                n_duplicates = self.annotated_df[col].value_counts()
+                n_duplicates = n_duplicates[n_duplicates>1]
+                if len(n_duplicates) == 0:
+                    max_peaks = 0
+                else:
+                    max_peaks = n_duplicates.iloc[0]
+
+                # Build the report
+                self.mult_ann_report[self.mcid_alt[col]] = [n_duplicates.sum(), len(n_duplicates), max_peaks]
+
+        except:
+            pn.state.notifications.info('Multiple Annotation Report could not be compiled.')
+
+
+    def perform_deduplication(self, ann_df, sample_cols, neutral_mass_col):
+        "Performs Multiple Annotation peak merging, updates layout and returns results."
+
+        # Performing deduplication
+        # TODO: See deduplication function better
+        annotated_data, mergings_performed, merging_situations, merge_description, mp = iaf.duplicate_disambiguator(
+            self, ann_df, sample_cols, neutral_mass_col, mz_col=False)
+
+        # Report
+        self.merge_report = f'''Nº of Mergings: **{len(merge_description)}**.
+                                  Nº of Metabolic Features merged: **{pd.DataFrame(merge_description).T['Nº merged peaks'].sum()}**
+                                  Nº of Metabolic Features dropped: **{len(ann_df) - len(annotated_data.index)}**
+                                  Nº of Metabolic Features before merging: **{len(ann_df)}**
+                                  Nº of Metabolic Features after merging: **{len(annotated_data.index)}**'''
+
+        # Transforming and storing results
+        self.annotated_df = annotated_data
+        self.merge_description = pd.DataFrame(merge_description).T
+        self.mergings_performed = pd.DataFrame(pd.Series(mergings_performed), columns=['Nº of Mergings by Database'])
+        self.merge_situations = pd.DataFrame(pd.Series(merging_situations), columns=['Nº of Mergings by Situation'])
+
+        # Problems results
+        self.merge_problems = iaf._merge_problems_creation(mp)
+        self.full_merge_problems = self.merge_problems.copy()
+        self.merge_situations.loc['Possible Problem Cases'] = len(self.merge_problems)
+
+        # Store parameters used
+        self.current_params = {'consider_formula_cols': self.consider_formula_cols,
+                              'problem_condition': self.problem_condition}
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'consider_formula_cols': pn.widgets.Checkbox(name='Consider the formula columns for metabolic feature merging',
+                                                        value=True, disabled=True),
+            'text_problem_condition': pn.widgets.StaticText(name='', value='How to Treat Scenarion 1 of Situation 4',
+                                                            styles={'font-weight': 'bold'}),
+            'problem_condition': pn.widgets.RadioBoxGroup(name='',
+                                value='Scenario 1 of Situation 4 like cases are not merged and are not shown.',
+                                options=['Scenario 1 of Situation 4 like cases are not merged and are not shown.',
+                                         'Scenario 1 of Situation 4 like cases are shown as problems to individually decide after merging.'],
+                                inline=False, disabled=False),
+        }
+
+        # Control panel
+        self.controls = pn.Param(self,
+                                 parameters=['consider_formula_cols', 'text_problem_condition', 'problem_condition'],
+                                 widgets=widgets, name='Parameters for Metabolic Feature Merging (De-Duplication)')
+
+
+# Initialize metabolite annotation de-duplication storage class
+data_ann_deduplicator = AnnDeDuplication_Storage()
+
+# Widgets (mainly buttons) needed for the page layout
+
+# To skip the section
+skip_deduplication_button = pn.widgets.Button(name='Skip and Do Not Perform Annotation De-Duplication',
+                                                     button_type='success', disabled=False)
+# When pressing the button, skips this section and goes to next page - Data Pre-Treatment
+def _skip_deduplication_button(event):
+    "Goes to Data Pre-Treatment page without performing de-duplication."
     page3_button.disabled = False
     confirm_button_next_step_4.disabled = True
     save_data_dataframes_button.disabled = True
@@ -1013,15 +1224,140 @@ def _confirm_button_next_step_3(event):
     # inputted in this software or using the data annotation of this software
     iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
 
+    # Disable posterior sidebar buttons
+    page4_button.disabled = True
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
     # Update to show the Data Pre-Treatment page
     main_area.clear()
     show_page(pages["Data Pre-Treatment"])
-confirm_button_next_step_3.on_click(_confirm_button_next_step_3)
+skip_deduplication_button.on_click(_skip_deduplication_button)
+
+# To perform deduplication
+perform_deduplication_button = pn.widgets.Button(name='Perform Annotation De-Duplication (Metabolic Feature Merging)',
+                                                     button_type='success', disabled=False)
+# When pressing the button, performs metabolic feature merging
+def _perform_deduplication_button(event):
+    "Performs multiple annotation metabolic feature merging and updates layout."
+    # Perform Metabolic Feature Merging
+    data_ann_deduplicator.perform_deduplication(DataFrame_Store.original_df, target_list.sample_cols,
+                                            radiobox_neutral_mass.value)
+
+    # Selecting merge problems to show
+    if data_ann_deduplicator.problem_condition == 'Scenario 1 of Situation 4 like cases are not merged and are not shown.':
+        data_ann_deduplicator.merge_problems = data_ann_deduplicator.full_merge_problems[
+            data_ann_deduplicator.full_merge_problems['Nº of Peaks'] > 2]
+    else:
+        data_ann_deduplicator.merge_problems = data_ann_deduplicator.full_merge_problems
+    data_ann_deduplicator.merge_situations.loc['Possible Problem Cases'] = len(data_ann_deduplicator.merge_problems)
+
+    # Disable posterior sidebar buttons
+    page3_button.disabled = True
+    page4_button.disabled = True
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
+    # Updating layout
+    while len(page2_1)>3:
+        page2_1.pop(-1)
+
+    # Middle section update
+    middle_section_dedup[2] = data_ann_deduplicator.merge_report
+    middle_section_dedup[3] = pn.Row(pn.pane.DataFrame(data_ann_deduplicator.merge_situations),
+                                 pn.pane.DataFrame(data_ann_deduplicator.mergings_performed))
+    if len(data_ann_deduplicator.merge_description) > 20:
+        middle_section_dedup[5] = pn.pane.DataFrame(data_ann_deduplicator.merge_description, height=600)
+    else:
+        middle_section_dedup[5] = pn.pane.DataFrame(data_ann_deduplicator.merge_description)
+    if len(data_ann_deduplicator.merge_problems) > 20:
+        middle_section_dedup[7] = pn.pane.DataFrame(data_ann_deduplicator.merge_problems, height=600)
+    else:
+        middle_section_dedup[7] = pn.pane.DataFrame(data_ann_deduplicator.merge_problems)
+
+    # Appending it
+    page2_1.append(middle_section_dedup)
+perform_deduplication_button.on_click(_perform_deduplication_button)
+
+# Skip seeing problem cases
+skip_merge_problem_cases_button = pn.widgets.Button(
+    name='Skip Deciding on Individual Merging Problems (Will Remain Non-Merged)',
+    button_type='success', disabled=False)
+# When pressing the button, skips this section and goes to next page - Data Pre-Treatment
+def _skip_merge_problem_cases_button(event):
+    "Goes to Data Pre-Treatment page and saves metabolic feature merging performed."
+    page3_button.disabled = False
+    confirm_button_next_step_4.disabled = True
+    save_data_dataframes_button.disabled = True
+    # Pass merged DataFrame to DataFrame_Store
+    DataFrame_Store.original_df = data_ann_deduplicator.annotated_df
+
+    # Disable posterior sidebar buttons
+    page4_button.disabled = True
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
+    # Update to show the Data Pre-Treatment page
+    main_area.clear()
+    show_page(pages["Data Pre-Treatment"])
+skip_merge_problem_cases_button.on_click(_skip_merge_problem_cases_button)
+
+# See merging issues
+see_merge_problems_button = pn.widgets.Button(name='Go Through Merge Problems Individually and Decide',
+                                                     button_type='primary', disabled=False)
+# When pressing the button, skips this section and goes to next page - Data Pre-Treatment
+def _see_merge_problems_button(event):
+    "Observe problem cases and updates layout."
+    confirm_button_next_step_3.disabled = False
+
+    # Updating layout
+    while len(page2_1)>4:
+        page2_1.pop(-1)
+
+    # Merge Problems section update
+    merge_problems_section_page.clear()
+    merge_problems_section_page.append('### Merge Problem Cases')
+
+    for i in range(len(data_ann_deduplicator.merge_problems.index)):
+        idx = data_ann_deduplicator.merge_problems.index[i]
+        merge_problems_section_page.append(pn.Column(f'#### {data_ann_deduplicator.merge_problems.iloc[i, 1]}',
+                                                    data_ann_deduplicator.annotated_df.loc[idx]))
+
+    merge_problems_section_page.append(confirm_button_next_step_3)
+
+    # Appending it
+    page2_1.append(merge_problems_section_page)
+see_merge_problems_button.on_click(_see_merge_problems_button)
+
+
+# Setting up the general sections
+# Middle section with details of metabolic peak merging performed
+middle_section_dedup = pn.Column('### Details of Peak Merging Performed',
+    '''Note: Metabolic features were merged first by the annotated columns indicated in the metadata, then by the annotation columns of the databases selected here and lastly by the formula columns (if selected).
+    It is usual that the number of mergings decreases the further along the process we are since it is expected that many of the merged features to be merged in multiple databases.''',
+                           data_ann_deduplicator.merge_report,
+                          pn.Row(data_ann_deduplicator.merge_situations, data_ann_deduplicator.mergings_performed),
+                        '#### Description of Every Metabolic Feature (Peak) Merged',
+                          data_ann_deduplicator.merge_description,
+                          '### Possible Problem Cases to see Individually',
+                          data_ann_deduplicator.merge_problems,
+                            pn.Row(skip_merge_problem_cases_button, see_merge_problems_button))
+
+# End Section to see merge problems
+merge_problems_section_page = pn.Column()
+
+# Button to next step
+confirm_button_next_step_3 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Data Pre-Treatment',
+                                                     button_type='success', disabled=False)
+confirm_button_next_step_3.on_click(_skip_merge_problem_cases_button)
+
+page2_1 = pn.Column(pn.pane.HTML(desc_str.annotation_deduplication_opening_string),
+                   data_ann_deduplicator.mult_ann_report,
+                   pn.Row(skip_deduplication_button,
+                          pn.Column(data_ann_deduplicator.controls, perform_deduplication_button)))
 
 
 
-
-#### This marks the separation to use mainly param instead of only panel
 
 # Page 3 - Data Pre-Treatment
 
@@ -1057,7 +1393,6 @@ class PreTreatment(param.Parameterized):
 
 
     # Function to confirm Pre-Treatment Selection and Updating DataFrames
-    # TODO: Make Metadata appear in a cleaner way
     def _confirm_button_press(self, event):
         "Perform pre-treatment and update page layout."
         treat, proc, uni, meta, bin = iaf.performing_pretreatment(self, DataFrame_Store.original_df,
@@ -1478,7 +1813,7 @@ transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, Dat
 
 
 # Page for Common and Exclusive Compounds
-# TODO: Something is funky with the updates of the different pages, maybe due to overlapping pythons IDs. The page doesn't update correctly sometimes.
+# TODO: Something is funky with the updates of the different pages, maybe due to overlapping pythons IDs. The page doesn't update correctly.
 # Root cause is unknown
 
 # Param Class to store parameters and data regarding Common and Exclusive Compounds
@@ -2087,7 +2422,7 @@ page_PCA = pn.Column(initial_page_PCA, middle_page_PCA, end_page_PCA)
 
 # Tab for HCA analysis
 # Param Class to store parameters and data regarding HCA
-# TODO: Each time you modify the HCA, a new matplotlib plot is created, thus this could lead to memory issues
+# TODO: Each time you modify the HCA, a new matplotlib plot is created, thus this could lead to memory issues with many manipulations
 class HCA_Storage(param.Parameterized):
 
     # Distance metric to compute HCA
@@ -3608,9 +3943,9 @@ univar_analysis_page = pn.Column(pn.pane.HTML(univ_opening_string), UnivarA_Stor
 # Page for Data Visualization
 
 # Three sections: Van Krevelen Plots, Kendrick Mass Defect Plots and Chemical Composition Series
-# TODO: Legend does not appear in Van Krevelen Plot - make it appear
+# TODO: (PROBLEM) Legend does not appear in Van Krevelen Plot - make it appear
 # TODO: Make Kendrick Mass Defect Plots have different sizes based on avg. intensity like in VK plots?
-# TODO: KMD Plots of different classes have different dot sizes - why?? What can even cause this?
+# TODO: KMD Plots of different classes have different dot sizes - why?? What can even cause this? - No idea
 
 # Param Class to store parameters and data regarding the 3 different plots
 class VanKrev_KMD_CCS_Storage(param.Parameterized):
@@ -4599,6 +4934,7 @@ pages = {
     "Data Metadata": DataMetadata(),
     "Data Filtering": DataFiltering(),
     "Data Annotation": DataAnnotation(),
+    "Annotation De-Duplication": AnnDeDuplication(),
     "Data Pre-Treatment": DataPreTreatment(),
     "Class Colours": ClassColours(),
     "Transitional Page": TransitionalPage(),
@@ -4632,6 +4968,7 @@ page1_button = pn.widgets.Button(name="Data Reading", button_type="primary")
 page1_1_button = pn.widgets.Button(name="Data Metadata", button_type="primary", disabled=True)
 page1_2_button = pn.widgets.Button(name="Data Filtering", button_type="primary", disabled=True)
 page2_button = pn.widgets.Button(name="Data Annotation", button_type="primary", disabled=True)
+page2_1_button = pn.widgets.Button(name="Annotation De-Duplication", button_type="primary", disabled=True)
 page3_button = pn.widgets.Button(name="Data Pre-Treatment", button_type="primary", disabled=True)
 page4_button = pn.widgets.Button(name="Class Colours", button_type="primary", disabled=True)
 page5_button = pn.widgets.Button(name="Common/Exclusive Comp.", button_type="default", disabled=True)
@@ -4652,6 +4989,7 @@ page1_button.on_click(lambda event: show_page(pages["Data Reading"]))
 page1_1_button.on_click(lambda event: show_page(pages["Data Metadata"]))
 page1_2_button.on_click(lambda event: show_page(pages["Data Filtering"]))
 page2_button.on_click(lambda event: show_page(pages["Data Annotation"]))
+page2_1_button.on_click(lambda event: show_page(pages["Annotation De-Duplication"]))
 page3_button.on_click(lambda event: show_page(pages["Data Pre-Treatment"]))
 page4_button.on_click(lambda event: show_page(pages["Class Colours"]))
 page5_button.on_click(lambda event: show_page(pages["Common and Exclusive Compounds"]))
@@ -4706,6 +5044,7 @@ def Yes_Reset(event):
     page1_1_button.disabled = True
     page1_2_button.disabled = True
     page2_button.disabled = True
+    page2_1_button.disabled = True
     page3_button.disabled = True
     page4_button.disabled = True
     _disabling_stat_analysis_buttons()
@@ -4810,6 +5149,17 @@ def Yes_Reset(event):
     while len(page2) > 1:
         page2.pop(-1)
 
+    # Annotation De-Duplication page
+    data_ann_deduplicator.reset()
+    while len(page2_1)>3:
+        page2_1.pop(-1)
+    page2_1[1] = pn.pane.DataFrame(data_ann_deduplicator.mult_ann_report)
+    middle_section_dedup[2] = data_ann_deduplicator.merge_report
+    middle_section_dedup[3] = pn.Row(data_ann_deduplicator.merge_situations, data_ann_deduplicator.mergings_performed)
+    middle_section_dedup[5] = data_ann_deduplicator.merge_description
+    middle_section_dedup[7] = data_ann_deduplicator.merge_problems
+    merge_problems_section_page.clear()
+
     # Close the floatpanel
     reset_floatpanel.status = 'closed'
     main_area.pop(-1)
@@ -4824,9 +5174,9 @@ RESET_button.on_click(RESET)
 reset_panel_float_no_button.on_click(No_Reset)
 reset_panel_float_yes_button.on_click(Yes_Reset)
 
-sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing and Pre-Treatment', page1_button, page1_1_button, page1_2_button, page2_button, page3_button, page4_button,
-                   '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button, page11_button, page12_button,
-                   '## Report Generation (TODO)', page13_button, '## To Reset (TODO)', RESET_button)
+sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing and Pre-Treatment', page1_button, page1_1_button, page1_2_button, page2_button, page2_1_button,
+                    page3_button, page4_button, '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button, page11_button,
+                    page12_button, '## Report Generation (TODO)', page13_button, '## To Reset', RESET_button)
 
 app = pn.template.BootstrapTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
 
