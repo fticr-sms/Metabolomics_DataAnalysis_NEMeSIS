@@ -460,6 +460,126 @@ def _merge_problems_creation(mp):
     return new_merge_problems
 
 
+def individually_merging(data_ann_deduplicator, given_idxs, sample_cols, annotated_cols, neutral_mass_col, mz_col=False):
+    """Attempts to merge a set of peaks given in the DataFrame.
+
+       returns: annotated_data (pandas DataFrame with data after merging),
+                merge_description (dictionary with description of the merging)
+    """
+
+    # To store results
+    merge_description = {}
+
+    # Grab the part of the dataframe you want to merge
+    annotated_data = data_ann_deduplicator.annotated_df.copy()
+    subset_df = annotated_data.loc[given_idxs]
+
+    # Split it into the different parts
+    intensities = subset_df[sample_cols]
+    metadata_ann = subset_df[annotated_cols]
+    other_metadata = subset_df[neutral_mass_col]
+
+    # See if merging is possible and get the annotation metadata that will be in the merged line
+    meta_vals = []
+    for col in metadata_ann.columns:
+        n_entries = metadata_ann[col].value_counts().index
+        if len(n_entries) > 1:
+            pn.state.notifications.error(f'Merging of {given_idxs} was not possible: multiple incompatible values in {col}.')
+            raise ValueError(f'Merging of {given_idxs} was not possible: multiple incompatible values in {col}.')
+        # No annotation found
+        if len(n_entries) == 0:
+            meta_vals.append(np.nan)
+        # One annotation found
+        else:
+            meta_vals.append(n_entries[0])
+
+    # For the different databases used
+    new_idxs = {} # To save the idx where the merged peaks will be
+    lost_idxs = [] # To save the idxs which will have to be removed
+
+    # Get the idxs positions of the repeated annotations in the dataframe
+    idxs = [annotated_data.index.get_loc(subset_df.index[i]) for i in range(len(subset_df))]
+
+    min_idx = min(idxs) # Grab the minimum that will become the merged peak
+
+    idxs.remove(min_idx)
+    lost_idxs.extend(idxs) # Add the other to lost_idxs that will be removed when all this is over
+
+    overwrite = False #
+
+    # Set up new line
+    temp_new_line = annotated_data.loc[annotated_data.index[min_idx]].copy()
+    # Metadata
+    temp_new_line[annotated_cols] = meta_vals
+    # Intensities
+    new_line = intensities.max() # Get the intensity values for the new merged line
+    temp_new_line[sample_cols] = new_line
+    # Neutral Mass
+    # For each annotation, see if the highest intensity values all come from one line
+    # Probably a better way to do this
+    for i in range(len(intensities)):
+        if new_line.notnull().sum() - (new_line == intensities.iloc[i]).sum() == 0:
+            # If yes, then situation 1: Overwrite is the correct option here
+            overwrite = True
+
+            # The new id (bucket label) will be the same as in the line with all the higher intensities
+            # Store it
+            keep_id = intensities.index[i]
+            new_idxs[annotated_data.index[min_idx]] = keep_id
+
+            # Neutral Mass Column
+            temp_new_line[neutral_mass_col] = other_metadata.iloc[i]
+
+            merge_description[keep_id] = {'Nº merged peaks': len(subset_df),
+                                          'Merged peaks': list(subset_df.index),
+                                          'Situation': 'Individual - Overwrite'}
+
+            # Putting the merged line in the DataFrame
+            annotated_data.loc[annotated_data.index[min_idx]] = temp_new_line.copy()
+
+            continue
+
+    # If not Situation 1
+    if not overwrite:
+
+        # If not Situation 1
+        if mz_col:
+            # If an mz_col existss see if the distance between the maximum and minimum mass is low
+            # If yes, Situation 2: bucket label, Neutral Mass and m/z peak will be the weighted averages of all the
+            # possible peaks
+            mz_col
+            # Not possible currently to happem
+
+        else:
+            # Get the new bucket label
+            avg_neutral_mass = np.average(other_metadata, weights=intensities.mean(axis=1))
+            new_bucket = str(avg_neutral_mass) + ' Da'
+            new_idxs[annotated_data.index[min_idx]] = new_bucket
+            # Get the Neutral Mass
+            temp_new_line[neutral_mass_col] = avg_neutral_mass
+
+            # Storing info
+            merge_description[new_bucket] = {'Nº merged peaks': len(subset_df),
+                                             'Merged peaks': list(subset_df.index),
+                        'Situation': 'Individual - Merging same adducts (no m/z col)'}
+
+        # Putting the merged line in the DataFrame
+        annotated_data.loc[annotated_data.index[min_idx]] = temp_new_line.copy()
+
+    # Removing lost idxs peaks
+    named_idxs = []
+    for idx in lost_idxs:
+        named_idxs.append(annotated_data.index[idx])
+    for idx in named_idxs:
+        annotated_data = annotated_data.drop(index=idx)
+
+    # Assigning the new bucket labels
+    for old_idx, new_idx in new_idxs.items():
+        annotated_data = annotated_data.rename(index= {old_idx : new_idx})
+
+    return annotated_data, merge_description
+
+
 def performing_pretreatment(PreTreatment_Method, original_df, target, sample_cols):
     "Putting keywords to pass to filtering_pretreatment function and performing pre-treatment."
 

@@ -102,6 +102,8 @@ mostly solved when using the program by refreshing the page in the browser. Alth
 However, <strong>do not use&nbsp;</strong>this trick on the <strong>common and exclusive compound page</strong> since this
 will de-format the page and more importantly make the sidebar to navigate the software disappear, rendering it unoperable
 and needing to be closed and opened again.</p>
+<p>- Another issue of the same type is the <strong>reset floatpanel</strong> not appearing when pressing it the 2nd time. It
+is once again a problem fixed by refreshing.</p>
 <p>- Other known issues have smaller consequences and affect specific pages. When they exist, a little note in bold will
 indicate the problem at the beginning of the corresponding page. In general, there is in average 1 possible issue in each
 page of the analysis section.</p>
@@ -182,7 +184,6 @@ ones does not assign a compound at all. What is the correct course of action? &n
 annotation by LOTUS, maybe merging those two peaks with one of those annotated by LOTUS since they would be normally merged
 if not for the existence of two different LOTUS annotations. Hence, the problem. We concluded that they should be seen on a
 <strong>case-by-case basis&nbsp;</strong>with the user deciding which (if any) peaks they prefer to merge.</p>
-<p><strong>Currently, these problematic cases cannot be addressed, only observed - TODO</strong></p>
 <p><br></p>
 <p><h3>Initial report of the observable multiple annotations for each annotation (including formula
 annotation) performed</h3></p>'''

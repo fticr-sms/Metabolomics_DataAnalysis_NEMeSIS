@@ -86,7 +86,7 @@ class DataFiltering:
 class DataAnnotation:
     def __init__(self):
         self.content = pn.Column("# Section 2: Data Annotation", 
-    """Perform Annotations based on available databases. **Cannot perform annotation without a selected Neutral Mass column.**
+    """Perform Annotations based on available databases. Must provide the database filename and the name of the columns with the **ID**, the **Name** and **Formula** of the metabolites. **Cannot perform annotation without a selected Neutral Mass column.**
     You can annotate with multiple databases. However, each database is annotated individually.
     Annotation works by assigning to a m/z peak / feature all metabolites of a database that are within the provided error margin.
     **Currently, no adduct search is done to perform annotations (MetaboScape Data's Bucket Label should already take adducts into account).**
@@ -122,7 +122,7 @@ class ClassColours:
 
         self.content = pn.Column("# Section 3.1: Select Colours for each Class",
                                  "These colours will be used in the different figures made hereafter (Venn diagrams, PCA, HCA, PLS-DA, Chemical Composition Series and plots in the Compound Finder search tool).",
-                                 "If you are repating analysis after having modified the dataset or the pre-treatment, a bunch of notifications may appear. Do not worry.",
+                                 "If you are repeating analysis after having modified the dataset or the pre-treatment, a bunch of notifications may appear. Do not worry.",
                                  "### Choose the colours for each class", page4)
 
     def view(self):
@@ -143,7 +143,8 @@ class CommonExclusivePage:
 
         self.content = pn.Column("# Seeing Common and Exclusive Compounds Between Biological Classes",
                                  "This includes an overview analysis as well as Venn Diagrams and Intersection Plots",
-                                 "##### Known problem: Repeating IDs leading to problems in Venn Diagrams and Intersection Plots appearing at the same time.",
+                                 "#### Known problem: Repeating IDs leading to problems in Venn Diagrams and Intersection Plots appearing at the same time (For now, select only one at a time).",
+                                 "#### Buggiest page, if there is an issue, press another page and refresh it.",
                                  comexc_page)
 
     def view(self):
@@ -393,7 +394,7 @@ def _confirm_button_filename(event):
     file.read_df, file.temp_target = iaf.read_file(filename.filename, target_included_in_file.value)
 
     # Enabling button for next step
-    section1page[2] = pn.widgets.DataFrame(file.read_df)
+    section1page[2] = pn.pane.DataFrame(file.read_df, height=600)
     confirm_button_step1.disabled = False
 # Function happens when you press the button        
 confirm_button_filename.on_click(_confirm_button_filename)
@@ -411,7 +412,7 @@ def _load_example_df_button(event):
     file.read_df, file.temp_target = iaf.read_file('5yeasts_notnorm.csv', False)
 
     # Enabling button for next step
-    section1page[2] = pn.widgets.DataFrame(file.read_df)
+    section1page[2] = pn.pane.DataFrame(file.read_df, height=600)
     confirm_button_step1.disabled = False
 # Function happens when you press the button
 load_example_df_button.on_click(_load_example_df_button)
@@ -687,7 +688,8 @@ def _confirm_button_initial_filtering(event):
     # Setup the page if not setup yet
     while len(page1_2) > 3:
         page1_2.pop(-1)
-    page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',filtered_df,
+    page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',
+                    pn.pane.DataFrame(filtered_df.value, height=500),
                     confirm_button_next_step_2])
 
 # Call the function
@@ -1153,7 +1155,7 @@ class AnnDeDuplication_Storage(param.Parameterized):
             self, ann_df, sample_cols, neutral_mass_col, mz_col=False)
 
         # Report
-        self.merge_report = f'''Nº of Mergings: **{len(merge_description)}**.
+        self.merge_report = f'''Nº of Mergings: **{len(merge_description)}**
                                   Nº of Metabolic Features merged: **{pd.DataFrame(merge_description).T['Nº merged peaks'].sum()}**
                                   Nº of Metabolic Features dropped: **{len(ann_df) - len(annotated_data.index)}**
                                   Nº of Metabolic Features before merging: **{len(ann_df)}**
@@ -1240,7 +1242,26 @@ perform_deduplication_button = pn.widgets.Button(name='Perform Annotation De-Dup
 # When pressing the button, performs metabolic feature merging
 def _perform_deduplication_button(event):
     "Performs multiple annotation metabolic feature merging and updates layout."
+
+    # Disable posterior sidebar buttons
+    page3_button.disabled = True
+    page4_button.disabled = True
+    see_merge_problems_button.disabled = False
+    skip_merge_problem_cases_button.disabled = False
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
+    # Updating layout
+    while len(page2_1)>3:
+        page2_1.pop(-1)
+
+    # Loading Widget while de-duplication is happenning
+    page2_1.append(pn.indicators.LoadingSpinner(value=True, size=90,
+                                                        name='Perfoming Multiple Annotation Metabolic Feature Merging...'))
+
     # Perform Metabolic Feature Merging
+    DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
+    iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
     data_ann_deduplicator.perform_deduplication(DataFrame_Store.original_df, target_list.sample_cols,
                                             radiobox_neutral_mass.value)
 
@@ -1252,15 +1273,8 @@ def _perform_deduplication_button(event):
         data_ann_deduplicator.merge_problems = data_ann_deduplicator.full_merge_problems
     data_ann_deduplicator.merge_situations.loc['Possible Problem Cases'] = len(data_ann_deduplicator.merge_problems)
 
-    # Disable posterior sidebar buttons
-    page3_button.disabled = True
-    page4_button.disabled = True
-    # Disable statistical analysis
-    _disabling_stat_analysis_buttons()
-
-    # Updating layout
-    while len(page2_1)>3:
-        page2_1.pop(-1)
+    # Remove loading widget
+    page2_1.pop(-1)
 
     # Middle section update
     middle_section_dedup[2] = data_ann_deduplicator.merge_report
@@ -1310,25 +1324,127 @@ def _see_merge_problems_button(event):
     "Observe problem cases and updates layout."
     confirm_button_next_step_3.disabled = False
 
+    # Disable posterior sidebar buttons
+    page3_button.disabled = True
+    page4_button.disabled = True
+    see_merge_problems_button.disabled = True
+    skip_merge_problem_cases_button.disabled = True
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
     # Updating layout
     while len(page2_1)>4:
         page2_1.pop(-1)
 
     # Merge Problems section update
     merge_problems_section_page.clear()
-    merge_problems_section_page.append('### Merge Problem Cases')
 
-    for i in range(len(data_ann_deduplicator.merge_problems.index)):
-        idx = data_ann_deduplicator.merge_problems.index[i]
-        merge_problems_section_page.append(pn.Column(f'#### {data_ann_deduplicator.merge_problems.iloc[i, 1]}',
-                                                    data_ann_deduplicator.annotated_df.loc[idx]))
+    # If there are Merge Problems
+    if len(data_ann_deduplicator.merge_problems) != 0:
+        merge_problems_section_page.append('### Merge Problem Cases')
 
-    merge_problems_section_page.append(confirm_button_next_step_3)
+        # Base for creating each merge problem part
+        merge_problems_widgets.clear()
+        merge_initial = pn.Column('#### Select Features to Merge',
+                                        'Features with incompatible annotations cannot be merged (a notification will indicate this). **Note: MetaData columns labelled "Other" will be one of the values in the merged features randomly.**')
 
-    # Appending it
-    page2_1.append(merge_problems_section_page)
+        # Creating the section for each merge problem
+        for i in range(len(data_ann_deduplicator.merge_problems.index)):
+            idx = data_ann_deduplicator.merge_problems.index[i]
+
+            merge_problems_widgets[i] = pn.widgets.CheckBoxGroup(name='Peaks to Merge', value=[], options=idx,)
+            ind_merge_problems = pn.GridSpec(mode='override')
+            ind_merge_problems[0,0] = merge_initial
+            ind_merge_problems[1,0] = merge_problems_widgets[i]
+            ind_merge_problems[:, 1:4] = pn.pane.DataFrame(data_ann_deduplicator.annotated_df.loc[idx], height=400)
+
+            merge_problems_section_page.append(pn.Column(f'### {data_ann_deduplicator.merge_problems.iloc[i, 1]}',
+                                                    ind_merge_problems))
+
+        confirm_mergeproblems_to_merge_button.disabled = False
+        merge_problems_section_page.append(confirm_mergeproblems_to_merge_button)
+
+        # Appending it
+        page2_1.append(merge_problems_section_page)
+
+    # If there are not merge problems
+    else:
+        merge_problems_section_page.append('### No Merge Problem Cases Detected')
+        merge_problems_section_page.append(confirm_button_next_step_3)
+        page2_1.append(merge_problems_section_page)
 see_merge_problems_button.on_click(_see_merge_problems_button)
 
+# Dictionary to store CheckBoxGroups Widgets for Problem Cases
+merge_problems_widgets = {}
+
+confirm_mergeproblems_to_merge_button = pn.widgets.Button(name='Perform Metabolic Feature Merging in Problem Cases of Selected Features (if 0 or only 1 feat. was chosen in a case, merging will not be attempted)',
+                                description = 'If 0 or only 1 feature was selected in a case, merging will not be attempted. If merging cannot be performed with the selected features, a notification will appear.',
+                                                     button_type='primary', disabled=False)
+def _confirm_mergeproblems_to_merge_button(event):
+    # Obtaining the annotated columns
+    ann_cols = list(checkbox_annotation.value)
+    for key in data_ann_deduplicator.mcid:
+        if key.startswith('Matched') and key.endswith(' IDs'):
+            ann_cols.extend([key, 'Matched '+ key[8:-4] +' names', 'Matched '+ key[8:-4] +' formulas',
+                                                key[8:-4] +' match count'])
+    ann_cols.extend(checkbox_formula.value)
+    merge_prob_description = pd.DataFrame(columns=data_ann_deduplicator.merge_description.columns)
+    not_merged_desc = ['##### Metabolic Features not merged (from problem cases)']
+    initial_len = len(data_ann_deduplicator.annotated_df)
+
+    # For each of the possible problems
+    for i in merge_problems_widgets:
+        idxs_to_merge = merge_problems_widgets[i].value
+        # If more than one peak was selected try to merge them
+        if len(idxs_to_merge) > 1:
+            try:
+                # If we can merge them
+                df, m_d = iaf.individually_merging(data_ann_deduplicator, idxs_to_merge,
+                             target_list.sample_cols,
+                             ann_cols, radiobox_neutral_mass.value, mz_col=False)
+
+                # Adjust everything
+                data_ann_deduplicator.annotated_df = df
+                m_d[list(m_d.keys())[0]]['DB'] = data_ann_deduplicator.merge_problems.iloc[i, 0]
+                m_d[list(m_d.keys())[0]]['Repeating annotation'] = ' | '.join(data_ann_deduplicator.merge_problems.iloc[i, 1].values())
+                merge_prob_description.loc[list(m_d.keys())[0]] = m_d[list(m_d.keys())[0]]
+
+            except:
+                m_d = f'{data_ann_deduplicator.merge_problems.iloc[i, 1]} with could not be merged: {idxs_to_merge} were incompatible.'
+                not_merged_desc.append(m_d)
+
+        else:
+            m_d = f'{data_ann_deduplicator.merge_problems.iloc[i, 1]} was not merged.'
+            not_merged_desc.append(m_d)
+
+    # Updating the merging report
+    if len(merge_prob_description) != 0:
+        new_desc = data_ann_deduplicator.merge_report.split('\n')
+        new_desc[0] = new_desc[0] + f' + **{len(merge_prob_description)}** (individually decided)'
+        new_desc[1] = new_desc[1] + f' + **{merge_prob_description["Nº merged peaks"].sum()}** (individually decided)'
+        new_desc[2] = new_desc[2] + f' + **{initial_len - len(data_ann_deduplicator.annotated_df)}** (individually decided)'
+        new_desc[4] = new_desc[4].split('**')[0] + f'**{len(data_ann_deduplicator.annotated_df)}**'
+        data_ann_deduplicator.merge_report = '\n'.join(new_desc)
+
+    # Blocking the merge problem section so it cannot run without re-performing de-duplication
+    for i in merge_problems_widgets:
+        merge_problems_widgets[i].disabled = True
+    confirm_mergeproblems_to_merge_button.disabled = True
+    see_merge_problems_button.disabled = True
+    skip_merge_problem_cases_button.disabled = True
+
+    # Updating the layout of the page with the new merges performed
+    while len(merge_problems_section_page) > (2+len(data_ann_deduplicator.merge_problems)):
+        merge_problems_section_page.pop(-1)
+
+    merge_problems_section_page.append('### Merge Problem Metabolic Feature Merging Description and Final Check')
+    if len(merge_prob_description) != 0:
+        merge_problems_section_page.append(pn.pane.DataFrame(merge_prob_description))
+        merge_problems_section_page.append(data_ann_deduplicator.merge_report)
+    if len(not_merged_desc) != 1:
+        merge_problems_section_page.append('\n'.join(not_merged_desc))
+    merge_problems_section_page.append(confirm_button_next_step_3)
+confirm_mergeproblems_to_merge_button.on_click(_confirm_mergeproblems_to_merge_button)
 
 # Setting up the general sections
 # Middle section with details of metabolic peak merging performed
@@ -1907,7 +2023,7 @@ class ComExc_Storage(param.Parameterized):
         # Updating information on class and panel sections
         self.specific_cl_df = df_common
         self.specific_cl_desc = len(df_common.index)
-        subsetdf_comexc_section_page[0:4,1:3] = pn.widgets.DataFrame(self.specific_cl_df)
+        subsetdf_comexc_section_page[0:4,1:3] = pn.pane.DataFrame(self.specific_cl_df, height=500)
         subsetdf_comexc_section_page[2,0].value = self.specific_cl_desc
 
 
@@ -2177,7 +2293,7 @@ subsetdf_comexc_section_page[0:2,0] = com_exc_compounds.controls
 subsetdf_comexc_section_page[2,0] = pn.indicators.Number(name='Nº of Metabolites', font_size='14pt', title_size='14pt',
                                                          value=com_exc_compounds.class_specific_cl_desc)
 subsetdf_comexc_section_page[3,0] = save_comexc_df_button
-subsetdf_comexc_section_page[0:4,1:3] = pn.widgets.DataFrame(com_exc_compounds.specific_cl_df)
+subsetdf_comexc_section_page[0:4,1:3] = pn.pane.DataFrame(com_exc_compounds.specific_cl_df, height=500)
 
 
 # Widget to save Venn Diagram (needed since it is a matplotlib plot instead of a plotly plot)
@@ -3973,6 +4089,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
     ccs_text = param.String('Select which columns with Formulas to consider for counting (at least 1 has to be selected):')
     ccs_formula_to_consider = param.List(default=checkbox_formula.value)
     ccs_desc = param.String(default='')
+    ccs_df = param.DataFrame()
 
     # Storing figures
     VanKrevelen_plot = param.List(default=['Pane for Van Krevelen Plot'])
@@ -4132,6 +4249,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
         # Setting up the attributes
         self.CCS_plot[0] = fig
         self.ccs_desc = '<br />'.join(desc_string) # <br /> leads to line breaks in Markdown
+        self.series_df = series_df.T
         filename = 'CCS_Plot_formulacolumns_'
         # Create appropriate filename
         for cl in self.ccs_formula_to_consider:
@@ -4142,12 +4260,13 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
             ccs_page.append(self.ccs_desc)
             ccs_page.append(pn.pane.Plotly(self.CCS_plot[0], height=600,
                             config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}}))
-            ccs_page.append(pn.widgets.DataFrame(series_df.T))
+            ccs_page.append(pn.pane.DataFrame(series_df.T, height=400))
+            ccs_page.append(save_ccs_table_button)
         else:
             ccs_page[2] = self.ccs_desc
             ccs_page[3] = pn.pane.Plotly(self.CCS_plot[0], height=600,
                             config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
-            ccs_page[4] = pn.widgets.DataFrame(series_df.T)
+            ccs_page[4] = pn.pane.DataFrame(series_df.T, height=400)
 
 
     def update_widgets(self):
@@ -4345,6 +4464,28 @@ especially with extreme-resolution data. To provide an idea of how extensive thi
 detailing how many formulas are being considered for each class and from how many different features (<em>m/z</em> peaks)
 they came from.
 '''
+
+# Widget to save dataframe of chemical compositions series
+save_ccs_table_button = pn.widgets.Button(name='Save Chemical Composition Table obtained as .xlsx (in current folder)',
+                                                button_type='warning', icon=iaf.download_icon, disabled=False)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_ccs_table_button(event):
+    "Save Chemical Composition Series Table as an Excel."
+    try:
+        # Building the datafile name
+        filename = 'CCS_Table_formulacolumns_'
+        # Create appropriate filename
+        for cl in dataviz_store.ccs_formula_to_consider:
+            filename = filename + f'_{cl}'
+
+        # Saving the file
+        dataviz_store.ccs_df.to_excel(filename + '.xlsx')
+        pn.state.notifications.success(f'{filename}.xlsx successfully saved.')
+    except:
+        pn.state.notifications.error(f'File could not be saved.')
+
+save_ccs_table_button.on_click(_save_ccs_table_button)
 
 ccs_page = pn.Column(pn.pane.HTML(ccs_opening_string))
 
@@ -5014,6 +5155,7 @@ def RESET(event):
     #main_area.clear()
     if len(main_area) == 1:
         main_area.append(reset_panel)
+        reset_floatpanel.status = 'normalized'
     else:
         reset_floatpanel.status = 'normalized'
 
@@ -5151,6 +5293,7 @@ def Yes_Reset(event):
 
     # Annotation De-Duplication page
     data_ann_deduplicator.reset()
+    merge_problems_widgets.clear()
     while len(page2_1)>3:
         page2_1.pop(-1)
     page2_1[1] = pn.pane.DataFrame(data_ann_deduplicator.mult_ann_report)
