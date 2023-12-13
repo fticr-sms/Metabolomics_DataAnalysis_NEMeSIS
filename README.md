@@ -130,7 +130,9 @@ However, in the future, these databases will have corresponding python files tha
 
 # Graphical Interface Version Patch Notes
 
-#### Version Alpha.0 (In Development)
+#### Version Alpha.0 (13/12/2023)
+
+- Alpha Version of the Graphical Interface of the MetsTA software (includes homepage, instruction page and all data analysis pipeline except for BinSim Analysis).
 
 ### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
 

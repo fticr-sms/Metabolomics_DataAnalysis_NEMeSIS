@@ -733,10 +733,10 @@ class DatabaseSection():
     def __init__(self):
         # Setting up the relevant widgets
         static_db_file = pn.widgets.StaticText(name='Database File', value='', styles={'align':'center'})
-        db_file_input = pn.widgets.TextInput(placeholder='hmdb.csv')
+        db_file_input = pn.widgets.TextInput(placeholder='placeholder.csv')
         
         static_db_abv = pn.widgets.StaticText(name='Abbreviation', value='')
-        db_abv_input = pn.widgets.TextInput(placeholder='HMDB')
+        db_abv_input = pn.widgets.TextInput(placeholder='PLC')
 
         static_db_IDcol = pn.widgets.StaticText(name='DB ID - Index Column', value='')
         db_IDcol_input = pn.widgets.TextInput(placeholder='accession')
@@ -3719,7 +3719,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
     control_class = param.Selector(default='')
     test_class = param.Selector(default='')
     univariate_test_str = param.String('What Univariate Test to perform')
-    univariate_test = param.Selector(default='T-Test (Non-Parametric)')
+    univariate_test = param.Selector(default='T-Test (Parametric)')
     expected_equal_variance = param.Boolean(default=True)
     p_value_threshold = param.Number(default=0.05)
     fold_change_threshold = param.Number(default=2)
@@ -3860,8 +3860,8 @@ class UnivariateAnalysis_Store(param.Parameterized):
             'univariate_test_str': pn.widgets.StaticText(value='What Univariate Test to perform',
                                                          styles={'font-size': 'medium', 'font-weight': 'bold'}),
             'univariate_test': pn.widgets.RadioBoxGroup(name='What Univariate Test to perform',
-                    value = 'T-Test (Non-Parametric)',
-                    options=['T-Test (Non-Parametric)', 'Mann-Whitney Test (Parametric)']),
+                    value = 'T-Test (Parametric)',
+                    options=['T-Test (Parametric)', 'Mann-Whitney Test (Non-Parametric)']),
             'expected_equal_variance': pn.widgets.Checkbox(name='Consider Variance between classes as equal (only affects T-Test)', value=True),
             'p_value_threshold': pn.widgets.EditableFloatSlider(name='P-value threshold', start=0, end=1, value=0.05,
                     step=0.001),
@@ -5157,6 +5157,7 @@ def RESET(event):
         main_area.append(reset_panel)
         reset_floatpanel.status = 'normalized'
     else:
+        main_area.append(reset_panel)
         reset_floatpanel.status = 'normalized'
 
 def No_Reset(event):

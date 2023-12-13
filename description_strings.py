@@ -96,14 +96,15 @@ style="width: 22px; height: 20.9px;">&nbsp;aspect.</p>
 <p><br></p>
 <p><strong>Possible Problems and Suggested Fixes</strong></p>
 <p>- The main overarching problem when running the program is the de-formatting of the pages that can happen when you go
-back and forth between different pages causing artifactss of different pages or empty spaces before the pages to show up.
+back and forth between different pages causing artifacts of different pages or empty spaces before the pages to show up.
 We currently believe this is an issue with the panel package we are basing this software on. Fortunately, this can be
-mostly solved when using the program by refreshing the page in the browser. Although, this will reset the layout of the page.
-However, <strong>do not use&nbsp;</strong>this trick on the <strong>common and exclusive compound page</strong> since this
-will de-format the page and more importantly make the sidebar to navigate the software disappear, rendering it unoperable
-and needing to be closed and opened again.</p>
+mostly solved when using the program by refreshing the page in the browser to reset the layout of the page. However,
+<strong>do not use&nbsp;</strong>this trick on the <strong>common and exclusive compound page</strong> since this has a
+small chance to make the sidebar to navigate the software disappear, rendering it unoperable and needing to be closed and
+opened again.</p>
 <p>- Another issue of the same type is the <strong>reset floatpanel</strong> not appearing when pressing it the 2nd time. It
 is once again a problem fixed by refreshing.</p>
+<p>- Do not mash the buttons many times, it will buffer the clicks. See first on the upper right if the program is running or not.</p>
 <p>- Other known issues have smaller consequences and affect specific pages. When they exist, a little note in bold will
 indicate the problem at the beginning of the corresponding page. In general, there is in average 1 possible issue in each
 page of the analysis section.</p>

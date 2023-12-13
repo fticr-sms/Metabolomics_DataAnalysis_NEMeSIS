@@ -1487,7 +1487,7 @@ def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list, fi
     "Performs Univariate Analysis."
 
     # See if a T-Test or Mann-Whitney test will be made
-    if UnivarA_Store.univariate_test == 'T-Test (Non-Parametric)':
+    if UnivarA_Store.univariate_test == 'T-Test (Parametric)':
         use_MW = False
     else:
         use_MW = True
