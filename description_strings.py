@@ -255,3 +255,145 @@ only 2 classes are present.
 Finally, Permutation Testing (<strong>slow</strong>) can be performed to observe if the model and results obtained are
 significative.
 """
+
+
+# Permutation Test Description HTML in string format
+
+permutation_test_description = '''Permutation tests permutate  the class labels of the samples, that is, all classes will
+be randomized while maintaining the same number of samples per class and classes. For each permutation, model performance is
+assessed by stratified cross-validation exactly as the previous sections. These performances are then compared with the
+performance of a single iteration of a model built based on the non-permutated model that appears with a red line. Thus,
+this red line might not be exactly the same value as the average model performance obtained in the supervised model (PLS-DA
+or Random Forest) fitting section.
+<br>
+<br>
+Thus, this is a test to observe model performance significancy, that is, if it is better than a random model. If it is,
+then the remaining results from the important features give meaningful information.
+<br>
+<br>
+<strong>Note: Permutation tests are slow to be computed.</strong>
+<br>
+<br>
+P-value is calculated using the following equation:'''
+
+
+# ROC Curve Description HTML in string format
+
+ROC_curve_description = '''
+<strong>ROC Curves</strong> are types of representation of the performance of supervised model that plot the True Positive
+Rate by the False Positive Rate. Hence, one class has to be considered as the <strong><em>positive</em></strong> class.
+Thus, this methodology, although possible in multiclass cases, is more suited for when you have a dataset with 2 classes.
+When you have more than 2 classes, a ROC curve will be computed for each class considered as the positive by fitting a
+"1vsAll" model, that is the class of each sample is either the current positive class or "Other". Thus, there will likely
+be many more negative samples than positive samples in each case, greatly increasing the importance of the latter for the
+curve of each class.
+<br>
+<br>
+The model performance is determined by the <strong>Area Under the Curve</strong> or (<strong>AUC</strong>). When it is 1,
+the model is perfect for classifying your data; when it is 0.5, the model is no better than a random coin toss.
+<br>
+<br>
+Number of Iterations indicates how many times ROC curve results are computed with random k-fold stratified cross-validation.
+This can help to have a more detailed ROC Curve especially when your dataset has a low number of samples.'''
+
+
+# Univariate Analysis Page Opening HTML Description in string format
+
+univ_opening_string = '''In this section, both Univariate Analysis and Fold-Change analysis are performed.
+<br>
+<br>
+The Fold change is calculated in a dataset with missing values imputed and normalized after. <strong>This means that with
+our very high number of missing values in FT-ICR-MS data, it affects the calculation of the fold change a lot. Thus, take
+this fold changes values with a grain (or multiple grains that are actually more like rocks than grains) of salt.</strong>
+<br>
+<br>
+Choose between the parametric <strong>t-test</strong> and non-parametric <strong>Mann-Whitney test</strong>.
+<br>
+<br>
+<strong>Warning</strong>: This type of analysis is only done between 2 classes. If you have more than 2 classes, you can
+also choose one as the control class and one as the test class to perform univariate analysis in the 1st tab.
+<br>
+<br>
+Finally, when you have more than 2 classes, each unsueprvised analysis will select the samples respective to the 2 classes,
+filter and pre-treatment them the same way it was done on the full dataset before performing unsupervised analysis.
+'''
+
+
+# Van Krevelen Description HTML in string format
+
+vk_opening_string = '''<strong>Van Krevelen Plot section</strong>
+<br>
+<br>
+This section plots a Van Krevelen Plot for each of the classes under analysis. This is made by only considering metabolites
+(features) that appear at least in one sample of said class.
+<br>
+Only metabolites with assigned formulas are considered. You can choose which formula annotation you want to use whether it
+is a previous annotation performed, an annotation performed in this software, or even multiple different annotations
+(<strong>Note: you HAVE to select at least one annotation</strong>). If multiple formulas can be assigned to a metabolite
+whether within the same database annotation or different, they are both considered and plotted in the Van Krevelen.
+<br>
+<br>
+You can also decide to colour the dots and make them different sized based on their average intensity in the corresponding
+class using either a rank-based (more linear) approach or the logarithm of the averages intensity (less linear). You can
+also choose a "midpoint", where the dots with avg. intensity below the midpoint % of the intensity of all features have a
+more bluish colour, while those above have a redder colour.
+'''
+
+
+# Kendrick Mass Defect Plot Description HTML in string format
+
+kmd_opening_string = '''<strong>Kendrick Mass Defect Plot section</strong>
+<br>
+<br>
+This section plots a Kendrick Mass Defect Plot for each of the classes under analysis. This is plotted based on Neutral
+Mass column selected.
+<br>
+Kendrick Nominal Mass and Mass Defect can be calculated in two ways:
+<br>
+- <strong>'Up'</strong>: by rounding the neutral mass up, thus the Mass Defects will vary between 0 and 1.
+<br>
+- <strong>'Nearest'</strong>: by rounding the neutral mass to the nearest integer, thus the Mass Defects will vary between -0.5 and 0.5.
+<br>
+<br>
+You can decide to colour the dots based on the chemical composition series they belong to ('CHO', 'CHON', 'CHOP', 'CHONSP',
+etc.) by selecting the formula columns of previous annotations, of the annotations performed in the software or a
+combination of them. When, for one peak, there are multiple candidate formulas and they do not belong to the same chemical
+composition series, they get assigned as <strong>'Ambiguous'</strong>. If <strong>None</strong> is selected, then the
+points are not coloured by chemical composition series.
+'''
+
+
+# Chemical Composition Series Plot Description HTML in string format
+
+ccs_opening_string = '''<strong>Chemical Composition Series section</strong>
+<br>
+<br>
+This section plots a Chemical Composition Series bar plot indicating how many formulas of different chemical series ('CHO',
+'CHON', 'CHOP', 'CHONSP', etc.) were assigned to samples of each class.
+<br>
+<br>
+You can decide if you want to use formula annotations made previously, made in this software or a combination. <strong>If
+multiple formulas</strong> can be assigned to the same <em>m/z</em> peak whether within the same formula annotation made or
+between different annotations, <strong>each one will be counted in this plot</strong>. That is, if a peak in a class has 3
+possible candidate formulas, 2 belonging to the 'CHO' series and another to the 'CHOP' series; then 2 formulas will be added
+to the 'CHO' series and 1 to the 'CHOP' series. Thus, we are considering that the 3 elementary formulas are represented by
+that peak (probably an overestimation). In all cases, it is rare to find multiple candidate formulas for the same m/z peak,
+especially with extreme-resolution data. To provide an idea of how extensive this effect is, a description is also provided
+detailing how many formulas are being considered for each class and from how many different features (<em>m/z</em> peaks)
+they came from.
+'''
+
+
+# HMDB Pathway Assignment Page Description HTML in string format
+
+path_assign_opening_string = """This page allows you to assign or match known metabolic pathways to HMDB annotations only. This
+is made based on a file created from the <strong>RAMP database</strong> (<a href="https://rampdb.nih.gov/" target="_blank"
+rel="nofollow">https://rampdb.nih.gov/</a>) where 55872 HMDB compounds have at least 1 corresponding pathway. The pathways shown
+are aggregated from multiple sources: HMDB, Reactome, WikiPathways and KEGG; from where RAMP provides the information
+(<a href="https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287" target="_blank" rel="nofollow">https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287</a>).
+<br>
+Thus, for this, there must be a column with the <strong>HMDB identifiers</strong> (e.g. 'HMDB0000001') from which the assignment
+can be performed. The output gives the HMDB IDs and annotation names (if possible) as index in a DataFrame and the name and id of
+the pathways that they belong to according to this built file. Your identifiers should have 7 numbers after "HMDB".
+<br><br>
+<strong>If no HMDB identifiers are present, you will not be able to perform this data analysis step</strong>."""

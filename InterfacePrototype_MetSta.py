@@ -35,6 +35,7 @@ pd.DataFrame.iteritems = pd.DataFrame.items
 # TODO: Make a way to choose folder where all figures and tables downloaded go to
 # TODO: Updating packages made a series of future deprecation warnings appear - adapt code to them
 
+
 # Define pages as classes
 # Initial Pages class building with barebones for each class
 class OpeningPage:
@@ -209,17 +210,7 @@ class PathwayAssignmentPage:
     def __init__(self):
 
         self.content = pn.Column("# Pathway Assignment (HMDB Annotation)",
-                                 pn.pane.HTML("""This page allows you to assign or match known metabolic pathways to HMDB annotations only. This is made based on a file created from the
-                                              <strong>RAMP database</strong> (<a href="https://rampdb.nih.gov/" target="_blank" rel="nofollow">https://rampdb.nih.gov/</a>) where 55872 HMDB
-                                              compounds have at least 1 corresponding pathway. The pathways shown are aggregated from multiple sources: HMDB, Reactome, WikiPathways and KEGG; from
-                                              where RAMP provides the information
-                                              (<a href="https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287" target="_blank" rel="nofollow">https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287</a>).
-                                              <br>
-                                              Thus, for this, there must be a column with the <strong>HMDB identifiers</strong> (e.g. 'HMDB0000001') from which the assignment can be performed.
-                                              The output gives the HMDB IDs and annotation names (if possible) as index in a DataFrame and the name and id of the pathways that they belong to
-                                              according to this built file. Your identifiers should have 7 numbers after "HMDB".
-                                              <br><br>
-                                              <strong>If no HMDB identifiers are present, you will not be able to perform this data analysis step</strong>."""),
+                                 pn.pane.HTML(desc_str.path_assign_opening_string),
                                  path_assign_page)
 
     def view(self):
@@ -323,7 +314,6 @@ class DataFrame_Storage(param.Parameterized):
 
 # Initializing the Store
 DataFrame_Store = DataFrame_Storage()
-
 
 
 # Function to ensure statistical analysis buttons are disabled when data pre-treatment is changed
@@ -1836,7 +1826,7 @@ def _confirm_button_next_step_5(event):
     # Initial calculations for HCA and storing initial plots
     HCA_params.dists = dist.pdist(DataFrame_Store.treated_df, metric=HCA_params.dist_metric)
     HCA_params.Z = hier.linkage(HCA_params.dists, method=HCA_params.link_metric)
-    HCA_params.HCA_plot[0] = _plot_HCA()
+    HCA_params.HCA_plot[0] = iaf._plot_HCA(HCA_params, target_list)
     page_HCA[0:6,1:4] = HCA_params.HCA_plot[0]
 
     # Updating Widgets for Univariate Analysis
@@ -2569,14 +2559,14 @@ class HCA_Storage(param.Parameterized):
         self.dists = dist.pdist(DataFrame_Store.treated_df, metric=self.dist_metric)
         self.Z = hier.linkage(self.dists, method=self.link_metric)
         # Plot the new HCA
-        self.HCA_plot[0] = _plot_HCA()
+        self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
         page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
 
 
     @param.depends('fig_text', 'fig_x', 'fig_y', 'col_threshold', 'dpi', watch=True)
     def _update_HCA_plot(self):
         if type(self.Z) == np.ndarray:
-            self.HCA_plot[0] = _plot_HCA()
+            self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
             page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
 
 
@@ -2622,16 +2612,6 @@ class HCA_Storage(param.Parameterized):
 
 # Initializes HCA Store
 HCA_params = HCA_Storage()
-
-# Plots the HCA function
-def _plot_HCA():
-    f, ax = plt.subplots(1, 1, figsize=(HCA_params.fig_x, HCA_params.fig_y), constrained_layout=True)
-    iaf.plot_dendogram(HCA_params.Z,
-                   target_list.target, ax=ax,
-                   label_colors=target_list.color_classes,
-                   x_axis_len=HCA_params.fig_x,
-                   color_threshold=HCA_params.col_threshold)
-    return f
 
 
 # Widget to save HCA plot (needed since it is a matplotlib plot instead of a plotly plot)
@@ -3207,43 +3187,13 @@ def _update_plsda_ellipse_std_options(confidence):
 
 # Permutation Test associated widgets
 # This description and equation will also be used for the Random Forest section
-permutation_test_description = '''Permutation tests permutate  the class labels of the samples, that is, all classes will
-be randomized while maintaining the same number of samples per class and classes. For each permutation, model performance is
-assessed by stratified cross-validation exactly as the previous sections. These performances are then compared with the
-performance of a single iteration of a model built based on the non-permutated model that appears with a red line. Thus,
-this red line might not be exactly the same value as the average model performance obtained in the supervised model (PLS-DA
-or Random Forest) fitting section.
-<br>
-<br>
-Thus, this is a test to observe model performance significancy, that is, if it is better than a random model. If it is,
-then the remaining results from the important features give meaningful information.
-<br>
-<br>
-<strong>Note: Permutation tests are slow to be computed.</strong>
-<br>
-<br>
-P-value is calculated using the following equation:'''
+permutation_test_description = desc_str.permutation_test_description
 pvalue_equation_string = r'p-value = \(\frac{1 + \text{times permutated model has better performance than non-permutated model}}{\text{number of permutations}}\)'
 
 
 # ROC Curves Description
 # This description will also be used for the Random Forest section
-ROC_curve_description = '''
-<strong>ROC Curves</strong> are types of representation of the performance of supervised model that plot the True Positive
-Rate by the False Positive Rate. Hence, one class has to be considered as the <strong><em>positive</em></strong> class.
-Thus, this methodology, although possible in multiclass cases, is more suited for when you have a dataset with 2 classes.
-When you have more than 2 classes, a ROC curve will be computed for each class considered as the positive by fitting a
-"1vsAll" model, that is the class of each sample is either the current positive class or "Other". Thus, there will likely
-be many more negative samples than positive samples in each case, greatly increasing the importance of the latter for the
-curve of each class.
-<br>
-<br>
-The model performance is determined by the <strong>Area Under the Curve</strong> or (<strong>AUC</strong>). When it is 1,
-the model is perfect for classifying your data; when it is 0.5, the model is no better than a random coin toss.
-<br>
-<br>
-Number of Iterations indicates how many times ROC curve results are computed with random k-fold stratified cross-validation.
-This can help to have a more detailed ROC Curve especially when your dataset has a low number of samples.'''
+ROC_curve_description = desc_str.ROC_curve_description
 
 
 # PLS projection section of the page
@@ -3671,24 +3621,7 @@ sup_analysis_page = pn.Tabs(('PLS-DA', page_PLSDA), ('RF ', page_RF))
 
 
 # Page for Univariate Analysis
-univ_opening_string = '''In this section, both Univariate Analysis and Fold-Change analysis are performed.
-<br>
-<br>
-The Fold change is calculated in a dataset with missing values imputed and normalized after. <strong>This means that with
-our very high number of missing values in FT-ICR-MS data, it affects the calculation of the fold change a lot. Thus, take
-this fold changes values with a grain (or multiple grains that are actually more like rocks than grains) of salt.</strong>
-<br>
-<br>
-Choose between the parametric <strong>t-test</strong> and non-parametric <strong>Mann-Whitney test</strong>.
-<br>
-<br>
-<strong>Warning</strong>: This type of analysis is only done between 2 classes. If you have more than 2 classes, you can
-also choose one as the control class and one as the test class to perform univariate analysis in the 1st tab.
-<br>
-<br>
-Finally, when you have more than 2 classes, each unsueprvised analysis will select the samples respective to the 2 classes,
-filter and pre-treatment them the same way it was done on the full dataset before performing unsupervised analysis.
-'''
+univ_opening_string = desc_str.univ_opening_string
 
 class UnivariateAnalysis_Store(param.Parameterized):
     """Class to store the unsupervised analysis and the locked in parameters used in data filtering and pre-treatment."""
@@ -4397,23 +4330,7 @@ compute_vk_kmd_ccs_button.on_click(_compute_vk_kmd_ccs_button)
 
 
 # Van Krevelen Plot Section
-vk_opening_string = '''<strong>Van Krevelen Plot section</strong>
-<br>
-<br>
-This section plots a Van Krevelen Plot for each of the classes under analysis. This is made by only considering metabolites
-(features) that appear at least in one sample of said class.
-<br>
-Only metabolites with assigned formulas are considered. You can choose which formula annotation you want to use whether it
-is a previous annotation performed, an annotation performed in this software, or even multiple different annotations
-(<strong>Note: you HAVE to select at least one annotation</strong>). If multiple formulas can be assigned to a metabolite
-whether within the same database annotation or different, they are both considered and plotted in the Van Krevelen.
-<br>
-<br>
-You can also decide to colour the dots and make them different sized based on their average intensity in the corresponding
-class using either a rank-based (more linear) approach or the logarithm of the averages intensity (less linear). You can
-also choose a "midpoint", where the dots with avg. intensity below the midpoint % of the intensity of all features have a
-more bluish colour, while those above have a redder colour.
-'''
+vk_opening_string = desc_str.vk_opening_string
 
 vk_plots = pn.Column()
 
@@ -4421,25 +4338,7 @@ vk_page = pn.Column(pn.pane.HTML(vk_opening_string))
 
 
 # Kendrick Mass Defect Plot Section
-kmd_opening_string = '''<strong>Kendrick Mass Defect Plot section</strong>
-<br>
-<br>
-This section plots a Kendrick Mass Defect Plot for each of the classes under analysis. This is plotted based on Neutral
-Mass column selected.
-<br>
-Kendrick Nominal Mass and Mass Defect can be calculated in two ways:
-<br>
-- <strong>'Up'</strong>: by rounding the neutral mass up, thus the Mass Defects will vary between 0 and 1.
-<br>
-- <strong>'Nearest'</strong>: by rounding the neutral mass to the nearest integer, thus the Mass Defects will vary between -0.5 and 0.5.
-<br>
-<br>
-You can decide to colour the dots based on the chemical composition series they belong to ('CHO', 'CHON', 'CHOP', 'CHONSP',
-etc.) by selecting the formula columns of previous annotations, of the annotations performed in the software or a
-combination of them. When, for one peak, there are multiple candidate formulas and they do not belong to the same chemical
-composition series, they get assigned as <strong>'Ambiguous'</strong>. If <strong>None</strong> is selected, then the
-points are not coloured by chemical composition series.
-'''
+kmd_opening_string = desc_str.kmd_opening_string
 
 kmd_plots = pn.Column()
 
@@ -4447,23 +4346,7 @@ kmd_page = pn.Column(pn.pane.HTML(kmd_opening_string))
 
 
 # Chemical Composition Series Section
-ccs_opening_string = '''<strong>Chemical Composition Series section</strong>
-<br>
-<br>
-This section plots a Chemical Composition Series bar plot indicating how many formulas of different chemical series ('CHO',
-'CHON', 'CHOP', 'CHONSP', etc.) were assigned to samples of each class.
-<br>
-<br>
-You can decide if you want to use formula annotations made previously, made in this software or a combination. <strong>If
-multiple formulas</strong> can be assigned to the same m/z peak whether within the same formula annotation made or between
-different annotations, <strong>each one will be counted in this plot</strong>. That is, if a peak in a class has 3 possible
-candidate formulas, 2 belonging to the 'CHO' series and another to the 'CHOP' series; then 2 formulas will be added to the
-'CHO' series and 1 to the 'CHOP' series. Thus, we are considering that the 3 elementary formulas are represented by that
-peak (probably an overestimation). In all cases, it is rare to find multiple candidate formulas for the same m/z peak,
-especially with extreme-resolution data. To provide an idea of how extensive this effect is, a description is also provided
-detailing how many formulas are being considered for each class and from how many different features (<em>m/z</em> peaks)
-they came from.
-'''
+ccs_opening_string = desc_str.ccs_opening_string
 
 # Widget to save dataframe of chemical compositions series
 save_ccs_table_button = pn.widgets.Button(name='Save Chemical Composition Table obtained as .xlsx (in current folder)',

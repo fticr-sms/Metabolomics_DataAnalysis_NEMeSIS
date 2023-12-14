@@ -1062,6 +1062,7 @@ def _plot_PCA(PCA_params, target_list):
 
     return final_PCA_plot
 
+
 def _plot_PCA_explained_variance(PCA_params):
     "Function to plot cumulative explained variance"
 
@@ -1082,6 +1083,7 @@ def _plot_PCA_explained_variance(PCA_params):
             "Explained Variance of This Component (%): %{customdata[0]:.5f}"]))
     exp_var_fig.update_yaxes(range=(0,100))
     return exp_var_fig
+
 
 def _scatter_PCA_plot(PCA_params, target_list):
     "Function plotting a full matrix of PCA projections of the 6 (maximum) first Principal Components."
@@ -1104,6 +1106,18 @@ def _scatter_PCA_plot(PCA_params, target_list):
 
 
 ### Functions related to the HCA section of the unsupervised analysis page of the graphical interface
+
+# Plots the HCA function
+def _plot_HCA(HCA_params, target_list):
+    "Plots HCA Dendrogram."
+    f, ax = plt.subplots(1, 1, figsize=(HCA_params.fig_x, HCA_params.fig_y), constrained_layout=True)
+    plot_dendogram(HCA_params.Z,
+                   target_list.target, ax=ax,
+                   label_colors=target_list.color_classes,
+                   x_axis_len=HCA_params.fig_x,
+                   color_threshold=HCA_params.col_threshold)
+    return f
+
 
 def color_list_to_matrix_and_cmap(colors, ind, axis=0):
         if any(issubclass(type(x), list) for x in colors):
@@ -1626,7 +1640,7 @@ def _univariate_intersections(UnivarA_Store, DataFrame_Store):
 ### Functions related to the Data Diversity Visualization Plots page of the graphical interface
 
 # Slightly altered version from what is in metanalysis_standard.py
-def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
+def create_element_counts(data, formula_subset=['Formula',], compute_ratios=True,
                           series=('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP')):
     """Create DataFrame from element counts and concat to original DataFrame.
 
