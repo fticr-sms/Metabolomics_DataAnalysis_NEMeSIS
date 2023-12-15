@@ -111,7 +111,8 @@ class AnnDeDuplication:
 class DataPreTreatment:
     def __init__(self):
         
-        self.content = pn.Column("# Section 3: Data Pre-Treatment", "Choose the pre-treatment to apply to the data.",
+        self.content = pn.Column("# Section 3: Data Pre-Treatment",
+                                 "Choose the pre-treatment to apply to the data. **Large Datasets might not show up right away on the right (refreshing may correct this).**",
                                 page3)
 
     def view(self):
@@ -144,8 +145,7 @@ class CommonExclusivePage:
 
         self.content = pn.Column("# Seeing Common and Exclusive Compounds Between Biological Classes",
                                  "This includes an overview analysis as well as Venn Diagrams and Intersection Plots",
-                                 "#### Known problem: Repeating IDs leading to problems in Venn Diagrams and Intersection Plots appearing at the same time (For now, select only one at a time).",
-                                 "#### Buggiest page, if there is an issue, press another page and refresh it.",
+                                 "#### Known problem: Repeating IDs leading to problems in Venn Diagrams and Intersection Plots appearing at the same time. For now, select only one at a time.",
                                  comexc_page)
 
     def view(self):
@@ -372,6 +372,7 @@ confirm_button_step1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Conf
 # Update button so it can be pressed after you put something in the filename
 @pn.depends(filename.param.filename, watch=True)
 def _update_confirm_button_filename(filename):
+    "Controls the state of the button to confirm and read the file."
     if filename != '':
         confirm_button_filename.disabled = False
     else:
@@ -384,7 +385,7 @@ def _confirm_button_filename(event):
     file.read_df, file.temp_target = iaf.read_file(filename.filename, target_included_in_file.value)
 
     # Enabling button for next step
-    section1page[2] = pn.pane.DataFrame(file.read_df, height=600)
+    section1page[2] = pn.widgets.DataFrame(file.read_df, disabled=True, sortable=False, reorderable=False)
     confirm_button_step1.disabled = False
 # Function happens when you press the button        
 confirm_button_filename.on_click(_confirm_button_filename)
@@ -402,7 +403,7 @@ def _load_example_df_button(event):
     file.read_df, file.temp_target = iaf.read_file('5yeasts_notnorm.csv', False)
 
     # Enabling button for next step
-    section1page[2] = pn.pane.DataFrame(file.read_df, height=600)
+    section1page[2] = pn.widgets.DataFrame(file.read_df, disabled=True, sortable=False, reorderable=False)
     confirm_button_step1.disabled = False
 # Function happens when you press the button
 load_example_df_button.on_click(_load_example_df_button)
@@ -410,6 +411,7 @@ load_example_df_button.on_click(_load_example_df_button)
 
 # Confirm file, show next page, disable reading files, update columns of the dataset read
 def _confirm_step1(event):
+    "Performs actions to pass from step 1 page to step 1_1 page."
     # Enabling/Disabling appropriate Widgets
     page1_1_button.disabled = False
     confirm_button_filename.disabled = True
@@ -482,6 +484,7 @@ confirm_button_column_selection = pn.widgets.Button(icon=iaf.img_confirm_button,
 
 # Confirm column selection, update sample columns, make target editable while providing a possible target
 def _update_confirm_column_selection(event):
+    "Get sample columns based on metadata columns selected, makes target editable wile providing an educated guess about it."
     # Deduce sample columns
     sample_cols = []
     cols = list(DataFrame_Store.read_df.columns)
@@ -551,6 +554,7 @@ confirm_button_next_step_1_1 = pn.widgets.Button(icon=iaf.img_confirm_button,
 # Make button be pressable when you have a target
 @pn.depends(target_widget.param.value, watch=True)
 def _update_read_target_button(target_widget):
+    "Controls the state of the button to confirm and read the target."
     if target_widget != '':
         confirm_button_target.disabled = False
     else:
@@ -559,6 +563,7 @@ def _update_read_target_button(target_widget):
 
 # Make sure that target makes sense in comparison to the number of sample columns
 def _update_confirm_target(event):
+    "Confirms the target selected."
     target = target_widget.value.split(',')
     sample_cols = target_list.sample_cols
     if len(sample_cols) != len(target):
@@ -584,6 +589,7 @@ confirm_button_target.on_click(_update_confirm_target)
 
 # Going to the next step function
 def _confirm_button_next_step_1_1(event):
+    "Performs actions to pass from step 1_1 page to step 1_2 page."
     page1_2_button.disabled = False
     confirm_button_next_step_2.disabled = True
     #page2_button.disabled = False
@@ -620,6 +626,7 @@ limits_filt = {"Total Samples": len(target_widget.value.split(',')),
 @pn.depends(target = target_widget.param.value,
             method = filt_method.param.value, watch=True)
 def _update_filt_kw_limits(target, method):
+    "Controls widget limits related to data filtering keyword based on the method chosen and the target."
     if method == 'Total Samples':
         filt_kw.end = len(target.split(','))
     elif method == 'Class Samples':
@@ -634,7 +641,7 @@ filt_kw_tooltip = pn.widgets.TooltipIcon(value=
     """How many samples a feature has to appear to be retained based on the method chosen before.""")
 
 # Preparing DataFrames
-filtered_df = pn.widgets.DataFrame(pd.DataFrame(), name='Filtered DataFrame')
+filtered_df = pn.widgets.DataFrame(pd.DataFrame(), name='Filtered DataFrame', disabled=True, sortable=False, reorderable=False)
 characteristics_df = pn.widgets.DataFrame(pd.DataFrame(), name='Characteristics DataFrame')
 
 # Button to perform filtering
@@ -679,7 +686,7 @@ def _confirm_button_initial_filtering(event):
     while len(page1_2) > 3:
         page1_2.pop(-1)
     page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',
-                    pn.pane.DataFrame(filtered_df.value, height=500),
+                    filtered_df,
                     confirm_button_next_step_2])
 
 # Call the function
@@ -687,7 +694,7 @@ confirm_button_initial_filtering.on_click(_confirm_button_initial_filtering)
 
 # Go to next step function and calling it
 def _confirm_button_next_step_1_2(event):
-    "Ends step 1-2 and goes to Data Annotation page."
+    "Performs actions to pass from step 1_2 page to Data Annotation page."
     page2_button.disabled = False
     confirm_button_next_step_2_1.disabled = True
 
@@ -752,6 +759,7 @@ class DatabaseSection():
                     e=db_formula_input.param.value,
                     watch=True)
         def _update_confirm_button_db(a,b,c,d,e):
+            "Controls if the button to read database is pressable."
             if a != '':
                 if b!= '':
                     if c!= '':
@@ -769,6 +777,7 @@ class DatabaseSection():
                     button=confirm_button_db.param.clicks,
                     watch=True)
         def _press_confirm_button_db(a,b,c,d,e,button):
+            "Reads Database inputted and stores parameters."
             if button != 0:
                 # Adjust the names
                 filename=a
@@ -833,6 +842,7 @@ dbs_arrangement = pn.Row()
 
 # Make the designated number of database sections appear
 def _confirm_button_n_databases(event):
+    "Updates layout making the database sections selected appear."
     # Updating the value
     n_databases.value = n_databases_show.value
     # Setting the databases read attribute to False
@@ -877,6 +887,7 @@ confirm_button_databases_read = pn.widgets.Button(icon=iaf.img_confirm_button, n
             db4=DB_dict['4'].read.param.value,
             db5=DB_dict['5'].read.param.value, watch=True)
 def _press_confirm_button_db(db1, db2, db3, db4, db5):
+    "Controls if the button to confirm the databases selected is pressable."
     all_read = False
     for i in range(n_databases.value):
         n_data = str(i+1)
@@ -903,6 +914,7 @@ confirm_button_annotation_perform = pn.widgets.Button(name='Perform Annotation',
 # Update the parameter input given based on the methodology chosen
 @pn.depends(annotation_margin_method_radio.param.value, watch=True)
 def _annotation_margin_method(method):
+    "Controls the widget that appears as a parameter to complement the annotation margin method chosen."
     if method == 'PPM Deviation':
         annotation_param_selection[1][0] = annotation_ppm_deviation
     else:
@@ -915,6 +927,7 @@ annotation_param_selection = pn.Column(annotation_margin_method_radio,
 
 # Make the annotation part of the layout appear and disable button to confirm databases
 def _confirm_button_databases_read(event):
+    "Confirms the databases read and updates layout."
     confirm_button_databases_read.disabled = True
     confirm_button_annotation_perform.disabled = False
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index) # Setup the annotation df
@@ -1039,6 +1052,7 @@ confirm_button_next_step_2_1 = pn.widgets.Button(icon=iaf.img_confirm_button, na
 
 # Go to next step function and calling it
 def _confirm_button_next_step_2_1(event):
+    "Performs actions to pass from step 2_1 page to step 3 page."
     page2_1_button.disabled = False
     confirm_button_next_step_3.disabled = True
 
@@ -1158,8 +1172,13 @@ class AnnDeDuplication_Storage(param.Parameterized):
         self.merge_situations = pd.DataFrame(pd.Series(merging_situations), columns=['Nº of Mergings by Situation'])
 
         # Problems results
-        self.merge_problems = iaf._merge_problems_creation(mp)
-        self.full_merge_problems = self.merge_problems.copy()
+        if len(mp) > 0:
+            self.merge_problems = iaf._merge_problems_creation(mp)
+            self.full_merge_problems = self.merge_problems.copy()
+        else:
+            self.merge_problems = pd.DataFrame(columns=['DBs with same annotation', 'Annotation',
+                                            'Nº of Peaks', 'Indexes', 'Contradiction With'])
+            self.full_merge_problems = self.merge_problems.copy()
         self.merge_situations.loc['Possible Problem Cases'] = len(self.merge_problems)
 
         # Store parameters used
@@ -1371,6 +1390,7 @@ confirm_mergeproblems_to_merge_button = pn.widgets.Button(name='Perform Metaboli
                                 description = 'If 0 or only 1 feature was selected in a case, merging will not be attempted. If merging cannot be performed with the selected features, a notification will appear.',
                                                      button_type='primary', disabled=False)
 def _confirm_mergeproblems_to_merge_button(event):
+    "Performs merging of selected peaks on merge problem cases, gives a report on the merging and updates the layout."
     # Obtaining the annotated columns
     ann_cols = list(checkbox_annotation.value)
     for key in data_ann_deduplicator.mcid:
@@ -1509,9 +1529,17 @@ class PreTreatment(param.Parameterized):
         # Locking in pre-treatment parameters chosen
         UnivarA_Store.locking_pretreatment_params(self)
 
-        page3[:2,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
-            ('Metadata', DataFrame_Store.metadata_df.T),
-            ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
+        if len(DataFrame_Store.treated_df.columns) > 5000:
+            page3[:2,2:5] = pn.Tabs(('Treated Data', pn.widgets.DataFrame(DataFrame_Store.treated_df, disabled=True,
+                                                                        sortable=False, reorderable=False)),
+                ('Metadata', pn.widgets.DataFrame(DataFrame_Store.metadata_df.T, disabled=True, sortable=False,
+                                                reorderable=False)),
+                ('BinSim Treated Data', pn.widgets.DataFrame(DataFrame_Store.binsim_df, disabled=True, sortable=False,
+                                                reorderable=False)), height=600, dynamic=True)
+        else:
+            page3[:2,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
+                ('Metadata', DataFrame_Store.metadata_df.T),
+                ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
         confirm_button_next_step_4.disabled = False
         save_data_dataframes_button.disabled = False
 
@@ -1567,6 +1595,7 @@ PreTreatment_Method = PreTreatment()
 limits_mvi = {"Minimum of Sample": 1, "Minimum of Feature": 1, "Minimum of Data": 1, "Zero": 0}
 @pn.depends(PreTreatment_Method.controls.widgets['mvi_method'].param.value, watch=True)
 def _update_limit_mvi(mvi_method):
+    "Updates missing value imputation keyword widget limits based on the method chosen."
     if mvi_method == None:
         PreTreatment_Method.controls.widgets['mvi_kw'].value = 0
     PreTreatment_Method.controls.widgets['mvi_kw'].end = limits_mvi[
@@ -1577,6 +1606,7 @@ options_norm = {"Reference Feature": None, "Total Intensity Sum": '', "PQN": ["m
                 "Quantile": ["mean", "median"], 'None': ''}
 @pn.depends(PreTreatment_Method.controls.widgets['norm_method'].param.value, watch=True)
 def _update_options_norm(norm_method):
+    "Updates normalization keyword widget limits based on the method chosen."
     if norm_method in ['Total Intensity Sum', 'None']:
         PreTreatment_Method.controls.widgets['norm_kw'].disabled = True
         PreTreatment_Method.controls.widgets['norm_kw'].placeholder = ''
@@ -1603,6 +1633,7 @@ def _update_options_norm(norm_method):
 # Update options for scaling keyword based on scaling
 @pn.depends(PreTreatment_Method.controls.widgets['scaling_method'].param.value, watch=True)
 def _update_options_scaling(scaling_method):
+    "Updates scaling keyword widget limits based on the method chosen."
     if scaling_method == 'Level Scaling':
         PreTreatment_Method.controls.widgets['scaling_kw'].disabled = False
         PreTreatment_Method.controls.widgets['scaling_kw'].value = 'Average'
@@ -1621,6 +1652,7 @@ confirm_button_next_step_4 = pn.widgets.Button(icon=iaf.img_confirm_button, name
 
 # Go to next step function and calling it
 def _confirm_button_next_step_4(event):
+    "Performs actions to pass from step 3 page to step 4 page."
     page4_button.disabled = False
 
     # Filling the target storage with the correct target and default colours
@@ -1652,6 +1684,7 @@ save_data_dataframes_button = pn.widgets.Button(name='Save representative Datafr
 
 # When pressing the button, downloads the dataframes
 def _save_data_dataframes_button(event):
+    "Saves Data main DataFrames."
     DataFrame_Store.original_df.to_csv('annotated_df.csv')
     DataFrame_Store.treated_df.to_csv('treated_df.csv')
     pd.concat((DataFrame_Store.metadata_df, DataFrame_Store.treated_df.T), axis=1).to_csv('complete_treated_df.csv')
@@ -1663,8 +1696,8 @@ save_data_dataframes_button.on_click(_save_data_dataframes_button)
 page3 = pn.GridSpec(mode='override')
 page3[:2,0:2] = PreTreatment_Method.controls
 page3[:2,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
-        ('Metadata', DataFrame_Store.metadata_df),
-       ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
+                ('Metadata', DataFrame_Store.metadata_df.T),
+                ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
 page3[2, :] = pn.Column(confirm_button_next_step_4,
                         '## Optionally save data as .csv files',
                         '''The button saves data after annotation (without pre-treatment), the treated intensity data without metadata and with the metadata.
@@ -1716,6 +1749,7 @@ confirm_button_next_step_transitionalpage = pn.widgets.Button(icon=iaf.img_confi
                                                      button_type='success', disabled=False)
 # Confirm colours, go to next step function and calling it, enabling all buttons for analysis and performing initial computations for each analysis
 def _confirm_button_next_step_5(event):
+    "Performs actions to pass from step 4 page to transitional page, while preparing all statistical analysis (and making HCA and PCA analysis)."
 
     # Pass the colours picked to the target storage
     n_classes = len(target_list.color_classes)
@@ -1871,41 +1905,49 @@ ToBeAdded_A = pn.widgets.Button(name='More to be added', button_type='danger', d
 
 # Functions for pressing each button
 def _confirm_button_ComExc_A(event):
+    "Button to go to the Common and Exclusive Compound page."
     main_area.clear()
     show_page(pages["Common and Exclusive Compounds"])
 ComExc_A.on_click(_confirm_button_ComExc_A)
 
 def _confirm_button_Unsup_A(event):
+    "Button to go to the Unsupervised Analysis page."
     main_area.clear()
     show_page(pages["Unsupervised Analysis"])
 Unsup_A.on_click(_confirm_button_Unsup_A)
 
 def _confirm_button_Sup_A(event):
+    "Button to go to the Supervised Analysis page."
     main_area.clear()
     show_page(pages["Supervised Analysis"])
 Sup_A.on_click(_confirm_button_Sup_A)
 
 def _confirm_button_Univariate_A(event):
+    "Button to go to the Univariate Analysis page."
     main_area.clear()
     show_page(pages["Univariate Analysis"])
 Univariate_A.on_click(_confirm_button_Univariate_A)
 
 def _confirm_button_DataViz_A(event):
+    "Button to go to the Data Diversity Visualization Analysis page."
     main_area.clear()
     show_page(pages["Data Visualization"])
 DataViz_A.on_click(_confirm_button_DataViz_A)
 
 def _confirm_button_PathAssign_A(event):
+    "Button to go to the HMDB Pathway Matching/Assignment page."
     main_area.clear()
     show_page(pages["Pathway Assignment"])
 PathAssign_A.on_click(_confirm_button_PathAssign_A)
 
 def _confirm_button_BinSim_A(event):
+    "Button to go to the BinSim Analysis page."
     main_area.clear()
     show_page(pages["BinSim Analysis"])
 BinSim_A.on_click(_confirm_button_BinSim_A)
 
 def _confirm_button_CompFinder_A(event):
+    "Button to go to the Compound Finder Search Tool page."
     main_area.clear()
     show_page(pages["Compound Finder"])
 CompFinder_A.on_click(_confirm_button_CompFinder_A)
@@ -2251,6 +2293,7 @@ save_comexc_df_button = pn.widgets.Button(name='Save shown Dataframe as .csv (in
 
 # When pressing the button, downloads the dataframe
 def _save_comexc_df_button(event):
+    "Downloads common (or exclusive) compounds of selected classes with selected characteristics DataFrame."
     # Building the datafile name
     # Based on what type of metabolites were chosen
     if com_exc_compounds.annot == 'See annotated and non-annotated compounds':
@@ -2291,6 +2334,7 @@ save_Venn_diag_button = pn.widgets.Button(name='Save as a png (in current folder
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figure
 def _save_Venn_diag_button(event):
+    "Save Venn Diagram plot."
     filename_string = f'Venn_diagram_{com_exc_compounds.type_of_venn}_classes'
     for cl in com_exc_compounds.venn_class_subset:
         filename_string = filename_string + '_'+cl
@@ -2311,11 +2355,13 @@ save_IntersectionPlot_annotatedmets_button = pn.widgets.Button(name='Save as a p
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figures
 def _save_IntersectionPlot_allmets_button(event):
+    "Save Intersection Plot with all metabolites."
     com_exc_compounds.IntersectionPlot[0].savefig('IntersectionPlot_all_metabolites.png', dpi=com_exc_compounds.dpi_inter)
     pn.state.notifications.success(f'Intersection Plot (all metabolites) successfully saved.')
 save_IntersectionPlot_allmets_button.on_click(_save_IntersectionPlot_allmets_button)
 
 def _save_IntersectionPlot_annotatedmets_button(event):
+    "Save Intersection Plot with annotated metabolites."
     com_exc_compounds.IntersectionPlot[1].savefig('IntersectionPlot_annotated_metabolites.png', dpi=com_exc_compounds.dpi_inter)
     pn.state.notifications.success(f'Intersection Plot (annotated metabolites) successfully saved.')
 save_IntersectionPlot_annotatedmets_button.on_click(_save_IntersectionPlot_annotatedmets_button)
@@ -2380,6 +2426,7 @@ class PCA_Storage(param.Parameterized):
     # Update the PCA plot
     @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size', watch=True)
     def _update_PCA_plot(self):
+        "Plots PCA with the set parameters."
         self.PCA_plot[0] = iaf._plot_PCA(PCA_params, target_list)
         filename_string = 'PCA_plot'
         if self.ellipse_draw:
@@ -2443,6 +2490,7 @@ n_components_compute = pn.widgets.IntInput(name='Number of Components to Compute
 
 # When pressing the button, runs again the PCA with the designated number of components
 def _compute_PCA_button(event):
+    "Computes PCA."
     principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(DataFrame_Store.treated_df,
                                        n_components=n_components_compute.value,
                                        whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
@@ -2458,6 +2506,7 @@ compute_PCA_button.on_click(_compute_PCA_button)
 # Function to see if Z-axis can be edited (3D) or not (2D)
 @pn.depends(PCA_params.controls.widgets['n_dimensions'].param.value, watch=True)
 def _update_PCz_disabled(dimensions):
+    "Controls PCz widget in PCA plots."
     if dimensions == '2 Components':
         PCA_params.controls.widgets['PCz'].disabled = True
     elif dimensions == '3 Components':
@@ -2491,6 +2540,7 @@ def _update_PC_options(components):
 @pn.depends(PCA_params.controls.widgets['ellipse_draw'].param.value,
             watch=True)
 def _update_ellipse_options(ellipse):
+    "Controls ellipse widgets based on if they are drawn or not."
     if ellipse:
         PCA_params.controls.widgets['confidence'].disabled = False
         if PCA_params.controls.widgets['confidence'].value == 0:
@@ -2504,6 +2554,7 @@ def _update_ellipse_options(ellipse):
 @pn.depends(PCA_params.controls.widgets['confidence'].param.value,
             watch=True)
 def _update_ellipse_std_options(confidence):
+    "Controls ellipse based on std. confidence widget based on the usual confidence widget."
     if confidence == 0:
         PCA_params.controls.widgets['confidence_std'].disabled = False
     else:
@@ -2555,6 +2606,7 @@ class HCA_Storage(param.Parameterized):
     # Update the HCA plot
     @param.depends('dist_metric', 'link_metric', watch=True)
     def _update_HCA_compute_plot(self):
+        "Computes and updates HCA based on distance and linkage metrics."
         # Recompute Distance and Linkage matrices
         self.dists = dist.pdist(DataFrame_Store.treated_df, metric=self.dist_metric)
         self.Z = hier.linkage(self.dists, method=self.link_metric)
@@ -2565,6 +2617,7 @@ class HCA_Storage(param.Parameterized):
 
     @param.depends('fig_text', 'fig_x', 'fig_y', 'col_threshold', 'dpi', watch=True)
     def _update_HCA_plot(self):
+        "Updates HCA plot based on figure parameters."
         if type(self.Z) == np.ndarray:
             self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
             page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
@@ -2619,6 +2672,7 @@ save_HCA_plot_button = pn.widgets.Button(name='Save as a png (in current folder)
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figure
 def _save_HCA_plot_button(event):
+    "Saves HCA plot."
     filename = f'HCA_plot_{HCA_params.dist_metric}Dist_{HCA_params.link_metric}Linkage.png'
     HCA_params.HCA_plot[0].savefig(filename, dpi=HCA_params.dpi)
     pn.state.notifications.success(f'Dendrogram successfully saved.')
@@ -2864,6 +2918,7 @@ class PLSDA_Storage(param.Parameterized):
     # Update the PLS Projection plot
     @param.depends('n_dimensions', 'LVx', 'LVy', 'LVz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size', watch=True)
     def _update_PLS_plot(self):
+        "Updates PLS plot based on figure parameters."
         # Name of the file
         filename_string = f'PLS_plot_({self.n_components}comp)'
         if self.n_dimensions == '2 Components':
@@ -2944,6 +2999,7 @@ class PLSDA_Storage(param.Parameterized):
                 setattr(self, param, self.param[param].default)
 
     def complete_soft_reset(self):
+        "Resets figure parameters."
         for param in ['n_dimensions', 'LVx', 'LVy', 'LVz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size']:
             setattr(self, param, self.param[param].default)
 
@@ -3081,6 +3137,7 @@ PLSDA_store.controls.widgets['confirm_plsda_button'].on_click(PLSDA_store._confi
 PLSDA_store.controls_permutation.widgets['confirm_button_permutation'].on_click(PLSDA_store._confirm_button_permutation)
 # Function to save the Permutation Test figure as png
 def _save_figure_button_permutation_PLSDA(event):
+    "Save PLS-DA permutation figure."
     filename_string = f'PLS-DA_permutation_test_{PLSDA_store.current_plsda_params_permutation["n_permutations"]}perm_'
     filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["n_components"]}comp_'
     filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["n_folds"]}-foldstratCV_scale'
@@ -3148,6 +3205,7 @@ save_plsda_feat_imp_button.on_click(_save_plsda_feat_imp_button)
 # Function to see if Z-axis can be edited (3D) or not (2D)
 @pn.depends(PLSDA_store.controls_projection.widgets['n_dimensions'].param.value, watch=True)
 def _update_LVz_disabled(dimensions):
+    "Controls LVz widget in PLS plots."
     if dimensions == '2 Components':
         PLSDA_store.controls_projection.widgets['LVz'].disabled = True
     elif dimensions == '3 Components':
@@ -3157,6 +3215,7 @@ def _update_LVz_disabled(dimensions):
 # Function updating the possible Latent variables to choose based on number of LVs of the PLS-DA
 @pn.depends(PLSDA_store.controls_projection.widgets['n_components'].param.value, watch=True)
 def _update_LV_options(components):
+    "Updates LV options to choose."
     PLSDA_store.controls_projection.widgets['LVx'].options = ['LV '+str(i+1) for i in range(components)]
     PLSDA_store.controls_projection.widgets['LVy'].options = ['LV '+str(i+1) for i in range(components)]
     PLSDA_store.controls_projection.widgets['LVz'].options = ['LV '+str(i+1) for i in range(components)]
@@ -3166,6 +3225,7 @@ def _update_LV_options(components):
 @pn.depends(PLSDA_store.controls_projection.widgets['ellipse_draw'].param.value,
             watch=True)
 def _update_plsda_ellipse_options(ellipse):
+    "Controls ellipse widgets based on if they are drawn or not."
     if ellipse:
         PLSDA_store.controls_projection.widgets['confidence'].disabled = False
         if PLSDA_store.controls_projection.widgets['confidence'].value == 0:
@@ -3179,6 +3239,7 @@ def _update_plsda_ellipse_options(ellipse):
 @pn.depends(PLSDA_store.controls_projection.widgets['confidence'].param.value,
             watch=True)
 def _update_plsda_ellipse_std_options(confidence):
+    "Controls ellipse based on std. confidence widget based on the usual confidence widget."
     if confidence == 0:
         PLSDA_store.controls_projection.widgets['confidence_std'].disabled = False
     else:
@@ -3545,6 +3606,7 @@ RF_store.controls.widgets['confirm_rf_button'].on_click(RF_store._confirm_rf_but
 RF_store.controls_permutation.widgets['confirm_button_permutation'].on_click(RF_store._confirm_button_permutation)
 # Function to save the Permutation Test figure as png
 def _save_figure_button_permutation_RF(event):
+    "Saves Random Forest permutation figure."
     filename_string = f'RF_permutation_test_{RF_store.current_rf_params_permutation["n_permutations"]}perm_'
     filename_string = filename_string + f'{RF_store.current_rf_params_permutation["n_trees"]}trees_'
     filename_string = filename_string + f'{RF_store.current_rf_params_permutation["n_folds"]}-foldstratCV_scale'
@@ -3881,6 +3943,7 @@ save_multiple_univariate_button = pn.widgets.Button(name='Save shown Dataframe w
 
 # When pressing the button, downloads the dataframe (filename quite big)
 def _save_multiple_univariate_button(event):
+    "Saves multiple univariate (features significant in the control class versus the selected test classes) DataFrame created."
     # Building the datafile name
     # Based on what type of metabolites were chosen
     if UnivarA_Store.show_annots_only:
@@ -4317,6 +4380,7 @@ dataviz_store = VanKrev_KMD_CCS_Storage()
 compute_vk_kmd_ccs_button = pn.widgets.Button(
     name='Compute Van Krevelen, Kendrick Mass Defect and Chemical Composition Series Plots', button_type='success')
 def _compute_vk_kmd_ccs_button(event):
+    "Computes and updates layout of page."
     if len(vk_page) == 1:
         vk_page.append(dataviz_store.controls_vk)
         vk_page.append(vk_plots)
@@ -4949,81 +5013,7 @@ comp_finder_page = pn.Column(comp_finder.controls,
 
 
 
-# Overall layout of the program and initialization
-# The pages we have
-pages = {
-    "Index": OpeningPage(),
-    "Instructions": InstructionPage(),
-    "Data Reading": DataReading(),
-    "Data Metadata": DataMetadata(),
-    "Data Filtering": DataFiltering(),
-    "Data Annotation": DataAnnotation(),
-    "Annotation De-Duplication": AnnDeDuplication(),
-    "Data Pre-Treatment": DataPreTreatment(),
-    "Class Colours": ClassColours(),
-    "Transitional Page": TransitionalPage(),
-    "Common and Exclusive Compounds": CommonExclusivePage(),
-    "Unsupervised Analysis": UnsupervisedAnalysisPage(),
-    "Supervised Analysis": SupervisedAnalysisPage(),
-    "Univariate Analysis": UnivariateAnalysisPage(),
-    "Data Visualization": DataVisualizationPage(),
-    "Pathway Assignment": PathwayAssignmentPage(),
-    "BinSim Analysis": BinSimPage(),
-    "Compound Finder": CompoundFinderPage()
-}
-
-# Function to show the selected page - needs update (may cause bug)
-def show_page(page_instance):
-    main_area.clear()
-    def clear_again():
-        main_area.clear()
-    clear_again()
-    #main_area.get_param_values()
-    main_area.append(page_instance.view())
-
-
-# Create and organize the sidebar
-# The sidebar will include buttons to every main page and will be used as a tool for navigation
-
-# Define buttons to navigate between pages
-index_button = pn.widgets.Button(name="Home", button_type="success", icon=iaf.home_icon, disabled=False)
-instruction_button = pn.widgets.Button(name="Instructions and Considerations", button_type="warning", icon=iaf.instruction_icon, disabled=False)
-page1_button = pn.widgets.Button(name="Data Reading", button_type="primary")
-page1_1_button = pn.widgets.Button(name="Data Metadata", button_type="primary", disabled=True)
-page1_2_button = pn.widgets.Button(name="Data Filtering", button_type="primary", disabled=True)
-page2_button = pn.widgets.Button(name="Data Annotation", button_type="primary", disabled=True)
-page2_1_button = pn.widgets.Button(name="Annotation De-Duplication", button_type="primary", disabled=True)
-page3_button = pn.widgets.Button(name="Data Pre-Treatment", button_type="primary", disabled=True)
-page4_button = pn.widgets.Button(name="Class Colours", button_type="primary", disabled=True)
-page5_button = pn.widgets.Button(name="Common/Exclusive Comp.", button_type="default", disabled=True)
-page6_button = pn.widgets.Button(name="Unsupervised Analysis", button_type="default", disabled=True)
-page7_button = pn.widgets.Button(name="Supervised Analysis", button_type="default", disabled=True)
-page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="default", disabled=True)
-page9_button = pn.widgets.Button(name="Data Visualization", button_type="default", disabled=True)
-page10_button = pn.widgets.Button(name="Pathway Assignment", button_type="default", disabled=True)
-page11_button = pn.widgets.Button(name="BinSim Analysis (TODO)", button_type="default", disabled=True)
-page12_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
-page13_button = pn.widgets.Button(name="Report Generation", button_type="default", disabled=True)
-RESET_button = pn.widgets.Button(name="RESET", button_type="danger", disabled=False)
-
-# Set up button click callbacks
-index_button.on_click(lambda event: show_page(pages["Index"]))
-instruction_button.on_click(lambda event: show_page(pages["Instructions"]))
-page1_button.on_click(lambda event: show_page(pages["Data Reading"]))
-page1_1_button.on_click(lambda event: show_page(pages["Data Metadata"]))
-page1_2_button.on_click(lambda event: show_page(pages["Data Filtering"]))
-page2_button.on_click(lambda event: show_page(pages["Data Annotation"]))
-page2_1_button.on_click(lambda event: show_page(pages["Annotation De-Duplication"]))
-page3_button.on_click(lambda event: show_page(pages["Data Pre-Treatment"]))
-page4_button.on_click(lambda event: show_page(pages["Class Colours"]))
-page5_button.on_click(lambda event: show_page(pages["Common and Exclusive Compounds"]))
-page6_button.on_click(lambda event: show_page(pages["Unsupervised Analysis"]))
-page7_button.on_click(lambda event: show_page(pages["Supervised Analysis"]))
-page8_button.on_click(lambda event: show_page(pages["Univariate Analysis"]))
-page9_button.on_click(lambda event: show_page(pages["Data Visualization"]))
-page10_button.on_click(lambda event: show_page(pages["Pathway Assignment"]))
-page11_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
-page12_button.on_click(lambda event: show_page(pages["Compound Finder"]))
+# RESET 'page'
 
 # Reset panel widgets and associated functions
 reset_panel_float_text = pn.widgets.StaticText(name='', value='Do you want to reset all parameters of the software? (This is a faux Reset with a few tricks but it seems to do the job)')
@@ -5033,7 +5023,9 @@ reset_floatpanel = pn.layout.FloatPanel(reset_panel_float_text, reset_panel_floa
                                       name='Reset', margin=20, position='center', config={"headerControls": {"close": "remove"}},
                                       contained=False)
 
+
 def RESET(event):
+    "Open the Reset floatpanel for confirmation (or not) that you want to perform a reset."
     reset_panel = pn.Column(reset_floatpanel, height=200)
     #main_area.clear()
     if len(main_area) == 1:
@@ -5043,9 +5035,12 @@ def RESET(event):
         main_area.append(reset_panel)
         reset_floatpanel.status = 'normalized'
 
+
 def No_Reset(event):
+    "Closing the Reset floatpanel."
     reset_floatpanel.status = 'closed'
     main_area.pop(-1)
+
 
 reset_time = pn.widgets.IntInput(value=0)
 def Yes_Reset(event):
@@ -5197,14 +5192,97 @@ def Yes_Reset(event):
     show_page(pages["Index"])
 
 
-RESET_button.on_click(RESET)
+# Functions to apply on each main button of the Reset floatpanel
 reset_panel_float_no_button.on_click(No_Reset)
 reset_panel_float_yes_button.on_click(Yes_Reset)
+
+
+
+
+# Overall layout of the program and initialization
+# The pages we have
+pages = {
+    "Index": OpeningPage(),
+    "Instructions": InstructionPage(),
+    "Data Reading": DataReading(),
+    "Data Metadata": DataMetadata(),
+    "Data Filtering": DataFiltering(),
+    "Data Annotation": DataAnnotation(),
+    "Annotation De-Duplication": AnnDeDuplication(),
+    "Data Pre-Treatment": DataPreTreatment(),
+    "Class Colours": ClassColours(),
+    "Transitional Page": TransitionalPage(),
+    "Common and Exclusive Compounds": CommonExclusivePage(),
+    "Unsupervised Analysis": UnsupervisedAnalysisPage(),
+    "Supervised Analysis": SupervisedAnalysisPage(),
+    "Univariate Analysis": UnivariateAnalysisPage(),
+    "Data Visualization": DataVisualizationPage(),
+    "Pathway Assignment": PathwayAssignmentPage(),
+    "BinSim Analysis": BinSimPage(),
+    "Compound Finder": CompoundFinderPage()
+}
+
+# Function to show the selected page - needs update (may cause bug)
+def show_page(page_instance):
+    "Shows page chosen in the main area."
+    main_area.clear()
+    def clear_again():
+        main_area.clear()
+    clear_again()
+    #main_area.get_param_values()
+    main_area.append(page_instance.view())
+
+
+# Create and organize the sidebar
+# The sidebar will include buttons to every main page and will be used as a tool for navigation
+
+# Define buttons to navigate between pages
+index_button = pn.widgets.Button(name="Home", button_type="success", icon=iaf.home_icon, disabled=False)
+instruction_button = pn.widgets.Button(name="Instructions and Considerations", button_type="warning", icon=iaf.instruction_icon, disabled=False)
+page1_button = pn.widgets.Button(name="Data Reading", button_type="primary")
+page1_1_button = pn.widgets.Button(name="Data Metadata", button_type="primary", disabled=True)
+page1_2_button = pn.widgets.Button(name="Data Filtering", button_type="primary", disabled=True)
+page2_button = pn.widgets.Button(name="Data Annotation", button_type="primary", disabled=True)
+page2_1_button = pn.widgets.Button(name="Annotation De-Duplication", button_type="primary", disabled=True)
+page3_button = pn.widgets.Button(name="Data Pre-Treatment", button_type="primary", disabled=True)
+page4_button = pn.widgets.Button(name="Class Colours", button_type="primary", disabled=True)
+page5_button = pn.widgets.Button(name="Common/Exclusive Comp.", button_type="default", disabled=True)
+page6_button = pn.widgets.Button(name="Unsupervised Analysis", button_type="default", disabled=True)
+page7_button = pn.widgets.Button(name="Supervised Analysis", button_type="default", disabled=True)
+page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="default", disabled=True)
+page9_button = pn.widgets.Button(name="Data Visualization", button_type="default", disabled=True)
+page10_button = pn.widgets.Button(name="Pathway Assignment", button_type="default", disabled=True)
+page11_button = pn.widgets.Button(name="BinSim Analysis (TODO)", button_type="default", disabled=True)
+page12_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
+page13_button = pn.widgets.Button(name="Report Generation", button_type="default", disabled=True)
+RESET_button = pn.widgets.Button(name="RESET", button_type="danger", disabled=False)
+
+# Set up button click callbacks
+index_button.on_click(lambda event: show_page(pages["Index"]))
+instruction_button.on_click(lambda event: show_page(pages["Instructions"]))
+page1_button.on_click(lambda event: show_page(pages["Data Reading"]))
+page1_1_button.on_click(lambda event: show_page(pages["Data Metadata"]))
+page1_2_button.on_click(lambda event: show_page(pages["Data Filtering"]))
+page2_button.on_click(lambda event: show_page(pages["Data Annotation"]))
+page2_1_button.on_click(lambda event: show_page(pages["Annotation De-Duplication"]))
+page3_button.on_click(lambda event: show_page(pages["Data Pre-Treatment"]))
+page4_button.on_click(lambda event: show_page(pages["Class Colours"]))
+page5_button.on_click(lambda event: show_page(pages["Common and Exclusive Compounds"]))
+page6_button.on_click(lambda event: show_page(pages["Unsupervised Analysis"]))
+page7_button.on_click(lambda event: show_page(pages["Supervised Analysis"]))
+page8_button.on_click(lambda event: show_page(pages["Univariate Analysis"]))
+page9_button.on_click(lambda event: show_page(pages["Data Visualization"]))
+page10_button.on_click(lambda event: show_page(pages["Pathway Assignment"]))
+page11_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
+page12_button.on_click(lambda event: show_page(pages["Compound Finder"]))
+RESET_button.on_click(RESET)
+
 
 sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing and Pre-Treatment', page1_button, page1_1_button, page1_2_button, page2_button, page2_1_button,
                     page3_button, page4_button, '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button, page11_button,
                     page12_button, '## Report Generation (TODO)', page13_button, '## To Reset', RESET_button)
 
+
 app = pn.template.BootstrapTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
 
-app.show()
+app.show(websocket_max_message_size=100*1024*1014, http_server_kwargs={'max_buffer_size': 100*1024*1014})

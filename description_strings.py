@@ -126,6 +126,8 @@ be analyzed, the slower the analysis is and vice-versa.</p>
 
 data_reading_opening_string ='''<strong>Input your Excel or csv MetaboScape file.</strong>
 <br>
+This process can take a while for larger datasets.
+<br>
 If your file is not from MetaboScape, it should have the feature peak column be called 'Bucket Label'. This column should
 represent the metabolic features "neutral mass" if possible. Albeit not necessary, it will allow to perform annotation
 later on in the software.
@@ -314,7 +316,7 @@ Choose between the parametric <strong>t-test</strong> and non-parametric <strong
 also choose one as the control class and one as the test class to perform univariate analysis in the 1st tab.
 <br>
 <br>
-Finally, when you have more than 2 classes, each unsueprvised analysis will select the samples respective to the 2 classes,
+Finally, when you have more than 2 classes, each unsupervised analysis will select the samples respective to the 2 classes,
 filter and pre-treatment them the same way it was done on the full dataset before performing unsupervised analysis.
 '''
 
