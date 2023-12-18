@@ -79,6 +79,7 @@ def read_file(filename, target_in_file):
         # Util to optionally remove all those 00000 from sample names
         return ''.join(colname.split('00000'))
     target_file = {}
+    nm_column = False
 
     # No File Inputted
     if filename == '':
@@ -118,6 +119,7 @@ def read_file(filename, target_in_file):
     # Treated the read file to put them as we want it - # Important for database match
     try:
         file.insert(1, 'Neutral Mass', file['Bucket label'].str.replace('Da', '').astype('float'))
+        nm_column = True
     except:
         pn.state.notifications.warning('Neutral Mass could not be inferred from Bucket Label. No annotation can be performed.')
 
@@ -125,7 +127,7 @@ def read_file(filename, target_in_file):
     # Replaces zeros with numpy nans. Essential for data processing
     file = file.replace({0:np.nan})
 
-    return file, target_file
+    return file, target_file, nm_column
 
 
 

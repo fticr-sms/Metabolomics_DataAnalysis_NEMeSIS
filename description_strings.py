@@ -130,7 +130,7 @@ This process can take a while for larger datasets.
 <br>
 If your file is not from MetaboScape, it should have the feature peak column be called 'Bucket Label'. This column should
 represent the metabolic features "neutral mass" if possible. Albeit not necessary, it will allow to perform annotation
-later on in the software.
+later on in the software. <strong>Avoid the existence of a column named "Neutral Mass" on your data.</strong>
 <br>
 <br>
 In general, your file should have your detected features in the rows and sample data and meta data in the columns. The
@@ -399,3 +399,19 @@ can be performed. The output gives the HMDB IDs and annotation names (if possibl
 the pathways that they belong to according to this built file. Your identifiers should have 7 numbers after "HMDB".
 <br><br>
 <strong>If no HMDB identifiers are present, you will not be able to perform this data analysis step</strong>."""
+
+
+# Report Generation Page Description HTML in string format
+
+report_opening_string = '''This section can provide a <strong>report of the metabolomics dataset</strong> analysed here. It
+includes the sections of statistical analysis chosen below.
+<br>
+<br>
+The report will be generated based on the parameters you have chosen for the different analysis which were saved.
+Furthermore, to perform the generation, <strong>all relevant figure and tables will also be downloaded exactly as they are
+right now. This may overwrite previous images and figures you have downloaded before so be wary of this fact</strong>.
+<br>
+<br>
+Note 1: An attempt is made to correctly describe the parameters that led to the results obtained in each part but we cannot
+be sure that the figures shown are 100% represented by the parameters described since errors may arise in parameter saving.
+'''

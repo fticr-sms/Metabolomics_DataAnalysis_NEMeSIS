@@ -243,6 +243,17 @@ class CompoundFinderPage:
         return self.content
 
 
+class ReportGenerationPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Metabolomics Data Analysis Report Generation",
+                                 "## Initial Layout (Under Construction)",
+                                 rep_gen_page)
+
+    def view(self):
+        return self.content
+
+
 
 
 # Homepage
@@ -344,6 +355,7 @@ class FileReading(param.Parameterized):
 
     temp_target = param.Dict()
     read_df = param.DataFrame(pd.DataFrame())
+    neutral_mass_column_inserted = param.Boolean(default=False)
 
     def reset(self):
         "Resets all relevant parameters."
@@ -382,7 +394,12 @@ def _confirm_button_filename(event):
     "Reads the file given."
 
     # Read the file, updating widgets and parameters
-    file.read_df, file.temp_target = iaf.read_file(filename.filename, target_included_in_file.value)
+    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file(filename.filename, target_included_in_file.value)
+
+    # Parameters to store for Report Generation
+    RepGen.filename = filename.filename
+    RepGen.target_included_in_file = target_included_in_file.value
+    RepGen.neutral_mass_column = file.neutral_mass_column_inserted
 
     # Enabling button for next step
     section1page[2] = pn.widgets.DataFrame(file.read_df, disabled=True, sortable=False, reorderable=False)
@@ -400,7 +417,12 @@ def _load_example_df_button(event):
     "Reads the example file ofthe software."
 
     # Read the file, updating widgets and parameters
-    file.read_df, file.temp_target = iaf.read_file('5yeasts_notnorm.csv', False)
+    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file('5yeasts_notnorm.csv', False)
+
+    # Parameters to store for Report Generation
+    RepGen.filename = 'Example Dataset (5yeasts_not_norm.csv)'
+    RepGen.target_included_in_file = False
+    RepGen.neutral_mass_column = file.neutral_mass_column_inserted
 
     # Enabling button for next step
     section1page[2] = pn.widgets.DataFrame(file.read_df, disabled=True, sortable=False, reorderable=False)
@@ -1529,6 +1551,11 @@ class PreTreatment(param.Parameterized):
         # Locking in pre-treatment parameters chosen
         UnivarA_Store.locking_pretreatment_params(self)
 
+        # Disable posterior sidebar buttons
+        page4_button.disabled = True
+        # Disable statistical analysis
+        _disabling_stat_analysis_buttons()
+
         if len(DataFrame_Store.treated_df.columns) > 5000:
             page3[:2,2:5] = pn.Tabs(('Treated Data', pn.widgets.DataFrame(DataFrame_Store.treated_df, disabled=True,
                                                                         sortable=False, reorderable=False)),
@@ -1542,6 +1569,7 @@ class PreTreatment(param.Parameterized):
                 ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
         confirm_button_next_step_4.disabled = False
         save_data_dataframes_button.disabled = False
+        page13_button.disabled = False
 
 
     def reset(self):
@@ -1696,7 +1724,7 @@ save_data_dataframes_button.on_click(_save_data_dataframes_button)
 page3 = pn.GridSpec(mode='override')
 page3[:2,0:2] = PreTreatment_Method.controls
 page3[:2,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
-                ('Metadata', DataFrame_Store.metadata_df.T),
+                ('Metadata', DataFrame_Store.metadata_df),
                 ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
 page3[2, :] = pn.Column(confirm_button_next_step_4,
                         '## Optionally save data as .csv files',
@@ -1824,6 +1852,10 @@ def _confirm_button_next_step_5(event):
             comp_finder_page[5] = 'Class Bar Plot of the Searched Compound'
             comp_finder_page[7] = 'Class Boxplot of the Searched Compound'
             com_exc_compounds.reset()
+
+            # Report Generation page
+            RepGen.reset()
+
     reset_time.value = 0
 
     # Enable all statistical analysis related buttons
@@ -4245,7 +4277,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
         # Setting up the attributes
         self.CCS_plot[0] = fig
         self.ccs_desc = '<br />'.join(desc_string) # <br /> leads to line breaks in Markdown
-        self.series_df = series_df.T
+        self.ccs_df = series_df.T
         filename = 'CCS_Plot_formulacolumns_'
         # Create appropriate filename
         for cl in self.ccs_formula_to_consider:
@@ -4421,7 +4453,7 @@ def _save_ccs_table_button(event):
     "Save Chemical Composition Series Table as an Excel."
     try:
         # Building the datafile name
-        filename = 'CCS_Table_formulacolumns_'
+        filename = 'CCS_Table_formulacolumns'
         # Create appropriate filename
         for cl in dataviz_store.ccs_formula_to_consider:
             filename = filename + f'_{cl}'
@@ -5013,6 +5045,84 @@ comp_finder_page = pn.Column(comp_finder.controls,
 
 
 
+# Report Generation Page
+class ReportGeneration(param.Parameterized):
+    "Class use to store parameters useful for report generation."
+
+    # Important attributes to build the report
+    filename = param.String('')
+    target_included_in_file = param.Boolean(default=False)
+    neutral_mass_column = param.Boolean(default=False)
+
+    # Checkboxes to select which analysis will be shown
+    com_exc_analysis = param.List(default=[])
+    unsup_analysis = param.List(default=['PCA', 'HCA',])
+    sup_analysis = param.List(default=[])
+    univ_analysis = param.Boolean(default=False)
+    dataviz_analysis =param.List(default=[])
+    pathassign_analysis = param.Boolean(default=False)
+    BinSim_analysis = param.List(default=[])
+
+
+    def reset(self):
+        "Resets all relevant parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'com_exc_analysis': pn.widgets.CheckBoxGroup(name='Common and Exclusive Compounds Analysis',
+                    value=[], options=['Overview', 'Venn Diagram', 'Intersection Plot']),
+            'unsup_analysis': pn.widgets.CheckBoxGroup(name='Unsupervised Analysis',
+                    value=['PCA', 'HCA'], options=['PCA', 'HCA']),
+            'sup_analysis': pn.widgets.CheckBoxGroup(name='Supervised Analysis',
+                    value=[], options=['PLS-DA', 'Random Forest']),
+            'univ_analysis': pn.widgets.Checkbox(name='Univariate Analysis', value=False),
+            'dataviz_analysis': pn.widgets.CheckBoxGroup(name='Data Diversity Visualization Analysis',
+                    value=[], options=['Van Krevelen', 'Kendrick Mass Defect', 'Chem. Comp. Series']),
+            'pathassign_analysis': pn.widgets.Checkbox(name='HMDB Pathway Assignment', value=False),
+            'BinSim_analysis': pn.widgets.CheckBoxGroup(name='BinSim Analysis',
+                    value=[], options=['PCA', 'HCA', 'PLS-DA', 'Random Forest'], disabled=True),
+        }
+        self.controls = pn.Param(self, parameters=['com_exc_analysis', 'unsup_analysis', 'sup_analysis', 'univ_analysis',
+                                                   'dataviz_analysis', 'pathassign_analysis', 'BinSim_analysis'],
+                                widgets=widgets, name='', default_layout=pn.Row)
+
+
+# Initializing the store for Report Generation
+RepGen = ReportGeneration()
+
+# Setting up the widgets for the page layout
+desc_repgen = pn.Row('#### Common and Exclusive Compound Analysis',
+              '#### Unsupervised Analysis',
+              '#### Supervised Analysis',
+              '#### Univariate Analysis',
+              '#### Data Diversity Visualization Analysis',
+              '#### HMDB Pathways Assignment',
+              '#### BinSim Analysis',)
+
+widgets_repgen = pn.Row()
+widgets_repgen.extend([RepGen.controls.widgets[i] for i in RepGen.controls.widgets])
+
+# Widget to perform the generation of the report
+report_generation_button = pn.widgets.Button(
+    name='Generate Report File and Folder (Report + Figures + Tables) of Analysis Performed',
+    button_type='warning', icon=iaf.download_icon)
+
+# Initializing the page
+rep_gen_page = pn.Column(pn.pane.HTML(desc_str.report_opening_string),
+                         desc_repgen,
+                         widgets_repgen,
+                         report_generation_button)
+
+
+
+
 # RESET 'page'
 
 # Reset panel widgets and associated functions
@@ -5135,6 +5245,9 @@ def Yes_Reset(event):
     comp_finder_page[7] = 'Class Boxplot of the Searched Compound'
     com_exc_compounds.reset()
 
+    # Report Generation page
+    RepGen.reset()
+
     # Target reset
     target_list.reset()
     reset_time.value = 1
@@ -5219,7 +5332,8 @@ pages = {
     "Data Visualization": DataVisualizationPage(),
     "Pathway Assignment": PathwayAssignmentPage(),
     "BinSim Analysis": BinSimPage(),
-    "Compound Finder": CompoundFinderPage()
+    "Compound Finder": CompoundFinderPage(),
+    "Report Generation": ReportGenerationPage(),
 }
 
 # Function to show the selected page - needs update (may cause bug)
@@ -5275,6 +5389,7 @@ page9_button.on_click(lambda event: show_page(pages["Data Visualization"]))
 page10_button.on_click(lambda event: show_page(pages["Pathway Assignment"]))
 page11_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
 page12_button.on_click(lambda event: show_page(pages["Compound Finder"]))
+page13_button.on_click(lambda event: show_page(pages["Report Generation"]))
 RESET_button.on_click(RESET)
 
 
