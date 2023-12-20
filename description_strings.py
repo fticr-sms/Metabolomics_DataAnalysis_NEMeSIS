@@ -409,9 +409,17 @@ includes the sections of statistical analysis chosen below.
 <br>
 The report will be generated based on the parameters you have chosen for the different analysis which were saved.
 Furthermore, to perform the generation, <strong>all relevant figure and tables will also be downloaded exactly as they are
-right now. This may overwrite previous images and figures you have downloaded before so be wary of this fact</strong>.
+right now.</strong>
+<br>
+<br>
+A folder with the chosen name will be created (or overwritten) in your working directory. The report as well as all images
+and tables present or mentioned in said report will be downloaded and stored in this folder. Once again, figures will be
+shown <strong>exactly</strong> as they were left in the analysis.
 <br>
 <br>
 Note 1: An attempt is made to correctly describe the parameters that led to the results obtained in each part but we cannot
 be sure that the figures shown are 100% represented by the parameters described since errors may arise in parameter saving.
+<br>
+<br>
+Currently, report only until end of unsupervised analysis.
 '''

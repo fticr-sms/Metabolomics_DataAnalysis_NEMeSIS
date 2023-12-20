@@ -699,9 +699,9 @@ def _group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store):
                     g]['Has Match?'])) if com_exc_compounds.group_dfs[g]['Has Match?'].iloc[i]]]
 
     # Description of the number of metabolites (and annotated metabolites) that appear in at least one sample of each class
-    desc_string = ['**Nº of peaks per class:**', '', ]
+    desc_string = ['**Nº of metabolic features per class:**', '', ]
     for g in com_exc_compounds.groups:
-        group_string = f'**{g}**: **{len(com_exc_compounds.group_dfs[g])}** metabolites, from which **{len(com_exc_compounds.group_dfs_ids[g])}** have matches.'
+        group_string = f'**{g}**: **{len(com_exc_compounds.group_dfs[g])}** metabolites, from which **{len(com_exc_compounds.group_dfs_ids[g])}** have matches (annotations).'
         desc_string.append(group_string)
 
     com_exc_compounds.groups_description = '<br />'.join(desc_string) # <br /> leads to line breaks in Markdown
@@ -724,7 +724,7 @@ def _compute_com_exc_compounds(com_exc_compounds):
                    '', '**Nº of Compounds Exclusive to each Class:**', '',]
 
     for g in com_exc_compounds.exclusives:
-        group_string = f'**{g}**: **{len(com_exc_compounds.exclusives[g].index)}** exclusive metabolites (**{len(com_exc_compounds.exclusives_id[g].index)}** with matches).'
+        group_string = f'**{g}**: **{len(com_exc_compounds.exclusives[g].index)}** exclusive metabolites (**{len(com_exc_compounds.exclusives_id[g].index)}** annotated).'
         desc_string.append(group_string)
 
     com_exc_compounds.com_exc_desc = '<br />'.join(desc_string)
@@ -857,13 +857,13 @@ def _plot_Venn_diagram(com_exc_compounds, target_list):
         labels_all = {}
         for i, j in labels.items():
             labels_all[i] = j + f' ({labels_ids[i]})'
-        x_label = 'Nº of peaks (Nº of matched compounds)'
+        x_label = 'Nº of Metabolic Features (Nº of Matched Compounds)'
     elif com_exc_compounds.type_of_venn == 'All Metabolites': # Only show the metabolite numbers
         labels_all = labels
-        x_label = 'Nº of peaks'
+        x_label = 'Nº of Metabolic Features '
     else: # Only show the annotated numbers
         labels_all = labels_ids
-        x_label = 'Nº of matched compounds'
+        x_label = 'Nº of Matched Compounds'
 
     # Get the colours in RGB format to draw the Venn
     colours = []

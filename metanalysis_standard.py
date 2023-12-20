@@ -52,7 +52,7 @@ def characterize_data(dataset, name='dataset', target=None):
         return {'Dataset': name,
                 '# samples': n_samples,
                 '# features': n_feats,
-                'feature value average (std)': f'{avg_feature_value} ({std_feature_value})',
+                'feature value average (std)': f'{avg_feature_value:.3f} ({std_feature_value:.3f})',
                 'feature value ranges': f'({min_feature_value} - {max_feature_value})',
                 'feature value median': median_feature_value,
                 '# classes': n_classes,
@@ -62,7 +62,7 @@ def characterize_data(dataset, name='dataset', target=None):
         return {'Dataset': name,
                 '# samples': n_samples,
                 '# features': n_feats,
-                'Feature value average (std)': f'{avg_feature_value} ({std_feature_value})',
+                'Feature value average (std)': f'{avg_feature_value:.3f} ({std_feature_value:.3f})',
                 'Feature value ranges': f'({min_feature_value} - {max_feature_value})',
                 'Feature value median': median_feature_value,
                 }
@@ -70,7 +70,7 @@ def characterize_data(dataset, name='dataset', target=None):
 ### Step 1.2 Functions
 ### Functions related to metabolite annotations
 
-def metabolite_annotation(annotated_data, dbs, ppm_margin):
+def metabolite_annotation(annotated_data, dbs, ppm_margin, adduct_cols=[]):
     for d in dbs:
         print('Annotating with',d, end=' ')
         matched_ids_col = 'Matched '+d+' IDs'
@@ -86,9 +86,15 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin):
             matched_ids = []
             matched_names = []
             matched_formulas = []
-            ppm_dev = abs((dbs[d]['DB'][dbs[d]['Mass_col']]-annotated_data['Neutral Mass'][a])/annotated_data[
+            mass_values = dbs[d]['DB'][dbs[d]['Mass_col']]
+            ppm_dev = abs((mass_values-annotated_data['Neutral Mass'][a])/annotated_data[
                 'Neutral Mass'][a])*10**6
             ppm_dev = ppm_dev[ppm_dev<ppm_margin] # ppm_margin used here
+            for ad_col in adduct_cols:
+                ppm_dev_ad = abs((mass_values-annotated_data[ad_col][a])/annotated_data[ad_col][a])*10**6
+                ppm_dev_ad = ppm_dev_ad[ppm_dev_ad<ppm_margin]
+                ppm_dev = pd.concat((ppm_dev, ppm_dev_ad))
+
             for i in ppm_dev.index:
                 matched_ids.append(i)
                 matched_names.append(dbs[d]['DB'][dbs[d]['Name_col']][i])

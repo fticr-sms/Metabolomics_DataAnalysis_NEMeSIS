@@ -139,12 +139,14 @@ However, in the future, these databases will have corresponding python files tha
 - param >= 2.0.1
 - holoviews >= 1.18.1
 - plotly >= 5.18.0
+- kaleido == 0.1.0.post1
 
 To install these packages run in the command line (or AnacondaPrompt):
 - conda install -c pyviz panel
 - conda install -c anaconda param
 - conda install -c conda-forge holoviews
 - conda install -c plotly plotly
+- pip install kaleido==0.1.0post1
 
 The other packages mentioned at the begginning are also needed.
 

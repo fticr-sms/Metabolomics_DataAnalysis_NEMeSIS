@@ -18,6 +18,7 @@ import pickle
 # File with functions to auxiliate the graphical interface
 import interface_aux_functions as iaf
 import description_strings as desc_str
+from report_generation import ReportGenerator
 
 # metanalysis_standard.py file
 import metanalysis_standard as metsta
@@ -144,8 +145,7 @@ class CommonExclusivePage:
     def __init__(self):
 
         self.content = pn.Column("# Seeing Common and Exclusive Compounds Between Biological Classes",
-                                 "This includes an overview analysis as well as Venn Diagrams and Intersection Plots",
-                                 "#### Known problem: Repeating IDs leading to problems in Venn Diagrams and Intersection Plots appearing at the same time. For now, select only one at a time.",
+                                 "This includes an overview analysis as well as Venn Diagrams and Intersection Plots of common and exclusive compounds of the different classes in the dataset.",
                                  comexc_page)
 
     def view(self):
@@ -587,6 +587,10 @@ def _update_read_target_button(target_widget):
 def _update_confirm_target(event):
     "Confirms the target selected."
     target = target_widget.value.split(',')
+    # Filling the target storage with the correct target and default colours
+    target_list.target = target_widget.value.split(',')
+    target_list.classes = list(pd.unique(np.array(target_list.target)))
+    target_list(target_widget.value.split(','), colours)
     sample_cols = target_list.sample_cols
     if len(sample_cols) != len(target):
         pn.state.notifications.error(
@@ -870,6 +874,13 @@ def _confirm_button_n_databases(event):
     # Setting the databases read attribute to False
     for i in DB_dict:
         DB_dict[i].read.value = False
+
+    # Disable posterior sidebar buttons
+    page2_1_button.disabled = True
+    page3_button.disabled = True
+    page4_button.disabled = True
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
 
     # Setting up the layout to show
     titles = pn.Row()
@@ -1182,14 +1193,15 @@ class AnnDeDuplication_Storage(param.Parameterized):
 
         # Report
         self.merge_report = f'''Nº of Mergings: **{len(merge_description)}**
-                                  Nº of Metabolic Features merged: **{pd.DataFrame(merge_description).T['Nº merged peaks'].sum()}**
-                                  Nº of Metabolic Features dropped: **{len(ann_df) - len(annotated_data.index)}**
-                                  Nº of Metabolic Features before merging: **{len(ann_df)}**
-                                  Nº of Metabolic Features after merging: **{len(annotated_data.index)}**'''
+        Nº of Metabolic Features merged: **{pd.DataFrame(merge_description).T['Nº merged peaks'].sum()}**
+        Nº of Metabolic Features dropped: **{len(ann_df) - len(annotated_data.index)}**
+        Nº of Metabolic Features before merging: **{len(ann_df)}**
+        Nº of Metabolic Features after merging: **{len(annotated_data.index)}**'''
 
         # Transforming and storing results
         self.annotated_df = annotated_data
         self.merge_description = pd.DataFrame(merge_description).T
+        self.merge_description.index.name = 'New Indexes'
         self.mergings_performed = pd.DataFrame(pd.Series(mergings_performed), columns=['Nº of Mergings by Database'])
         self.merge_situations = pd.DataFrame(pd.Series(merging_situations), columns=['Nº of Mergings by Situation'])
 
@@ -1261,6 +1273,9 @@ def _skip_deduplication_button(event):
     page4_button.disabled = True
     # Disable statistical analysis
     _disabling_stat_analysis_buttons()
+
+    # Informs De-Duplication was not performed for the report
+    RepGen.deduplication_performed = 'Annotation De-Duplication was not performed'
 
     # Update to show the Data Pre-Treatment page
     main_area.clear()
@@ -1341,6 +1356,13 @@ def _skip_merge_problem_cases_button(event):
     page4_button.disabled = True
     # Disable statistical analysis
     _disabling_stat_analysis_buttons()
+
+    if RepGen.deduplication_performed != 'Annotation De-Duplication was performed and merge problems were individually observed/decided - Temp':
+        # Informs De-Duplication was performed and merge problems were not looked at for the report
+        RepGen.deduplication_performed = 'Annotation De-Duplication was performed but merge problems were not individually observed/decided'
+    else:
+        # Takes out the - Temp part of the string
+        RepGen.deduplication_performed = 'Annotation De-Duplication was performed and merge problems were individually observed/decided'
 
     # Update to show the Data Pre-Treatment page
     main_area.clear()
@@ -1424,6 +1446,9 @@ def _confirm_mergeproblems_to_merge_button(event):
     not_merged_desc = ['##### Metabolic Features not merged (from problem cases)']
     initial_len = len(data_ann_deduplicator.annotated_df)
 
+    # Informs De-Duplication was performed and merge problems were looked at for the report
+    RepGen.deduplication_performed = 'Annotation De-Duplication was performed and merge problems were individually observed/decided - Temp'
+
     # For each of the possible problems
     for i in merge_problems_widgets:
         idxs_to_merge = merge_problems_widgets[i].value
@@ -1449,6 +1474,8 @@ def _confirm_mergeproblems_to_merge_button(event):
             m_d = f'{data_ann_deduplicator.merge_problems.iloc[i, 1]} was not merged.'
             not_merged_desc.append(m_d)
 
+    merge_prob_description.index.name = 'New Indexes'
+
     # Updating the merging report
     if len(merge_prob_description) != 0:
         new_desc = data_ann_deduplicator.merge_report.split('\n')
@@ -1457,6 +1484,14 @@ def _confirm_mergeproblems_to_merge_button(event):
         new_desc[2] = new_desc[2] + f' + **{initial_len - len(data_ann_deduplicator.annotated_df)}** (individually decided)'
         new_desc[4] = new_desc[4].split('**')[0] + f'**{len(data_ann_deduplicator.annotated_df)}**'
         data_ann_deduplicator.merge_report = '\n'.join(new_desc)
+
+    # Updating the merge situations and merge descriptions
+    if len(merge_prob_description) != 0:
+        m_p = pd.DataFrame(merge_prob_description['Situation'].value_counts())
+        m_p.columns = ['Nº of Mergings by Situation']
+        data_ann_deduplicator.merge_situations = pd.concat((data_ann_deduplicator.merge_situations, m_p))
+
+        data_ann_deduplicator.merge_description = pd.concat((data_ann_deduplicator.merge_description, merge_prob_description))
 
     # Blocking the merge problem section so it cannot run without re-performing de-duplication
     for i in merge_problems_widgets:
@@ -1534,7 +1569,7 @@ class PreTreatment(param.Parameterized):
 
     # Scaling
     scaling_method = param.Selector(default="Pareto Scaling")
-    scaling_kw = param.String(default="")
+    scaling_kw = param.String(default="Average")
 
     # Confirm Pre-Treatment Selection
     confirm_button = param.Boolean(default=False)
@@ -1609,7 +1644,7 @@ class PreTreatment(param.Parameterized):
             'scaling_method': pn.widgets.Select(name="Scaling Method", value = 'Pareto Scaling',
                             options=['Pareto Scaling', 'Auto Scaling', 'Mean Centering', 'Range Scaling',
                                      'Vast Scaling', 'Level Scaling', None]),
-            'scaling_kw': pn.widgets.Select(name="Scaling Factor (for Level Scaling only)", value='', disabled=True,
+            'scaling_kw': pn.widgets.Select(name="Scaling Factor (for Level Scaling only)", value='Average', disabled=True,
                                            options=['Average', 'Median'], description='After mean-centering, divide each value by its respective feature average or median.'),
 
             'confirm_button': pn.widgets.Button(name="Confirm Pre-Treatment", button_type='primary'),
@@ -1668,7 +1703,7 @@ def _update_options_scaling(scaling_method):
 
     else:
         PreTreatment_Method.controls.widgets['scaling_kw'].disabled = True
-        PreTreatment_Method.controls.widgets['scaling_kw'].value = ''
+        PreTreatment_Method.controls.widgets['scaling_kw'].value = 'Average'
 
 # Click button to confirm Pre-Treatment
 PreTreatment_Method.controls.widgets['confirm_button'].on_click(PreTreatment_Method._confirm_button_press)
@@ -1682,11 +1717,6 @@ confirm_button_next_step_4 = pn.widgets.Button(icon=iaf.img_confirm_button, name
 def _confirm_button_next_step_4(event):
     "Performs actions to pass from step 3 page to step 4 page."
     page4_button.disabled = False
-
-    # Filling the target storage with the correct target and default colours
-    target_list.target = target_widget.value.split(',')
-    target_list.classes = list(pd.unique(np.array(target_list.target)))
-    target_list(target_widget.value.split(','), colours)
 
     # Setting up the layout of page 4
     page4.clear()
@@ -1853,8 +1883,6 @@ def _confirm_button_next_step_5(event):
             comp_finder_page[7] = 'Class Boxplot of the Searched Compound'
             com_exc_compounds.reset()
 
-            # Report Generation page
-            RepGen.reset()
 
     reset_time.value = 0
 
@@ -2127,9 +2155,12 @@ class ComExc_Storage(param.Parameterized):
 
             ups_ids = from_contents(groups_dict_ids)
 
-            self.IntersectionPlot.append(iaf._plot_intersection_plots(self, groups_dict_ids, ups_ids))
+            if sum(DataFrame_Store.metadata_df['Has Match?']) != 0:
+                self.IntersectionPlot.append(iaf._plot_intersection_plots(self, groups_dict_ids, ups_ids))
 
-            interplot_page[5] = pn.pane.Matplotlib(self.IntersectionPlot[1], height=300)
+                interplot_page[5] = pn.pane.Matplotlib(self.IntersectionPlot[1], height=300)
+            else:
+                interplot_page[5] = 'No annotations have been found in the dataset to compute this Intersection Plot.'
             plt.close()
         else:
             pn.state.notifications.info(f'Intersection Plot can only be made with 2 or more classes. You currently have {len(self.inter_class_subset)} classes.')
@@ -2388,13 +2419,19 @@ save_IntersectionPlot_annotatedmets_button = pn.widgets.Button(name='Save as a p
 # When pressing the button, downloads the figures
 def _save_IntersectionPlot_allmets_button(event):
     "Save Intersection Plot with all metabolites."
-    com_exc_compounds.IntersectionPlot[0].savefig('IntersectionPlot_all_metabolites.png', dpi=com_exc_compounds.dpi_inter)
+    filename_string = 'IntersectionPlot_all_metabolites_classes'
+    for cl in com_exc_compounds.inter_class_subset:
+        filename_string = filename_string + '_'+cl
+    com_exc_compounds.IntersectionPlot[0].savefig(filename_string + '.png', dpi=com_exc_compounds.dpi_inter)
     pn.state.notifications.success(f'Intersection Plot (all metabolites) successfully saved.')
 save_IntersectionPlot_allmets_button.on_click(_save_IntersectionPlot_allmets_button)
 
 def _save_IntersectionPlot_annotatedmets_button(event):
     "Save Intersection Plot with annotated metabolites."
-    com_exc_compounds.IntersectionPlot[1].savefig('IntersectionPlot_annotated_metabolites.png', dpi=com_exc_compounds.dpi_inter)
+    filename_string = 'IntersectionPlot_annotated_metabolites_classes'
+    for cl in com_exc_compounds.inter_class_subset:
+        filename_string = filename_string + '_'+cl
+    com_exc_compounds.IntersectionPlot[1].savefig(filename_string + '.png', dpi=com_exc_compounds.dpi_inter)
     pn.state.notifications.success(f'Intersection Plot (annotated metabolites) successfully saved.')
 save_IntersectionPlot_annotatedmets_button.on_click(_save_IntersectionPlot_annotatedmets_button)
 
@@ -3740,7 +3777,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
 
     # Scaling
     scaling_method = param.Selector(default="Pareto Scaling")
-    scaling_kw = param.String(default="")
+    scaling_kw = param.String(default="Average")
 
     # Unsupervised Analysis Main Parameters
     control_class = param.Selector(default='')
@@ -5050,9 +5087,14 @@ class ReportGeneration(param.Parameterized):
     "Class use to store parameters useful for report generation."
 
     # Important attributes to build the report
+
+    # Related to File Reading
     filename = param.String('')
     target_included_in_file = param.Boolean(default=False)
     neutral_mass_column = param.Boolean(default=False)
+
+    # Related to Annotation De-Duplication
+    deduplication_performed = param.String('Annotation De-Duplication was not performed')
 
     # Checkboxes to select which analysis will be shown
     com_exc_analysis = param.List(default=[])
@@ -5106,6 +5148,11 @@ desc_repgen = pn.Row('#### Common and Exclusive Compound Analysis',
               '#### HMDB Pathways Assignment',
               '#### BinSim Analysis',)
 
+# Widget to select folder where report figures and tables will be created in
+folder_selection = pn.widgets.TextAreaInput(name='Folder Name where Report and associated Figures and Tables will be Downloaded to',
+                                           placeholder='Report_folder', value='Report', rows=1)
+
+# Widgets to select what type of analysis will be in the report
 widgets_repgen = pn.Row()
 widgets_repgen.extend([RepGen.controls.widgets[i] for i in RepGen.controls.widgets])
 
@@ -5113,9 +5160,30 @@ widgets_repgen.extend([RepGen.controls.widgets[i] for i in RepGen.controls.widge
 report_generation_button = pn.widgets.Button(
     name='Generate Report File and Folder (Report + Figures + Tables) of Analysis Performed',
     button_type='warning', icon=iaf.download_icon)
+def _report_generation_button(event):
+    "Calls the function that generates the report while pressed."
+
+    while len(rep_gen_page) > 5:
+        rep_gen_page.pop(-1)
+
+    # Loading Widget while report is being generated
+    rep_gen_page.append(pn.indicators.LoadingSpinner(value=True, size=100,
+                                                        name='Report is currently being generated with selected statistical analysis...'))
+
+    # Perform Report Generation
+    ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
+                     target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
+                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params)
+
+    # When finished
+    pn.state.notifications.success(f'Report successfully generated in {folder_selection.value} folder.')
+    rep_gen_page[5] = f'### Report successfully generated in {folder_selection.value} folder'
+report_generation_button.on_click(_report_generation_button)
+
 
 # Initializing the page
 rep_gen_page = pn.Column(pn.pane.HTML(desc_str.report_opening_string),
+                         folder_selection,
                          desc_repgen,
                          widgets_repgen,
                          report_generation_button)
