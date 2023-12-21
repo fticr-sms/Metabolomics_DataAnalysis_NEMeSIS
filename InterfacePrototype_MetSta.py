@@ -2794,6 +2794,7 @@ class PLSDA_Storage(param.Parameterized):
 
     # Params Used Store
     current_plsda_params = param.Dict()
+    current_other_plsda_params = param.Dict({})
 
     # PLS Projection plot parameters
     n_dimensions = param.String(default='2 Components') # N dimensions to show in plot
@@ -2873,6 +2874,10 @@ class PLSDA_Storage(param.Parameterized):
                                 kf=None, n_fold=self.n_fold, # Nº of folds
                                 scale=self.scale)
 
+        # Saving parameters for optimization
+        self.current_other_plsda_params.update({'n_fold_optim': self.n_fold, 'scale_optim': self.scale,
+                                                'n_min_max_components': self.n_min_max_components})
+
         # Transforms the results to be suited to be used in plotly
         # DataFrame with Q2 and R2 values in the same column, a column to identify which value is what and a
         # column with the number of components that led to that result
@@ -2889,8 +2894,10 @@ class PLSDA_Storage(param.Parameterized):
         self.optim_figure = [fig,]
         self.rec_components = rec_comp
         # Update the layout
+        filename_string = f'PLS_optim_plot_{self.n_min_max_components[0]}to{self.n_min_max_components[1]}components_'
+        filename_string = filename_string + f'{self.n_fold}-foldstratCV_scale{self.scale}'
         pls_optim_section[1] = pn.pane.Plotly(self.optim_figure[0],
-                                              config = {'toImageButtonOptions': {'filename': 'PLS_optim_plot', 'scale':4,}})
+                                              config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
         pls_optim_section[0][1].value = self.rec_components
 
 
@@ -3056,6 +3063,9 @@ class PLSDA_Storage(param.Parameterized):
         roc_fig, filename = iaf._plot_PLSDA_ROC_curve(self, DataFrame_Store.treated_df, target_list)
         self.ROC_figure = [roc_fig,]
 
+        # Saving filename
+        self.current_other_plsda_params.update({'ROC_filename':filename})
+
         # Update the layouts
         pls_results_section[12][1] = pn.pane.Plotly(self.ROC_figure[0],
                                                 config={'toImageButtonOptions': {'filename': filename, 'scale':4}})
@@ -3066,6 +3076,8 @@ class PLSDA_Storage(param.Parameterized):
         for param in self.param:
             if param not in ["name", 'n_dimensions', 'LVx', 'LVy', 'LVz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size']:
                 setattr(self, param, self.param[param].default)
+        self.current_other_plsda_params.clear()
+        self.current_other_plsda_params = {}
 
     def complete_soft_reset(self):
         "Resets figure parameters."
@@ -3256,10 +3268,11 @@ save_plsda_feat_imp_button = pn.widgets.Button(name='Save PLS-DA Feature Importa
 def _save_plsda_feat_imp_button(event):
     "Save PLS-DA Feature Importance results as an Excel."
     try:
+        plsda_params = PLSDA_store.current_plsda_params
         # Building the datafile name
-        filename_string = f'PLS-DA_FeatImp_{PLSDA_store.imp_feature_metric}_model_params_components{PLSDA_store.n_components}'
-        filename_string = filename_string + f'_{PLSDA_store.n_fold}-foldstratCV_iterations{PLSDA_store.n_iterations}'
-        filename_string = filename_string + f'_scale{PLSDA_store.scale}.xlsx'
+        filename_string = f'PLS-DA_FeatImp_{plsda_params["feat_imp"]}_model_params_components{plsda_params["n_components"]}'
+        filename_string = filename_string + f'_{plsda_params["n_folds"]}-foldstratCV_iterations{plsda_params["n_iterations"]}'
+        filename_string = filename_string + f'_scale{plsda_params["scale"]}.xlsx'
 
         # Saving the file
         PLSDA_store.feat_impor.to_excel(filename_string)
@@ -3372,6 +3385,7 @@ class RF_Storage(param.Parameterized):
 
     # Params Used Store
     current_rf_params = param.Dict()
+    current_other_rf_params = param.Dict({})
 
     # Permutation Test
     n_perm = param.Number(default=500)
@@ -3434,6 +3448,10 @@ class RF_Storage(param.Parameterized):
         self.optim_scores = list(rf_optim['mean_test_score'])
         self.optim_ntrees = list(rf_optim['param_n_estimators'])
 
+        # Saving parameters for optimization
+        self.current_other_rf_params.update({'n_fold_optim': self.n_fold, 'n_min_max_trees': self.n_min_max_trees,
+                                            'n_interval': self.n_interval})
+
         # RF optimization Figure
         rf_optim_results = pd.DataFrame([self.optim_ntrees, self.optim_scores],
                                        index=['Number of Trees', 'Model Accuracy (estimated by CV)']).T
@@ -3443,7 +3461,8 @@ class RF_Storage(param.Parameterized):
                  ),]
 
         # Update the layout
-        filename_string = f'RF_optim_plot_{self.n_fold}-stratCV'
+        filename_string = f'RF_optim_plot_{self.n_fold}-foldStratCV_{self.n_min_max_trees[0]}to{self.n_min_max_trees[1]}trees'
+        filename_string = filename_string + f'({self.n_interval}interval)'
         rf_optim_section[1] = pn.pane.Plotly(self.optim_figure[0],
                                               config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
 
@@ -3566,6 +3585,9 @@ class RF_Storage(param.Parameterized):
         roc_fig, filename = iaf._plot_RF_ROC_curve(self, DataFrame_Store.treated_df, target_list)
         self.ROC_figure = [roc_fig,]
 
+        # Saving filename
+        self.current_other_rf_params.update({'ROC_filename':filename})
+
         # Update the layouts
         rf_results_section[10][1] = pn.pane.Plotly(self.ROC_figure[0],
                                                 config={'toImageButtonOptions': {'filename': filename, 'scale':4}})
@@ -3576,6 +3598,8 @@ class RF_Storage(param.Parameterized):
         for param in self.param:
             if param not in ["name"]:
                 setattr(self, param, self.param[param].default)
+        self.current_other_rf_params.clear()
+        self.current_other_rf_params = {}
 
 
     def __init__(self, **params):
@@ -3678,7 +3702,7 @@ def _save_figure_button_permutation_RF(event):
     "Saves Random Forest permutation figure."
     filename_string = f'RF_permutation_test_{RF_store.current_rf_params_permutation["n_permutations"]}perm_'
     filename_string = filename_string + f'{RF_store.current_rf_params_permutation["n_trees"]}trees_'
-    filename_string = filename_string + f'{RF_store.current_rf_params_permutation["n_folds"]}-foldstratCV_scale'
+    filename_string = filename_string + f'{RF_store.current_rf_params_permutation["n_folds"]}-foldstratCV_metric'
     filename_string = filename_string + f'{RF_store.current_rf_params_permutation["perm_metric"]}'
     RF_store.perm_figure[0].savefig(filename_string+'.png', dpi=RF_store.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
@@ -3720,9 +3744,10 @@ save_rf_feat_imp_button = pn.widgets.Button(name='Save Random Forest Feature Imp
 def _save_rf_feat_imp_button(event):
     "Save Random Forest Feature Importance results as an Excel."
     try:
+        rf_params = RF_store.current_rf_params
         # Building the datafile name
-        filename_string = f'RF_FeatImp_Gini_model_params_{RF_store.n_trees}trees_{RF_store.n_fold}-foldstratCV_'
-        filename_string = filename_string + f'iterations{RF_store.n_iterations}.xlsx'
+        filename_string = f'RF_FeatImp_Gini_model_params_{rf_params["n_trees"]}trees_{rf_params["n_folds"]}-foldstratCV_'
+        filename_string = filename_string + f'iterations{rf_params["n_iterations"]}.xlsx'
 
         # Saving the file
         RF_store.feat_impor.to_excel(filename_string)
@@ -5173,7 +5198,7 @@ def _report_generation_button(event):
     # Perform Report Generation
     ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params)
+                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store)
 
     # When finished
     pn.state.notifications.success(f'Report successfully generated in {folder_selection.value} folder.')

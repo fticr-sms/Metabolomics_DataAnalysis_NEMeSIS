@@ -11,7 +11,7 @@ import numpy as np
 
 def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params):
+                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store):
     "Makes a read-only Word file with the metabolomics data analysis performed of selected statistical analysis."
 
     # Create Folder to put the report in
@@ -27,7 +27,8 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     # Adding the disclaimer
     disclaimer = document.add_paragraph('This report is an attempt to describe the metabolomics data analysis performed using ')
     disclaimer.add_run('the MetsTA software. We cannot assure that the descriptions shown here are 100% correct, therefore ')
-    disclaimer.add_run('revision of the report to confirm the information shown is advised.')
+    disclaimer.add_run('revision of the report to confirm the information shown is advised. Any found inconsistencies are ')
+    disclaimer.add_run('encouraged to be reported so the reason can be found and fixed.')
 
     # Adding the first major section
     document.add_heading('Data Pre-Processing and Pre-Treatment', level=1)
@@ -206,6 +207,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
     # Chapter of section
     document.add_heading('Data Annotation and De-Duplication', level=2)
+    # TODO: Add PPM DEVIATION / ABSOLUTE DALTON DEVIATION used to the report
 
     document.add_paragraph(f'Data Annotation in this software was made using {n_databases.value} databases.')
 
@@ -468,10 +470,12 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 pca_pg = document.add_paragraph(f'Principal Component Analysis was made with ')
                 pca_pg.add_run(f'{len(PCA_params.controls.widgets["PCx"].options)} components.')
 
+                pca_pg2 = document.add_paragraph()
                 if PCA_params.n_dimensions == '2 Components':
-                    document.add_paragraph(f'2-D PCA Projection Plot of Components: {PCA_params.PCx} and {PCA_params.PCy}.')
+                    pca_pg2.add_run(f'2-D PCA Projection Plot of Components: {PCA_params.PCx} and {PCA_params.PCy}.').bold = True
                 else:
-                    document.add_paragraph(f'3-D PCA Projection Plot of Components: {PCA_params.PCx}, {PCA_params.PCy} and {PCA_params.PCz}.')
+                    pca_pg2.add_run(f'3-D PCA Projection Plot of Components: {PCA_params.PCx}, {PCA_params.PCy} and {PCA_params.PCz}.').bold = True
+                pca_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
                 # Creating filename for the PCA Projection and saving it
                 filename_string = '/Report_PCA_plot'
@@ -493,7 +497,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                     pca_pg.add_run('Cumulative Explained Variance (by Principal Component) Plot').bold = True
                     pca_pg.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                    # Creating filename for the PCA Projection and saving it
+                    # Creating filename for the PCA explained variance plot and saving it
                     filename_string = '/Report_PCA_exp_var_plot'
                     PCA_params.exp_var_fig_plot[0].write_image(folder+filename_string+'.png', scale=4)
                     PCA_params.exp_var_fig_plot[0].write_html(folder+filename_string+".html")
@@ -501,14 +505,14 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                     # Adding figure
                     document.add_picture(folder+filename_string+'.png', width=Cm(12.5))
 
-                # If there is an explained variance plot
+                # If there is a PCA Projection (Scatter) Plot of the Principal Components
                 if type(PCA_params.scatter_PCA_plot[0]) != str:
                     # Description
                     pca_pg = document.add_paragraph()
                     pca_pg.add_run('2-D PCA Projection (Scatter) Plot of the Principal Components').bold = True
                     pca_pg.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                    # Creating filename for the PCA Projection and saving it
+                    # Creating filename for the PCA Projection (Scatter) Plot of the Principal Components and saving it
                     filename_string = '/Report_PCA_scatter_plot'
                     PCA_params.scatter_PCA_plot[0].write_image(folder+filename_string+'.png', scale=4)
                     PCA_params.scatter_PCA_plot[0].write_html(folder+filename_string+".html")
@@ -539,6 +543,288 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
                 # Adding figure
                 document.add_picture(folder+filename_string+'.png', width=Cm(12))
+
+        # End of section
+        document.add_page_break()
+
+
+
+    # Supervised Analysis Section
+    if len(np.intersect1d(['PLS-DA', 'Random Forest'], stat_methods)) != 0:
+        document.add_heading('Supervised Analysis', level=2)
+
+        # PLS-DA Section
+        if 'PLS-DA' in stat_methods:
+            # Heading
+            document.add_heading('Partial Least Squares - Discriminant Analysis (PLS-DA)', level=3)
+
+            # If there is a PLS optimization
+            if type(PLSDA_store.optim_figure[0]) != str:
+                # Minor Heading
+                document.add_heading('Number of Components Optimization', level=4)
+
+                # Description
+                n_min_components, n_max_components = PLSDA_store.current_other_plsda_params["n_min_max_components"]
+                plsda_pg = document.add_paragraph(f'First, an optimization of the number of components to use to fit a ')
+                plsda_pg.add_run(f'PLS-DA model was made by fitting PLS models from {n_min_components}')
+                plsda_pg.add_run(f' to {n_max_components} components and evaluating their Q2 (mainly) and R2 scores estimated')
+                plsda_pg.add_run(f' by {PLSDA_store.current_other_plsda_params["n_fold_optim"]}-fold stratified')
+                plsda_pg.add_run(f' cross-validation (scale = {PLSDA_store.current_other_plsda_params["scale_optim"]}). Results')
+                plsda_pg.add_run(f' are shown in the figure below with a maximum Q2 value with {PLSDA_store.rec_components} ')
+                plsda_pg.add_run(f'components.')
+
+                # Plot title
+                plsda_pg2 = document.add_paragraph()
+                plsda_pg2.add_run('PLS-DA Component Optimization Plot').bold = True
+                plsda_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                # Creating filename for the PLS optimization plot and saving it
+                filename_string = f'/Report_PLS_optim_plot_{n_min_components}to{n_max_components}'
+                filename_string = filename_string + f'components_{PLSDA_store.current_other_plsda_params["n_fold_optim"]}-'
+                filename_string = filename_string + f'foldstratCV_scale{PLSDA_store.current_other_plsda_params["scale_optim"]}'
+                PLSDA_store.optim_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                PLSDA_store.optim_figure[0].write_html(folder+filename_string+".html")
+
+                # Adding figure
+                document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+            else:
+                document.add_paragraph(f'Optimization of the number of components to fit the PLS-DA model was not performed.')
+
+
+            # If the PLS-DA model was fitted
+            if type(PLSDA_store.models[0]) != str:
+                # Minor Heading
+                document.add_heading('PLS-DA Model Fitting and Results', level=4)
+
+                # Description
+                plsda_params = PLSDA_store.current_plsda_params
+                plsda_pg3 = document.add_paragraph(f'PLS-DA model was fitted using {plsda_params["n_components"]} components')
+                plsda_pg3.add_run(f' estimating model performance and feature importance ({plsda_params["feat_imp"]}')
+                plsda_pg3.add_run(f' score method) by {plsda_params["n_folds"]}-fold stratified cross-validation (scale = ')
+                plsda_pg3.add_run(f'{plsda_params["scale"]}) repeated {plsda_params["n_iterations"]} times (randomized folds ')
+                plsda_pg3.add_run(f'in cross-validation). Model Performance results are shown in the table below (by the ')
+
+                # Building the filename and saving PLS-DA Feature Importance Table
+                filename_string = f'/Report_PLS-DA_FeatImp_{plsda_params["feat_imp"]}_model_params_components'
+                filename_string = filename_string + f'{plsda_params["n_components"]}_{plsda_params["n_folds"]}-foldstratCV_'
+                filename_string = filename_string + f'iterations{plsda_params["n_iterations"]}_scale{plsda_params["scale"]}.xlsx'
+                PLSDA_store.feat_impor.to_excel(folder+filename_string)
+
+                # Finishing up the description
+                plsda_pg3.add_run(f"metrics chosen) and Feature Importance Table was saved as '{filename_string[1:]}'. ")
+                plsda_pg3.add_run(f'Furthermore, below we also show a PLS Projection of chosen Latent Variables.')
+
+                # Table with results of PLS-DA
+                table_plsda_results = document.add_table(rows=len(PLSDA_store.n_results.index)+1,
+                                                            cols=len(PLSDA_store.n_results.columns)+1,
+                                                            style='Light Grid')
+                table_plsda_results = fill_word_table(table_plsda_results, PLSDA_store.n_results)
+
+                # Give space after table
+                document.add_paragraph()
+
+                plsda_pg4 = document.add_paragraph()
+                if PLSDA_store.n_dimensions == '2 Components':
+                    plsda_pg4.add_run(f'2-D PLS Projection Plot of Latent Variables: {PLSDA_store.LVx} and {PLSDA_store.LVy}.').bold = True
+                else:
+                    plsda_pg4.add_run(f'3-D PCA Projection Plot of Latent Variables: {PLSDA_store.LVx}, {PLSDA_store.LVy}').bold = True
+                    plsda_pg4.add_run(f' and {PLSDA_store.LVz}.').bold = True
+                plsda_pg4.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                # Creating filename for the PLS Projection and saving it
+                filename_string = '/Report_PLS_projection_plot'
+                if PLSDA_store.n_dimensions == '2 Components':
+                    if PLSDA_store.ellipse_draw:
+                        if PLSDA_store.confidence != 0:
+                            filename_string = filename_string + f'_ellipse({PLSDA_store.confidence*100}%confidence)'
+                        else:
+                            filename_string = filename_string + f'_ellipse({PLSDA_store.confidence_std}std)'
+                PLSDA_store.PLS_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                PLSDA_store.PLS_plot[0].write_html(folder+filename_string+".html")
+
+                # Adding figure
+                document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+
+                # If there is Permutation Test plot
+                if type(PLSDA_store.perm_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('PLS-DA Permutation Test', level=4)
+
+                    # Description
+                    plsda_pg5 = document.add_paragraph('Permutation Test was performed with the same number of components as before - ')
+                    plsda_pg5.add_run(f"{PLSDA_store.current_plsda_params_permutation['n_components']} - and with ")
+                    plsda_pg5.add_run(f"{PLSDA_store.current_plsda_params_permutation['n_permutations']} permutations. Model ")
+                    plsda_pg5.add_run(f"performance was evaluated by {PLSDA_store.current_plsda_params_permutation['perm_metric']}")
+                    plsda_pg5.add_run(f" estimated with {PLSDA_store.current_plsda_params_permutation['n_folds']}-fold stratified ")
+                    plsda_pg5.add_run(f"cross-validation (scale = {PLSDA_store.current_plsda_params_permutation['scale']}).")
+
+                    # Creating filename for the PLS-DA Permutation Test and saving it
+                    filename_string = f'/Report_PLS-DA_permutation_test_{PLSDA_store.current_plsda_params_permutation["n_permutations"]}perm_'
+                    filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["n_components"]}comp_'
+                    filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["n_folds"]}-foldstratCV_scale'
+                    filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["scale"]}_metric'
+                    filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["perm_metric"]}'
+                    PLSDA_store.perm_figure[0].savefig(folder+filename_string+'.png', dpi=PLSDA_store.dpi)
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+
+                # If there is ROC Curve plot
+                if type(PLSDA_store.ROC_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('PLS-DA ROC Curve', level=4)
+
+                    # Description
+                    roc_params = PLSDA_store.current_other_plsda_params['ROC_filename'].split('_')
+                    if len(target_list.classes) > 2:
+                        plsda_pg6 = document.add_paragraph('Since there are more than 2 classes, ROC curves were computed with a ')
+                        plsda_pg6.add_run(f"1vsAll scheme for each of the {len(target_list.classes)} classes.")
+                    else:
+                        plsda_pg6 = document.add_paragraph('Since there are only 2 classes, ROC curves were computed considering ')
+                        plsda_pg6.add_run(f"{roc_params[2][:-8]}").bold = True
+                        plsda_pg6.add_run(f" as the positive class.")
+                    plsda_pg6.add_run(f' Other parameters were maintained: number of components - {roc_params[3][:-10]}; ')
+                    plsda_pg6.add_run(f"{roc_params[4][:-7]} stratified cross-validation; scale - {roc_params[6][5:]}. ")
+                    plsda_pg6.add_run(f"Finally, ROC Curve estimation was repeated {roc_params[5][:-10]} times (randomized ")
+                    plsda_pg6.add_run(f"cross-validation folds).")
+
+                    # Creating filename for the PLS-DA ROC Curve and saving it
+                    filename_string = '/Report_' + PLSDA_store.current_other_plsda_params['ROC_filename']
+                    PLSDA_store.ROC_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                    PLSDA_store.ROC_figure[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+            # If there is no PLS-DA model fitted
+            else:
+                plsda_pg3 = document.add_paragraph('PLS-DA model was not fitted during the Data Analysis. ')
+                plsda_pg3.add_run(f"Thus, this section will be skipped.")
+
+
+        # Random Forest Section
+        if 'Random Forest' in stat_methods:
+            # Heading
+            document.add_heading('Random Forest (RF)', level=3)
+
+            # If there is a Random Forest Tree Number optimization
+            if type(RF_store.optim_figure[0]) != str:
+                # Minor Heading
+                document.add_heading('Number of Trees Optimization', level=4)
+
+                # Description
+                n_min_trees, n_max_trees = RF_store.current_other_rf_params["n_min_max_trees"]
+                rf_pg = document.add_paragraph(f'First, an optimization of the number of trees to use to fit a ')
+                rf_pg.add_run(f'Random Forest model was made by fitting RF models from {n_min_trees} to {n_max_trees} trees in ')
+                rf_pg.add_run(f'{RF_store.current_other_rf_params["n_interval"]} tree steps, evaluating their model accuracy')
+                rf_pg.add_run(f' estimated by {RF_store.current_other_rf_params["n_fold_optim"]}-fold stratified')
+                rf_pg.add_run(f' cross-validation. Results are shown in the figure below.')
+
+                # Plot title
+                rf_pg2 = document.add_paragraph()
+                rf_pg2.add_run('Random Forest Number of Trees Optimization Plot').bold = True
+                rf_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                # Creating filename for the Random Forest optimization plot and saving it
+                filename_string = f'/Report_RF_optim_plot_{RF_store.current_other_rf_params["n_fold_optim"]}-foldStratCV_'
+                filename_string = filename_string + f'{n_min_trees}to{n_max_trees}trees_'
+                filename_string = filename_string + f'({RF_store.current_other_rf_params["n_interval"]}interval)'
+                RF_store.optim_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                RF_store.optim_figure[0].write_html(folder+filename_string+".html")
+
+                # Adding figure
+                document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+            else:
+                document.add_paragraph(f'Optimization of the number of trees to fit the Random Forest model was not performed.')
+
+
+            # If the Random Forest model was fitted
+            if type(RF_store.models[0]) != str:
+                # Minor Heading
+                document.add_heading('Random Forest Model Fitting and Results', level=4)
+
+                # Description
+                rf_params = RF_store.current_rf_params
+                rf_pg3 = document.add_paragraph(f'Random Forest model was fitted with {rf_params["n_trees"]}')
+                rf_pg3.add_run(f' trees estimating model performance and feature importance by {rf_params["n_folds"]}')
+                rf_pg3.add_run(f'-fold stratified cross-validation repeated {rf_params["n_iterations"]} times (randomized ')
+                rf_pg3.add_run(f'folds in cross-validation). Model Performance results are shown in the table below (by the ')
+
+                # Building the filename and saving Random Forest Feature Importance Table
+                filename_string = f'/Report_RF_FeatImp_Gini_model_params_{rf_params["n_trees"]}trees_{rf_params["n_folds"]}'
+                filename_string = filename_string + f'-foldstratCV_iterations{rf_params["n_iterations"]}.xlsx'
+                RF_store.feat_impor.to_excel(folder+filename_string)
+
+                # Finishing up the description
+                rf_pg3.add_run(f"metrics chosen) and Feature Importance Table was saved as '{filename_string[1:]}'.")
+
+                # Table with results of Random Forest
+                table_rf_results = document.add_table(rows=len(RF_store.n_results.index)+1,
+                                                            cols=len(RF_store.n_results.columns)+1,
+                                                            style='Light Grid')
+                table_rf_results = fill_word_table(table_rf_results, RF_store.n_results)
+
+                # Give space after table
+                document.add_paragraph()
+
+
+                # If there is Permutation Test plot
+                if type(RF_store.perm_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('Random Forest Permutation Test', level=4)
+
+                    # Description
+                    rf_params_perm = RF_store.current_rf_params_permutation
+                    rf_pg4 = document.add_paragraph('Permutation Test was performed with the same number of trees as before - ')
+                    rf_pg4.add_run(f"{rf_params_perm['n_trees']} - and with {rf_params_perm['n_permutations']} permutations. ")
+                    rf_pg4.add_run(f"Model performance was evaluated by {rf_params_perm['perm_metric']} estimated with ")
+                    rf_pg4.add_run(f"{rf_params_perm['n_folds']}-fold stratified cross-validation.")
+
+                    # Creating filename for the Random Forest Permutation Test and saving it
+                    filename_string = f'/Report_RF_permutation_test_{rf_params_perm["n_permutations"]}perm_'
+                    filename_string = filename_string + f'{rf_params_perm["n_trees"]}comp_'
+                    filename_string = filename_string + f'{rf_params_perm["n_folds"]}-foldstratCV_metric'
+                    filename_string = filename_string + f'{rf_params_perm["perm_metric"]}'
+                    RF_store.perm_figure[0].savefig(folder+filename_string+'.png', dpi=RF_store.dpi)
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+
+                # If there is ROC Curve plot
+                if type(RF_store.ROC_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('Random Forest ROC Curve', level=4)
+
+                    # Description
+                    roc_params = RF_store.current_other_rf_params['ROC_filename'].split('_')
+                    if len(target_list.classes) > 2:
+                        rf_pg5 = document.add_paragraph('Since there are more than 2 classes, ROC curves were computed with a ')
+                        rf_pg5.add_run(f"1vsAll scheme for each of the {len(target_list.classes)} classes.")
+                    else:
+                        rf_pg5 = document.add_paragraph('Since there are only 2 classes, ROC curves were computed considering ')
+                        rf_pg5.add_run(f"{roc_params[2][:-8]}").bold = True
+                        rf_pg5.add_run(f" as the positive class.")
+                    rf_pg5.add_run(f' Other parameters were maintained: number of trees - {roc_params[3][:-5]}; ')
+                    rf_pg5.add_run(f"{roc_params[4][:-7]} stratified cross-validation. Finally, ROC Curve estimation was ")
+                    rf_pg5.add_run(f"repeated {roc_params[5][:-10]} times (randomized cross-validation folds).")
+
+                    # Creating filename for the Random Forest ROC Curve and saving it
+                    filename_string = '/Report_' + RF_store.current_other_rf_params['ROC_filename']
+                    RF_store.ROC_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                    RF_store.ROC_figure[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+            # If there is no Random Forest model fitted
+            else:
+                rf_pg3 = document.add_paragraph('Random Forest model was not fitted during the Data Analysis. ')
+                rf_pg3.add_run(f"Thus, this section will be skipped.")
 
         # End of section
         document.add_page_break()
