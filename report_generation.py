@@ -209,7 +209,20 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     document.add_heading('Data Annotation and De-Duplication', level=2)
     # TODO: Add PPM DEVIATION / ABSOLUTE DALTON DEVIATION used to the report
 
-    document.add_paragraph(f'Data Annotation in this software was made using {n_databases.value} databases.')
+    ann_pg = document.add_paragraph(f'Data Annotation in this software was made using {n_databases.value} database(s).')
+
+    if n_databases.value != 0:
+        # Database Annotation based on PPM Deviation
+        if RepGen.annotation_margin_method == 'PPM Deviation':
+            ann_pg.add_run(f' Database matching was performed using a maximum of {RepGen.annotation_margin_ppm_deviation} ppm')
+            ann_pg.add_run(f' (parts per million) deviation of the theoretical compound mass (based on formula) to the ')
+            ann_pg.add_run(f'experimental mass in the Neutral Mass Column ({radiobox_neutral_mass.value}) chosen.')
+
+        # Database Annotation based on flat Da deviation
+        else:
+            ann_pg.add_run(f' Database matching was performed using a maximum of {RepGen.annotation_margin_ppm_deviation} Da')
+            ann_pg.add_run(f' deviation of the theoretical compound mass (based on formula) to the ')
+            ann_pg.add_run(f'experimental mass in the Neutral Mass Column ({radiobox_neutral_mass.value}) chosen.')
 
     # Information on Databases used
     for db in range(n_databases.value):

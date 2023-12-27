@@ -1059,6 +1059,11 @@ def _press_confirm_annotation_perform(event):
     # Perform metabolite annotation
     metabolite_annotation()
 
+    # Store parameters used for annotation for Report Generation
+    RepGen.annotation_margin_method = annotation_margin_method_radio.value
+    RepGen.annotation_margin_ppm_deviation = annotation_ppm_deviation.value
+    RepGen.annotation_margin_Da_deviation = annotation_Da_deviation.value
+
     # Update the information for annotation de-duplication
     data_ann_deduplicator.update_columns_with_annotations(annotated_df.value, checkbox_annotation, checkbox_formula)
     DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
@@ -1602,9 +1607,30 @@ class PreTreatment(param.Parameterized):
             page3[:2,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
                 ('Metadata', DataFrame_Store.metadata_df.T),
                 ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
-        confirm_button_next_step_4.disabled = False
-        save_data_dataframes_button.disabled = False
-        page13_button.disabled = False
+
+
+        # See if there are nan values after pre-treatment
+        n_nan_values = DataFrame_Store.treated_df.isnull().sum().sum()/(DataFrame_Store.treated_df.shape[0]*DataFrame_Store.treated_df.shape[1])
+        # Remove extra parts of the page
+        if len(page3[2, :].objects[(0, None, 1, None)]) > 4:
+            page3[2, :].objects[(0, None, 1, None)].pop(0)
+
+        # If there are no missing values as intended
+        if n_nan_values == 0:
+            confirm_button_next_step_4.disabled = False
+            save_data_dataframes_button.disabled = False
+            page13_button.disabled = False
+
+        # If there are missing values, show an alert and inactivate further analysis
+        else:
+            alert_message = (f'The Dataset has **{n_nan_values*100:.2f} %** of NaN values after pre-treatment which conditions further statistical analysis.'
+                '\nFor example, this may occur if you use **Zero** Missing Value Imputation with Generalized Logarithmic Transformation or Normalization by a Reference Feature that does not appear in every sample'
+                ' (the latter is also not recommended even with other missing value imputations) but it is may not be limited to these combinations.'
+                '\nTry to **change some parameters** of the Data Pre-Treament to solve this.')
+            page3[2, :].objects[(0, None, 1, None)].insert(0, pn.pane.Alert(alert_message, alert_type='warning'))
+            confirm_button_next_step_4.disabled = True
+            save_data_dataframes_button.disabled = True
+            page13_button.disabled = True
 
 
     def reset(self):
@@ -5118,6 +5144,11 @@ class ReportGeneration(param.Parameterized):
     target_included_in_file = param.Boolean(default=False)
     neutral_mass_column = param.Boolean(default=False)
 
+    # Related to Annotation
+    annotation_margin_method = param.String('')
+    annotation_margin_ppm_deviation = param.Number()
+    annotation_margin_Da_deviation = param.Number()
+
     # Related to Annotation De-Duplication
     deduplication_performed = param.String('Annotation De-Duplication was not performed')
 
@@ -5174,7 +5205,7 @@ desc_repgen = pn.Row('#### Common and Exclusive Compound Analysis',
               '#### BinSim Analysis',)
 
 # Widget to select folder where report figures and tables will be created in
-folder_selection = pn.widgets.TextAreaInput(name='Folder Name where Report and associated Figures and Tables will be Downloaded to',
+folder_selection = pn.widgets.TextAreaInput(name='Folder Name where Report and associated Figures and Tables will be Downloaded to (Do Not put a name of a pre-existing folder)',
                                            placeholder='Report_folder', value='Report', rows=1)
 
 # Widgets to select what type of analysis will be in the report

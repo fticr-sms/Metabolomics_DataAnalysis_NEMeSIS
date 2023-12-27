@@ -421,5 +421,5 @@ Note 1: An attempt is made to correctly describe the parameters that led to the 
 be sure that the figures shown are 100% represented by the parameters described since errors may arise in parameter saving.
 <br>
 <br>
-Currently, report only until end of unsupervised analysis.
+Currently, report only until end of supervised analysis.
 '''
