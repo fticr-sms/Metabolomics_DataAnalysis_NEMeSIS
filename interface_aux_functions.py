@@ -1603,15 +1603,17 @@ def _plot_Volcano_plot(results_df, UnivarA_Store):
                               'Downregulated': UnivarA_Store.color_down_sig,
                               'Upregulated': UnivarA_Store.color_up_sig},
           width=600, height=600,
-          labels={'log2FC': f'log2 (Fold Change))',
+          labels={'log2FC': f'log2 (Fold Change)',
                '-log10(Adj. p-value)': '- log10 (Adjusted (Benjamini-Hochberg) p-value)'})
 
     # Set Threshold lines
-    fig.add_vline(x=np.log2(UnivarA_Store.fold_change_threshold), line_width=2, line_dash="dash", line_color="black")
-    fig.add_vline(x=-np.log2(UnivarA_Store.fold_change_threshold), line_width=2, line_dash="dash", line_color="black")
-    fig.add_hline(y=-np.log10(UnivarA_Store.p_value_threshold), line_width=2, line_dash="dash", line_color="black")
+    fig.add_vline(x=np.log2(UnivarA_Store.current_univ_params["Fold Change Threshold"]), line_width=2, line_dash="dash", line_color="black")
+    fig.add_vline(x=-np.log2(UnivarA_Store.current_univ_params["Fold Change Threshold"]), line_width=2, line_dash="dash", line_color="black")
+    fig.add_hline(y=-np.log10(UnivarA_Store.current_univ_params["p-value"]), line_width=2, line_dash="dash", line_color="black")
 
-    fig.update_layout(title_text=f'Volcano Plot - {UnivarA_Store.test_class}/{UnivarA_Store.control_class}', title_x=0.45)
+    fig.update_layout(
+        title_text=f'Volcano Plot - {UnivarA_Store.current_univ_params["Test Class"]}/{UnivarA_Store.current_univ_params["Control Class"]}',
+        title_x=0.45)
 
     return fig
 

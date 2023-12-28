@@ -181,12 +181,10 @@ class UnivariateAnalysisPage:
     def __init__(self):
 
         self.content = pn.Column("# Performing Univariate Analysis",
-                                 """In Univariate Analysis, each metabolite (variable) in the experimental dataset is tested individually to observe if there is a significant difference between a test and a control class.
-                                  Thus, this does not take into account any interaction between metabolites as multivariate analysis does (and is expected in metabolties within a biological system).
-                                  However, it provides the metabolites which are differentially expressed between 2 classes.
-                                  It is more suited to when there are a low number of missing values in your data since calculation of the fold change between the classes is severely affected with missing values since it is calculated after missing values imputation and normalization.
-                                  Thus, in these cases, fold change values should be taken with a grain (or multiple grains that are actually more like rocks than grains) of salt.
-                                  Including Univariate and Fold-Change Analysis""",
+                                 ("In Univariate Analysis, each metabolite (variable) in the experimental dataset is tested individually to observe "
+                                  'if there is a significant difference between a test and a control class. Thus, this does not take into account any '
+                                  'interaction between metabolites as multivariate analysis does (and is expected in metabolites within a biological system).\n'
+                                  'However, it provides the metabolites which are differentially expressed between 2 classes.'),
                                  univar_analysis_page)
 
     def view(self):
@@ -3803,6 +3801,7 @@ sup_analysis_page = pn.Tabs(('PLS-DA', page_PLSDA), ('RF ', page_RF))
 
 
 # Page for Univariate Analysis
+# TODO: Make actual p-values appear in hoverplate in the Volcano Plot
 univ_opening_string = desc_str.univ_opening_string
 
 class UnivariateAnalysis_Store(param.Parameterized):
@@ -3840,6 +3839,9 @@ class UnivariateAnalysis_Store(param.Parameterized):
     fold_change_threshold = param.Number(default=2)
     univariate_df = param.DataFrame()
     univariate_df_set = param.Dict()
+
+    # Store Univariate Test Parameters
+    current_univ_params = param.Dict({})
 
     # Store Univariate results
     univariate_results = param.DataFrame()
@@ -3915,6 +3917,11 @@ class UnivariateAnalysis_Store(param.Parameterized):
         self.univariate_df, self.univariate_df_set = a, b
         self.univariate_results, self.univariate_results_non_filt, self.univariate_results_set = c, d, e
 
+        # Saving parameters
+        self.current_univ_params = {'Control Class': self.control_class, 'Test Class': self.test_class,
+                                    'Test': self.univariate_test, 'Expected Equal Var.': self.expected_equal_variance,
+                                    'p-value': self.p_value_threshold, 'Fold Change Threshold': self.fold_change_threshold}
+
         # Joining the results of the univariate analysis to the metadata available
         self.univariate_results = pd.concat((self.univariate_results,
                                              DataFrame_Store.metadata_df.loc[self.univariate_results.index]),
@@ -3929,12 +3936,12 @@ class UnivariateAnalysis_Store(param.Parameterized):
     def _update_Volcano_plot(self):
         "Update the Volcano plot based on change in colours."
         # Repeated content from the main function to not add another attribute to the class
-        results_df = UnivarA_Store.univariate_results_non_filt.copy()
+        results_df = self.univariate_results_non_filt.copy()
         results_df['-log10(Adj. p-value)'] = -np.log10(results_df['FDR adjusted p-value'])
 
         expression = []
         for i in results_df.index:
-            if i not in UnivarA_Store.univariate_results.index:
+            if i not in self.univariate_results.index:
                 expression.append('Non-Significant')
             elif results_df.loc[i, 'log2FC'] < 0:
                 expression.append('Downregulated')
@@ -3942,19 +3949,23 @@ class UnivariateAnalysis_Store(param.Parameterized):
                 expression.append('Upregulated')
         results_df['Expression'] = expression
 
-        Volcano_fig = iaf._plot_Volcano_plot(results_df, UnivarA_Store,)
+        Volcano_fig = iaf._plot_Volcano_plot(results_df, self,)
         self.Volcano_fig = [Volcano_fig,]
         # Update the layout
-        layout_volcano[0,1:3] = pn.pane.Plotly(UnivarA_Store.Volcano_fig[0], config={'toImageButtonOptions': {
-                   'filename': f'VolcanoPlot - {UnivarA_Store.test_class}/{UnivarA_Store.control_class}', 'scale':4}})
+        univ_parameters = self.current_univ_params
+        filename_string = f'VolcanoPlot - {univ_parameters["Test Class"]}_vs_{univ_parameters["Control Class"]}'
+        filename_string = filename_string + f'_{univ_parameters["Test"]}_pvalue{univ_parameters["p-value"]}_FC'
+        filename_string = filename_string + f'{univ_parameters["Fold Change Threshold"]}'
+        layout_volcano[0,1:3] = pn.pane.Plotly(self.Volcano_fig[0], config={'toImageButtonOptions': {
+                   'filename': filename_string, 'scale':4}})
 
 
     @param.depends('test_class_subset', 'show_annots_only', watch=True)
     def _update_intersections(self):
         "Update the intersections DataFrame and description."
         iaf._univariate_intersections(self, DataFrame_Store)
-        layout_final_section[0][1] = UnivarA_Store.inter_description
-        layout_final_section[1] = pn.pane.DataFrame(UnivarA_Store.specific_cl_df, height=600)
+        layout_final_section[0][1] = self.inter_description
+        layout_final_section[1] = pn.pane.DataFrame(self.specific_cl_df, height=600)
 
 
     def reset(self):
@@ -3982,7 +3993,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
                     step=0.001),
             'fold_change_threshold': pn.widgets.FloatInput(name='Fold Change Threshold', value=2, step=0.1, start=1,
                     description='''The threshold is set so as only selecting features as significant if either the control class or the test class average is "chosen" threhold times higher than the opposing class.
-                    0 will essentially skip this threshold and use only the p-value threshold. Setting 1 for p-value threshold has the same effect for the p-value step.
+                    1 will essentially skip this threshold and use only the p-value threshold. Setting 1 for p-value threshold has the same effect for the p-value step.
                     E.g: if 2, the average of a feature in control class samples has to be double or more that of the test class or vice-versa.'''),
             'confirm_button_univariate': pn.widgets.Button(name="Perform Univariate Analysis", button_type='primary'),
             'color_non_sig': pn.widgets.ColorPicker(name='Color Non Significant Metabolites',
@@ -4039,19 +4050,20 @@ save_univariate_results_button = pn.widgets.Button(name='Save univariate analysi
 def _save_univariate_results_button(event):
     "Save univariate results performed"
     # Building the datafile name
-    test_performed = UnivarA_Store.univariate_test.split(' ')[0]
-    filename_string = f'Univar_res_{UnivarA_Store.test_class}_vs_{UnivarA_Store.control_class}_{test_performed}'
-    filename_string = filename_string + f'_pvalue{UnivarA_Store.p_value_threshold}_FC{UnivarA_Store.fold_change_threshold}'
+    univ_parameters = UnivarA_Store.current_univ_params
+    test_performed = univ_parameters["Test"].split(' ')[0]
+    filename_string = f'Univar_res_{univ_parameters["Test Class"]}_vs_{univ_parameters["Control Class"]}_{test_performed}'
+    filename_string = filename_string + f'_pvalue{univ_parameters["p-value"]}_FC{univ_parameters["Fold Change Threshold"]}'
     if test_performed == 'T-Test':
-        if UnivarA_Store.expected_equal_variance:
-            filename_string = filename_string + f'_equalvariance.csv'
+        if univ_parameters["Expected Equal Var."]:
+            filename_string = filename_string + f'_equalvariance.xlsx'
         else:
-            filename_string = filename_string + f'_notequalvariance.csv'
+            filename_string = filename_string + f'_notequalvariance.xlsx'
     else:
         filename_string = filename_string + f'.csv'
 
     # Saving the file
-    UnivarA_Store.univariate_results.to_csv(filename_string)
+    UnivarA_Store.univariate_results.to_excel(filename_string)
     pn.state.notifications.success(f'{filename_string} successfully saved.')
 
 save_univariate_results_button.on_click(_save_univariate_results_button)
@@ -4077,12 +4089,13 @@ def _save_multiple_univariate_button(event):
         class_subset_string = class_subset_string + '_'+cl
 
     # Final name
-    test_performed = UnivarA_Store.univariate_test.split(' ')[0]
+    univ_parameters = UnivarA_Store.current_univ_params
+    test_performed = univ_parameters["Test"].split(' ')[0]
     filename_string = annot_string + '_significant_in_testing_each_chosen_test_class' + class_subset_string + 'against'
-    filename_string = filename_string + f'_control_{UnivarA_Store.control_class}_{test_performed}'
-    filename_string = filename_string + f'_pvalue{UnivarA_Store.p_value_threshold}_FC{UnivarA_Store.fold_change_threshold}'
+    filename_string = filename_string + f'_control_{univ_parameters["Control Class"]}_{test_performed}'
+    filename_string = filename_string + f'_pvalue{univ_parameters["p-value"]}_FC{univ_parameters["Fold Change Threshold"]}'
     if test_performed == 'T-Test':
-        if UnivarA_Store.expected_equal_variance:
+        if univ_parameters["Expected Equal Var."]:
             filename_string = filename_string + f'_equalvariance.csv'
         else:
             filename_string = filename_string + f'_notequalvariance.csv'
@@ -4149,8 +4162,12 @@ def _updating_univariate_analysis_page_layout():
 
     # Plot the Volcano plot
     UnivarA_Store.Volcano_fig[0] = iaf._plot_Volcano_plot(results_df, UnivarA_Store)
+    univ_parameters = UnivarA_Store.current_univ_params
+    filename_string = f'VolcanoPlot - {univ_parameters["Test Class"]}_vs_{univ_parameters["Control Class"]}'
+    filename_string = filename_string + f'_{univ_parameters["Test"]}_pvalue{univ_parameters["p-value"]}_FC'
+    filename_string = filename_string + f'{univ_parameters["Fold Change Threshold"]}'
     layout_volcano[0,1:3] = pn.pane.Plotly(UnivarA_Store.Volcano_fig[0], config={'toImageButtonOptions': {
-                   'filename': f'VolcanoPlot - {UnivarA_Store.test_class}/{UnivarA_Store.control_class}', 'scale':4}})
+                'filename': filename_string, 'scale':4}})
 
     # Update the specific DF section of the layout
     UnivarA_Store.specific_df_controls.widgets['test_class_subset'].options = [
@@ -5229,7 +5246,7 @@ def _report_generation_button(event):
     # Perform Report Generation
     ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store)
+                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, rep_gen_page)
 
     # When finished
     pn.state.notifications.success(f'Report successfully generated in {folder_selection.value} folder.')

@@ -11,12 +11,22 @@ import numpy as np
 
 def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store):
+                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, rep_gen_page):
     "Makes a read-only Word file with the metabolomics data analysis performed of selected statistical analysis."
 
     # Create Folder to put the report in
     if not os.path.exists(folder):
         os.mkdir(folder)
+
+    # If the report was already created in this folder
+    if os.path.isfile(folder+'/Report.docx'):
+        pn.state.notifications.warning((f'Report.docx already exists in {folder} folder. Please select another folder) name or erase the'
+                                        f' {folder} folder from your directory.'))
+        while len(rep_gen_page) > 5:
+            rep_gen_page.pop(-1)
+        raise ValueError((f'Report.docx already exists in {folder} folder. Please select another folder) name or erase the'
+                                        f' {folder} folder from your directory.'))
+
 
     # Creating the Word Document
     document = docx.Document()
@@ -207,7 +217,6 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
     # Chapter of section
     document.add_heading('Data Annotation and De-Duplication', level=2)
-    # TODO: Add PPM DEVIATION / ABSOLUTE DALTON DEVIATION used to the report
 
     ann_pg = document.add_paragraph(f'Data Annotation in this software was made using {n_databases.value} database(s).')
 
@@ -844,6 +853,89 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
 
 
+    # Univariate Analysis Section
+    if 'Univariate Analysis' in stat_methods:
+        # Heading
+        document.add_heading('Univariate Analysis', level=2)
 
-    document.save(folder+'/Report.docx')
-    os.chmod(folder+'/Report.docx', S_IREAD|S_IRGRP|S_IROTH)
+        # In case analysis was not performed
+        if len(UnivarA_Store.current_univ_params) == 0:
+            document.add_paragraph('Univariate Analysis was not performed. Thus, this section will be skipped.')
+
+        else:
+            # Descriptions of Univariate Test Performed
+            univ_parameters = UnivarA_Store.current_univ_params
+            univ_pg = document.add_paragraph('Univariate Analysis was performed comparing the ')
+            univ_pg.add_run(f'Test Class: {univ_parameters["Test Class"]}').bold = True
+            univ_pg.add_run(f' against the ')
+            univ_pg.add_run(f'Control Class: {univ_parameters["Control Class"]}.').bold = True
+            univ_pg.add_run(f' The Test performed was a ')
+            univ_pg.add_run(f'{univ_parameters["Test"]}').bold = True
+            univ_pg.add_run(f' considering the variance between classes ')
+
+            # Name of the string file to save tables and volcano plot as
+            test_performed = univ_parameters["Test"].split(' ')[0]
+            filename_string_abv = f'{univ_parameters["Test Class"]}_vs_{univ_parameters["Control Class"]}_{test_performed}'
+            filename_string_abv = filename_string_abv + f'_pvalue{univ_parameters["p-value"]}_FC'
+            filename_string_abv = filename_string_abv + f'{univ_parameters["Fold Change Threshold"]}'
+
+            # Continuing description and Filename
+            if univ_parameters["Expected Equal Var."]:
+                univ_pg.add_run(f'equal.').bold = True
+                filename_string_abv = filename_string_abv + f'_equalvariance'
+            else:
+                univ_pg.add_run(f'not equal.').bold = True
+                filename_string_abv = filename_string_abv + f'_notequalvariance'
+            univ_pg.add_run(f' Features were considered significant if the univariate test p-value was below the chosen ')
+            univ_pg.add_run(f'{univ_parameters["p-value"]}').bold = True
+            univ_pg.add_run(f' and the fold change (FC) between the average normalized intensity values (after missing value')
+            univ_pg.add_run(f' imputation) of the 2 tested classes was greater than the chosen ')
+            univ_pg.add_run(f'{univ_parameters["Fold Change Threshold"]}').bold = True
+            univ_pg.add_run(f' in favour of either class. Pre-Treatment previously selected was repeated considering')
+            univ_pg.add_run(f' only the samples belonging to the 2 classes selected before univariate analysis.')
+
+            # Note about Fold Change threshold
+            univ_pg2 = document.add_paragraph('Fold Change (FC) calculation is greatly affected by missing values. ')
+            univ_pg2.add_run('Thus, considering the very high missing value occurrence in FT-ICR-MS data, FC results')
+            univ_pg2.add_run(' should be taken with a grain of salt. The more missing values, ')
+            univ_pg2.add_run('the less reliable FC and univariate test results are.')
+
+            # Saving Univariate Test Results
+            filt_filename_string = '/Report_Univar_res_' + filename_string_abv + '.xlsx'
+            non_filt_filename_string = '/Report_Univar_nonfilt_res_' + filename_string_abv + '.xlsx'
+            UnivarA_Store.univariate_results.to_excel(folder + filt_filename_string)
+            pd.concat((UnivarA_Store.univariate_results_non_filt,
+                DataFrame_Store.metadata_df.loc[UnivarA_Store.univariate_results_non_filt.index]),
+                axis=1).to_excel(folder + non_filt_filename_string)
+
+            # Univariate Test results
+            univ_pg3 = document.add_paragraph('Univariate Analysis results: ')
+            univ_pg3.add_run(f'{UnivarA_Store.univariate_results.shape[0]}').bold = True
+            univ_pg3.add_run(f' metabolites were significant, ')
+            univ_pg3.add_run(f'{sum(UnivarA_Store.univariate_results["Has Match?"])}').bold = True
+            univ_pg3.add_run(f' of which are annotated. Volcano Plot of data shown below and univariate test results ')
+            univ_pg3.add_run(f"and metabolic feature metadata with only the significant metabolites and with all metabolites")
+            univ_pg3.add_run(f'are respectively stored in ')
+            univ_pg3.add_run(f"'{filt_filename_string[1:]}' and '{non_filt_filename_string[1:]}'.")
+
+            # Saving Volcano Plot figure and adding it to the document
+            UnivarA_Store.Volcano_fig[0].write_image(folder+'/Report_VolcanoPlot - '+filename_string_abv+'.png', scale=4)
+            UnivarA_Store.Volcano_fig[0].write_html(folder+'/Report_VolcanoPlot - '+filename_string_abv+".html")
+            # Adding figure
+            document.add_picture(folder+'/Report_VolcanoPlot - '+filename_string_abv+'.png', width=Cm(12))
+
+            # End of section
+            document.add_page_break()
+
+
+
+
+    # Saving the document if possible
+    try:
+        document.save(folder+'/Report.docx')
+        os.chmod(folder+'/Report.docx', S_IREAD|S_IRGRP|S_IROTH)
+    except:
+        pn.state.notifications.error(f'Report.docx could not be saved since it already existed in {folder} folder.')
+        while len(rep_gen_page) > 5:
+            rep_gen_page.pop(-1)
+        raise ValueError(f'Report.docx could not be saved since it already existed in {folder} folder.')
