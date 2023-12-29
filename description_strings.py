@@ -363,8 +363,8 @@ Kendrick Nominal Mass and Mass Defect can be calculated in two ways:
 <br>
 You can decide to colour the dots based on the chemical composition series they belong to ('CHO', 'CHON', 'CHOP', 'CHONSP',
 etc.) by selecting the formula columns of previous annotations, of the annotations performed in the software or a
-combination of them. When, for one peak, there are multiple candidate formulas and they do not belong to the same chemical
-composition series, they get assigned as <strong>'Ambiguous'</strong>. If <strong>None</strong> is selected, then the
+combination of them. When, for one metabolic feature, there are multiple candidate formulas and they do not belong to the same
+chemical composition series, they get assigned as <strong>'Ambiguous'</strong>. If <strong>None</strong> is selected, then the
 points are not coloured by chemical composition series.
 '''
 
@@ -379,11 +379,11 @@ This section plots a Chemical Composition Series bar plot indicating how many fo
 <br>
 <br>
 You can decide if you want to use formula annotations made previously, made in this software or a combination. <strong>If
-multiple formulas</strong> can be assigned to the same <em>m/z</em> peak whether within the same formula annotation made or
+multiple formulas</strong> can be assigned to the same metabolic feature whether within the same formula annotation made or
 between different annotations, <strong>each one will be counted in this plot</strong>. That is, if a peak in a class has 3
 possible candidate formulas, 2 belonging to the 'CHO' series and another to the 'CHOP' series; then 2 formulas will be added
 to the 'CHO' series and 1 to the 'CHOP' series. Thus, we are considering that the 3 elementary formulas are represented by
-that peak (probably an overestimation). In all cases, it is rare to find multiple candidate formulas for the same m/z peak,
+that feature (probably an overestimation). In all cases, it is rare to find multiple candidate formulas for the same feature,
 especially with extreme-resolution data. To provide an idea of how extensive this effect is, a description is also provided
 detailing how many formulas are being considered for each class and from how many different features (<em>m/z</em> peaks)
 they came from.
@@ -425,5 +425,5 @@ Note 1: An attempt is made to correctly describe the parameters that led to the 
 be sure that the figures shown are 100% represented by the parameters described since errors may arise in parameter saving.
 <br>
 <br>
-Currently, report only until end of univariate analysis.
+Currently, report lacks the HMDB Pathway Assignment section.
 '''

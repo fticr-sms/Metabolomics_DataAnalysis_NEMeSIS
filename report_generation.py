@@ -11,7 +11,7 @@ import numpy as np
 
 def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, rep_gen_page):
+                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, rep_gen_page):
     "Makes a read-only Word file with the metabolomics data analysis performed of selected statistical analysis."
 
     # Create Folder to put the report in
@@ -923,6 +923,166 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
             UnivarA_Store.Volcano_fig[0].write_html(folder+'/Report_VolcanoPlot - '+filename_string_abv+".html")
             # Adding figure
             document.add_picture(folder+'/Report_VolcanoPlot - '+filename_string_abv+'.png', width=Cm(12))
+
+        # End of section
+        document.add_page_break()
+
+
+
+    # Data Diversity Visualization Section
+    if len(np.intersect1d(['Van Krevelen', 'Kendrick Mass Defect', 'Chem. Comp. Series'], stat_methods)) != 0:
+        document.add_heading('Data Diversity Visualization Analysis', level=2)
+
+        # Van Krevelen Plot Section
+        if 'Van Krevelen' in stat_methods:
+            # Heading
+            document.add_heading('Van Krevelen Plots', level=3)
+
+            # In case analysis was not performed
+            if type(dataviz_store.VanKrevelen_plot[0]) == str:
+                document.add_paragraph(('Van Krevelen Plots were not computed or no column with Formula annotations was'
+                                        ' provided. Thus, this section will be skipped.'))
+
+            else:
+                # Description of the Van Krevelen Plots
+                vk_pg = document.add_paragraph('Van Krevelen Plots were computed considering the formulas annotated in the following columns: ')
+                vk_pg.add_run(', '.join(dataviz_store.vk_formula_to_consider)).bold = True
+                vk_pg.add_run(('. If multiple formulas were assigned to a metabolic feature, they are both considered and '
+                            'plotted. Multiple features with the same formula lead to multiple points in the same part of'
+                            ' the Van Krevelen Plots. Below a Van Krevelen Plot is shown for each biological class in the '
+                            'target considering only the metabolic features that appear in the samples of that class.'))
+
+                # See what the points are highlighted by if anything
+                if dataviz_store.vk_highlight_by != 'None':
+                    size_colour_none = False
+                    if dataviz_store.vk_colour:
+                        if dataviz_store.vk_size:
+                            vk_pg.add_run(f' Points colour and size are based on the ')
+                        else:
+                            vk_pg.add_run(f' Points colour are based on the ')
+                    else:
+                        if dataviz_store.vk_size:
+                            vk_pg.add_run(f' Points size are based on the ')
+                        else:
+                            size_colour_none = True
+
+                    # If indeed they are highlighted in size or colours, explain how
+                    if not size_colour_none:
+                        vk_pg.add_run(f'{dataviz_store.vk_highlight_by} of their average intensity value compared to others.')
+                        if dataviz_store.vk_highlight_by != 'Rank':
+                            vk_pg.add_run(' logInt represents the logarithm (base 10) of the average intensities.')
+
+                        # Midpoint Sentence
+                        vk_pg.add_run((f' The midpoint was set to {dataviz_store.vk_midpoint}, that is, '
+                                    f'{dataviz_store.vk_midpoint*100} % of points were on the "low" intensity section of '
+                                    'the scale and the remaining on the "high" intensity section of the scale.'))
+
+                # Saving and adding each Van Krevelen Plot to the document
+                for i in range(len(dataviz_store.VanKrevelen_plot)):
+                    # Saving the figures
+                    dataviz_store.VanKrevelen_plot[i].write_image(
+                        folder+'/Report_'+dataviz_store.VanKrevelen_filenames[i]+'.png', scale=4)
+                    dataviz_store.VanKrevelen_plot[i].write_html(
+                        folder+'/Report_'+dataviz_store.VanKrevelen_filenames[i]+".html")
+                    # Adding figure
+                    document.add_picture(folder+'/Report_'+dataviz_store.VanKrevelen_filenames[i]+'.png', width=Cm(15))
+
+                # End of section
+                document.add_page_break()
+
+
+        # Kendrick Mass Defect Plot Section
+        if 'Kendrick Mass Defect' in stat_methods:
+            # Heading
+            document.add_heading('Kendrick Mass Defect Plots', level=3)
+
+            # In case analysis was not performed
+            if type(dataviz_store.KendrickMD_plot[0]) == str:
+                document.add_paragraph(('Kendrick Mass Defect Plots were not computed or no column with feature Neutral Mass was'
+                                        ' provided/found. Thus, this section will be skipped.'))
+
+            else:
+                # Description of the Kendrick Mass Defect Plots
+                kmd_pg = document.add_paragraph('Kendrick Mass Defect Plots were computed considering the Neutral Mass column: ')
+                kmd_pg.add_run(radiobox_neutral_mass.value).bold = True
+                kmd_pg.add_run('. Neutral Masses were rounded ')
+
+                # See how the neutral masses were rounded
+                if dataviz_store.kmd_mass_rounding == 'Up':
+                    kmd_pg.add_run('Up').bold = True
+                    kmd_pg.add_run(' to the next integer (thus, all Mass Defects will vary between 0 and 1).')
+                else:
+                    kmd_pg.add_run('to the ')
+                    kmd_pg.add_run('Nearest').bold = True
+                    kmd_pg.add_run(' integer (thus, all Mass Defects will vary between -0.5 and 0.5).')
+
+                # If points were coloured by chemical composition series
+                if len(dataviz_store.kmd_formula_to_consider) != 0:
+                    kmd_pg.add_run(' Chemical formulas in the columns ')
+                    kmd_pg.add_run(', '.join(dataviz_store.kmd_formula_to_consider)).bold = True
+                    kmd_pg.add_run((' were considered to colours the points based on the chemical composition series they'
+                                ' belong to (if found). When, for one metabolic feature, there are multiple candidate '
+                                ' formulas and they do not belong to the same chemical composition series, they get '
+                                    'assigned as Ambiguous.'))
+
+                # Saving and adding each Kendrick Mass Defect Plot to the document
+                for i in range(len(dataviz_store.KendrickMD_plot)):
+                    # Saving the figures
+                    dataviz_store.KendrickMD_plot[i].write_image(
+                        folder+'/Report_'+dataviz_store.KendrickMD_filenames[i]+'.png', scale=4)
+                    dataviz_store.VanKrevelen_plot[i].write_html(
+                        folder+'/Report_'+dataviz_store.KendrickMD_filenames[i]+".html")
+                    # Adding figure
+                    document.add_picture(folder+'/Report_'+dataviz_store.KendrickMD_filenames[i]+'.png', width=Cm(15))
+
+                # End of section
+                document.add_page_break()
+
+
+        # Chemical Composition Series Plot Section
+        if 'Chem. Comp. Series' in stat_methods:
+            # Heading
+            document.add_heading('Chemical Composition Series Plot', level=3)
+
+            # In case analysis was not performed
+            if type(dataviz_store.CCS_plot[0]) == str:
+                document.add_paragraph(('Chemical Composition Series Plot was not computed or no column with Formula annotations was'
+                                        ' provided. Thus, this section will be skipped.'))
+
+            else:
+                # Description of the Chemical Composition Series Plot
+                ccs_pg = document.add_paragraph(("Chemical Composition Series Plot was "
+                                                'computed considering the formulas in the following columns: '))
+                ccs_pg.add_run(', '.join(dataviz_store.ccs_formula_to_consider)).bold = True
+                ccs_pg.add_run(('. If multiple formulas were assigned to a metabolic feature, each one was counted in this'
+                            ' plot. That is, if a peak in a class has 3 possible candidate formulas, 2 belonging to the '
+                                "'CHO' series and another to the 'CHOP' series; then 2 formulas will be added to the 'CHO' "
+                                "series and 1 to the 'CHOP' series. Thus, we are considering that the 3 elementary formulas "
+                                " are represented by that feature (probably an overestimation). To provide an idea of how "
+                                "extensive this effect is, a description is also provided detailing how many formulas are "
+                                "being considered for each class and from how many different features (m/z peaks) they came from."))
+
+                # Description of considered formulas and from how many metabolic features they come from
+                document.add_paragraph(dataviz_store.ccs_desc.replace('<br />', '\n').replace('**', ''))
+
+                # Creating filename for the Chemical Composition Series Plot and saving it
+                filename_string = '/Report_CCS_Plot_formulacolumns_'
+                for cl in dataviz_store.ccs_formula_to_consider:
+                    filename_string = filename_string + f'_{cl}'
+                dataviz_store.CCS_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                dataviz_store.CCS_plot[0].write_html(folder+filename_string+".html")
+
+                # Adding figure
+                document.add_picture(folder+filename_string+'.png', width=Cm(12.5))
+
+                # Table with the counts of each series for each class
+                table_ccs_counts = document.add_table(rows=len(dataviz_store.ccs_df.index)+1,
+                                                            cols=len(dataviz_store.ccs_df.columns)+1,
+                                                            style='Light Grid')
+                table_ccs_counts = fill_word_table(table_ccs_counts, dataviz_store.ccs_df)
+
+                # Give space after table
+                document.add_paragraph()
 
             # End of section
             document.add_page_break()

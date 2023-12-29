@@ -4239,6 +4239,9 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
 
         if len(self.vk_formula_to_consider) == 0:
             pn.state.notifications.error('At least 1 Formula Annotation column must be provided for VK plot.')
+            vk_plots.clear()
+            self.VanKrevelen_plot = ['Pane for Van Krevelen Plot']
+            self.vanKrevelen_filenames = []
             raise ValueError('At least 1 Formula Annotation column must be provided for VK plot.')
 
         # Enabling and Disabling widgets
@@ -4300,6 +4303,9 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
 
         # Kendrick Mass Defect Plots cannot be computed without a neutral mass column
         if radiobox_neutral_mass.value == 'None':
+            kmd_plots.clear()
+            self.KendrickMD_plot = ['Pane for Chemical Composition Series']
+            self.KendrickMD_filenames = []
             return
 
         for g in com_exc_compounds.group_dfs:
@@ -4332,6 +4338,10 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
 
         if len(self.ccs_formula_to_consider) == 0:
             pn.state.notifications.error('At least 1 Formula Annotation column must be provided for CCS plot.')
+            # Clear the page
+            while len(ccs_page) > 2:
+                ccs_page.pop(-1)
+            self.CCS_plot = ['Pane for Chemical Composition Series']
             raise ValueError('At least 1 Formula Annotation column must be provided for CCS plot.')
 
         # Initialize figure
@@ -4587,6 +4597,7 @@ class PathAssignment_Storage(param.Parameterized):
 
     # HMDB ID columns
     hmdb_id_cols = param.List(default=[])
+    current_hmdb_id_cols = param.List(default=[])
 
     # DataFrame to store pathway information
     pathway_db = param.DataFrame()
@@ -4644,9 +4655,12 @@ class PathAssignment_Storage(param.Parameterized):
         for idx in pathways_assignment.index:
             if idx in pathway_db.index:
                 pathways_assignment.loc[idx] = pathway_db.loc[idx]
+        pathways_assignment.index.name = 'HMDB IDs'
 
-        # Assign to attribute
+        # Assign to attribute and store search made
         self.pathway_assignments = pathways_assignment
+        self.current_hmdb_id_cols = self.hmdb_id_cols
+
 
     def _path_assign_describer(self):
         "Generates Description of assignment made."
@@ -5244,9 +5258,15 @@ def _report_generation_button(event):
                                                         name='Report is currently being generated with selected statistical analysis...'))
 
     # Perform Report Generation
-    ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
-                     target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, rep_gen_page)
+    try:
+        ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
+                        target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
+                        data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, rep_gen_page)
+    except:
+        while len(rep_gen_page) > 5:
+            rep_gen_page.pop(-1)
+        pn.state.notifications.error('Report was not successfully generated.')
+        raise ValueError('Report was not successfully generated.')
 
     # When finished
     pn.state.notifications.success(f'Report successfully generated in {folder_selection.value} folder.')

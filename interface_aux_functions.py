@@ -1950,10 +1950,10 @@ def _plot_KMD_plot_individual(filt_df, dataviz_store, group, neutral_mass_col):
 
     if len(dataviz_store.kmd_formula_to_consider) == 0:
         fig.update_layout(showlegend=False)
-        filename = f'KMD_plot_{group}'
+        filename = f'KMD_plot_{group}_rounded{dataviz_store.kmd_mass_rounding}'
         return fig, filename
 
-    filename = f'KMD_plot_{group}_formulacolumns'
+    filename = f'KMD_plot_{group}_rounded{dataviz_store.kmd_mass_rounding}_formulacolumns'
     for cl in dataviz_store.vk_formula_to_consider:
         filename = filename + f'_{cl}'
 
