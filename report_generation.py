@@ -11,7 +11,8 @@ import numpy as np
 
 def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, rep_gen_page):
+                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
+                     rep_gen_page):
     "Makes a read-only Word file with the metabolomics data analysis performed of selected statistical analysis."
 
     # Create Folder to put the report in
@@ -560,7 +561,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 hca_pg.add_run(f'{HCA_params.dist_metric} distance metric and {HCA_params.link_metric} linkage metric.')
 
                 # Creating filename for the PCA Projection and saving it
-                filename = f'/Report_HCA_plot_{HCA_params.dist_metric}Dist_{HCA_params.link_metric}Linkage'
+                filename_string = f'/Report_HCA_plot_{HCA_params.dist_metric}Dist_{HCA_params.link_metric}Linkage'
                 HCA_params.HCA_plot[0].savefig(folder + filename_string + '.png', dpi=HCA_params.dpi)
 
                 # Adding figure
@@ -1066,7 +1067,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 document.add_paragraph(dataviz_store.ccs_desc.replace('<br />', '\n').replace('**', ''))
 
                 # Creating filename for the Chemical Composition Series Plot and saving it
-                filename_string = '/Report_CCS_Plot_formulacolumns_'
+                filename_string = '/Report_CCS_Plot_formulacolumns'
                 for cl in dataviz_store.ccs_formula_to_consider:
                     filename_string = filename_string + f'_{cl}'
                 dataviz_store.CCS_plot[0].write_image(folder+filename_string+'.png', scale=4)
@@ -1086,6 +1087,66 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
             # End of section
             document.add_page_break()
+
+
+
+    # HMDB Pathway Assignment Section
+    if 'HMDB Pathway Assignment' in stat_methods:
+        # Heading
+        document.add_heading('HMDB Pathway Assignment', level=2)
+
+        # In case analysis was not performed
+        if len(PathAssign_store.current_hmdb_id_cols) == 0:
+            document.add_paragraph(('HMDB Pathway Assignment to HMDB IDs was not performed or no column with HMDB IDs was'
+                                        ' selected. Thus, this section will be skipped.'))
+
+        else:
+            # Descriptions of HMDB Pathway Assignment Procedure
+            path_pg = document.add_paragraph('This section searches the HMDB IDs provided against a database containing ')
+            path_pg.add_run(('55872 HMDB compound IDs that have at least 1 pathway associated. The file was created based '
+                            'on the RAMP database (https://rampdb.nih.gov/) that attempts to aggregate the HMDB, Reactome, '
+                            'WikiPathways and KEGG databases (https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287'
+                            "). HMDB IDs, e.g. 'HMDB0000001', should always start with 'HMDB' followed by 7 numbers. IDs "
+                            "provided that do not follow this formatting will be disregarded and not considered as "
+                            "'HMDB-like IDs'."))
+
+            # Descriptions of HMDB Pathway Assignment Performed
+            path_pg2 = document.add_paragraph('The columns selected to search for HMDB-like IDs were the following: ')
+            path_pg2.add_run(', '.join(PathAssign_store.current_hmdb_id_cols)).bold = True
+            path_desc_split = PathAssign_store.assign_desc.split('**')
+            path_pg2.add_run('. From this/these columns, ')
+            path_pg2.add_run(path_desc_split[1]).bold = True
+            path_pg2.add_run(' possible HMDB IDs were found, ')
+            path_pg2.add_run(path_desc_split[3]).bold = True
+            path_pg2.add_run(' of which were HMDB-like IDs. From those, ')
+            path_pg2.add_run(path_desc_split[5]).bold = True
+            path_pg2.add_run(path_desc_split[6])
+
+            # Saving the pathway assignments DataFrame
+            # Seeing indexes with HMDB-like IDs
+            considered_idxs = []
+            for idx in PathAssign_store.pathway_assignments.index:
+                if len(idx) == 11:
+                    if idx.startswith('HMDB'):
+                        try:
+                            int(idx[4:])
+                            considered_idxs.append(idx)
+                        except:
+                            continue
+            # Building the datafile name
+            filename_string = f'/Report_HMDB_IDs_PathwaysMatching_to_onlyHMDB-likeIDs_in'
+            for col in PathAssign_store.current_hmdb_id_cols:
+                filename_string = filename_string + f'_{col}'
+            filename_string = filename_string + '.xlsx'
+            # Saving the file
+            PathAssign_store.pathway_assignments.loc[considered_idxs].to_excel(folder+filename_string)
+
+            path_pg2.add_run(f"'{filename_string[1:]}' excel contains the results of the pathway matching made ")
+            path_pg2.add_run("only").bold = True
+            path_pg2.add_run(f" showing the IDs considered HMDB-like found in the provided columns.")
+
+        # End of section
+        document.add_page_break()
 
 
 

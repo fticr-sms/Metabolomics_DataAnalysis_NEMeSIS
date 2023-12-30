@@ -1603,6 +1603,7 @@ def _plot_Volcano_plot(results_df, UnivarA_Store):
                               'Downregulated': UnivarA_Store.color_down_sig,
                               'Upregulated': UnivarA_Store.color_up_sig},
           width=600, height=600,
+          hover_data=["p-value", "FDR adjusted p-value", f'FC ({UnivarA_Store.test_class} / {UnivarA_Store.control_class})'],
           labels={'log2FC': f'log2 (Fold Change)',
                '-log10(Adj. p-value)': '- log10 (Adjusted (Benjamini-Hochberg) p-value)'})
 

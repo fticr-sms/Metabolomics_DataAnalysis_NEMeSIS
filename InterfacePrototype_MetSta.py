@@ -35,6 +35,7 @@ pd.DataFrame.iteritems = pd.DataFrame.items
 
 # TODO: Make a way to choose folder where all figures and tables downloaded go to
 # TODO: Updating packages made a series of future deprecation warnings appear - adapt code to them
+# TODO: Make PCA and PLS projection plots saved the current components names in the filename
 
 
 # Define pages as classes
@@ -2045,8 +2046,6 @@ transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, Dat
 
 
 # Page for Common and Exclusive Compounds
-# TODO: Something is funky with the updates of the different pages, maybe due to overlapping pythons IDs. The page doesn't update correctly.
-# Root cause is unknown
 
 # Param Class to store parameters and data regarding Common and Exclusive Compounds
 class ComExc_Storage(param.Parameterized):
@@ -3801,7 +3800,6 @@ sup_analysis_page = pn.Tabs(('PLS-DA', page_PLSDA), ('RF ', page_RF))
 
 
 # Page for Univariate Analysis
-# TODO: Make actual p-values appear in hoverplate in the Volcano Plot
 univ_opening_string = desc_str.univ_opening_string
 
 class UnivariateAnalysis_Store(param.Parameterized):
@@ -4393,7 +4391,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
         self.CCS_plot[0] = fig
         self.ccs_desc = '<br />'.join(desc_string) # <br /> leads to line breaks in Markdown
         self.ccs_df = series_df.T
-        filename = 'CCS_Plot_formulacolumns_'
+        filename = 'CCS_Plot_formulacolumns'
         # Create appropriate filename
         for cl in self.ccs_formula_to_consider:
             filename = filename + f'_{cl}'
@@ -4785,7 +4783,7 @@ def _confirm_hmdb_cols_button(event):
     if len(PathAssign_store.pathway_assignments) > 5:
         path_matching_section.append(pn.pane.DataFrame(PathAssign_store.pathway_assignments, height=800))
     else:
-        path_matching_section[5].append(pn.pane.DataFrame(PathAssign_store.pathway_assignments, height=800))
+        path_matching_section.append(pn.pane.DataFrame(PathAssign_store.pathway_assignments))
     path_matching_section.append(save_pathway_assignments_button)
 # Calling the button function
 confirm_hmdb_cols_button.on_click(_confirm_hmdb_cols_button)
@@ -4820,7 +4818,7 @@ def _save_pathway_assignments_button(event):
     "Save pathway assignments made."
     # Building the datafile name
     filename_string = f'HMDB_IDs_PathwaysMatching_to_IDs_in'
-    for col in PathAssign_store.hmdb_id_cols:
+    for col in PathAssign_store.current_hmdb_id_cols:
         filename_string = filename_string + f'_{col}'
     filename_string = filename_string + '.xlsx'
 
@@ -5261,7 +5259,8 @@ def _report_generation_button(event):
     try:
         ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                         target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                        data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, rep_gen_page)
+                        data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
+                        rep_gen_page)
     except:
         while len(rep_gen_page) > 5:
             rep_gen_page.pop(-1)

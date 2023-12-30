@@ -133,6 +133,12 @@ However, in the future, these databases will have corresponding python files tha
 
 - Alpha Version of the Graphical Interface of the MetsTA software (includes homepage, instruction page and all data analysis pipeline except for BinSim Analysis).
 
+#### Version Alpha.1 (30/12/2023)
+
+- Added Report Generation feature and page to the interface software.
+- Datasets up to 100 MB can now be read in the software (previously 20 MB was the maximum).
+- Many bugfixes (especially in previously non-considered fringe cases), improvements and updates to handling page layouts, saving current parameters used for different analysis, improved image and table filenames (that could be saved with incorrect parameters in the name), better description and organization of different variables, to the software reset and soft-reset (in case of change in pre-treatments) procedures - see commits 45 to 53 for more details on these issues.
+
 ### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
 
 - panel >= 1.3.4

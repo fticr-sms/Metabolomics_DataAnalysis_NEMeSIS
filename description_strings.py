@@ -66,7 +66,7 @@ analysis further than what is already present in the software.</p>
 <p>- While on data pre-processing and pre-treatment, steps will be unlocked one by one starting with <strong>Data
 Reading</strong> which is the only one unlocked at the begginning. When reaching the final step of this section in
 <strong>Class Colours</strong>, after selecting <u>Next Step - Analysis</u>, <strong>all analysis steps</strong> become
-unlocked (as well as <strong>Report Generation</strong> - still <strong>TODO</strong>). These steps are generally
+unlocked (as well as <strong>Report Generation</strong>). These steps are generally
 independent of one another and can be done in any order or skipped based on the type of analysis to be performed. As with
 every Metabolomics experiment, statistical analysis results will depend on the filtering and pre-treatment methods used.</p>
 <p>- If you <strong>change any part of the pre-treatment steps</strong>, posterior pre-treatment steps and statistical
@@ -396,7 +396,8 @@ path_assign_opening_string = """This page allows you to assign or match known me
 is made based on a file created from the <strong>RAMP database</strong> (<a href="https://rampdb.nih.gov/" target="_blank"
 rel="nofollow">https://rampdb.nih.gov/</a>) where 55872 HMDB compounds have at least 1 corresponding pathway. The pathways shown
 are aggregated from multiple sources: HMDB, Reactome, WikiPathways and KEGG; from where RAMP provides the information
-(<a href="https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287" target="_blank" rel="nofollow">https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287</a>).
+(<a href="https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287" target="_blank"
+rel="nofollow">https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287</a>).
 <br>
 Thus, for this, there must be a column with the <strong>HMDB identifiers</strong> (e.g. 'HMDB0000001') from which the assignment
 can be performed. The output gives the HMDB IDs and annotation names (if possible) as index in a DataFrame and the name and id of
@@ -418,12 +419,10 @@ right now.</strong>
 <br>
 A folder with the chosen name will be created (or overwritten) in your working directory. The report as well as all images
 and tables present or mentioned in said report will be downloaded and stored in this folder. Once again, figures will be
-shown <strong>exactly</strong> as they were left in the analysis.
+shown <strong>exactly</strong> as they were left in the analysis. Please select a folder name that does not yet exist in
+your working directory.
 <br>
 <br>
 Note 1: An attempt is made to correctly describe the parameters that led to the results obtained in each part but we cannot
 be sure that the figures shown are 100% represented by the parameters described since errors may arise in parameter saving.
-<br>
-<br>
-Currently, report lacks the HMDB Pathway Assignment section.
 '''
