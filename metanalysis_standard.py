@@ -7,9 +7,13 @@ import scipy.stats as stats
 
 import sklearn.ensemble as skensemble
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.metrics import r2_score, roc_auc_score, roc_curve, auc, f1_score, precision_score, recall_score
+from sklearn.metrics import r2_score, roc_auc_score, roc_curve, auc, f1_score, precision_score, recall_score, mean_squared_error
 import sklearn.model_selection
+from sklearn.model_selection import GridSearchCV
+from sklearn.preprocessing import OrdinalEncoder
 from sklearn.decomposition import PCA
+
+import xgboost as xgb
 
 # Our Python package
 import metabolinks.transformations as transf
@@ -916,12 +920,16 @@ def compute_df_with_PCs_VE_loadings(df, n_components=5, whiten=True, labels=None
 
 ### These functions are altered versions from the ones available in the multianalysis.py file from the BinSim paper
 
-def RF_model(df, y, return_cv=True, iter_num=1, n_trees=200, cv=None, n_fold=5, 
+def RF_model(df, y, regres, return_cv=True, iter_num=1, n_trees=200, cv=None, n_fold=5, 
              metrics = ('accuracy', 'f1_weighted', 'precision_weighted', 'recall_weighted'), **kwargs):
     "Fitting RF models and rturning the models and their cross-validation scores."
     results = {}
 
-    fitted_model = skensemble.RandomForestClassifier(n_estimators=n_trees)
+    if regres:
+        fitted_model = skensemble.RandomForestRegressor(n_estimators=n_trees)
+    else:
+        fitted_model = skensemble.RandomForestClassifier(n_estimators=n_trees)
+    
     fitted_model = fitted_model.fit(df, y)
     results['model'] = fitted_model
 
@@ -937,14 +945,21 @@ def RF_model(df, y, return_cv=True, iter_num=1, n_trees=200, cv=None, n_fold=5,
     store_res = {m:[] for m in metrics}
 
     for _ in range(iter_num):
-        rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
+        if regres:
+            rf = skensemble.RandomForestRegressor(n_estimators=n_trees)
+        else:
+            rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
+        
         cv_res = sklearn.model_selection.cross_validate(rf, df, y, cv=cv, scoring=metrics, **kwargs)
         for i in metrics:
             store_res[i].extend(cv_res['test_'+i])
 
         for train_index, test_index in cv.split(df, y):
             # Random Forest setup and fit
-            rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
+            if regres:
+                rf = skensemble.RandomForestRegressor(n_estimators=n_trees)
+            else:
+                rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
             X_train, X_test = df.iloc[train_index, :], df.iloc[test_index, :]
             y_train, y_test = [y[i] for i in train_index], [y[i] for i in test_index]
             rf.fit(X_train, y_train)
@@ -960,7 +975,7 @@ def RF_model(df, y, return_cv=True, iter_num=1, n_trees=200, cv=None, n_fold=5,
     results.update(store_res)
     return results#{'model': fitted_model, 'cv_scores': scores}
 
-def RF_ROC_cv(treated_data, target, pos_label, n_trees=200, n_iter=1, cv=None, n_fold=5):
+def RF_ROC_cv(treated_data, target, regres, pos_label, n_trees=200, n_iter=1, cv=None, n_fold=5):
     """Fits and extracts Random Forest model data and calculates metrics to plot a ROC curve."""
     
     # Run classifier with cross-validation and plot ROC curves
@@ -977,7 +992,10 @@ def RF_ROC_cv(treated_data, target, pos_label, n_trees=200, n_iter=1, cv=None, n
         # Fit and evaluate a Random Forest model for each fold in cross validation
         for train_index, test_index in cv.split(treated_data, target):
             # Random Forest setup and fit
-            rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
+            if regres:
+                rf = skensemble.RandomForestRegressor(n_estimators=n_trees)
+            else:
+                rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
             X_train, X_test = treated_data.iloc[train_index, :], treated_data.iloc[test_index, :]
             y_train, y_test = [target[i] for i in train_index], [target[i] for i in test_index]
             # Classifier fit
@@ -1009,7 +1027,7 @@ def RF_ROC_cv(treated_data, target, pos_label, n_trees=200, n_iter=1, cv=None, n
             'mean AUC': mean_auc, 'std AUC': std_auc}
 
 
-def permutation_RF(df, labels, iter_num=100, n_trees=200, cv=None, n_fold=3, random_state=None,
+def permutation_RF(df, labels, regres, iter_num=100, n_trees=200, cv=None, n_fold=3, random_state=None,
                    metric = ('accuracy')):
     """Performs permutation test n times of a dataset for Random Forest classifiers giving its performance (estimated by
         cross-validation) for the original and all permutations made and respective p-value.
@@ -1051,7 +1069,10 @@ def permutation_RF(df, labels, iter_num=100, n_trees=200, cv=None, n_fold=3, ran
         temp = df.iloc[NewC, :]
 
         # Random Forest setup and cross-validation
-        rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
+        if regres:
+            rf = skensemble.RandomForestRegressor(n_estimators=n_trees)
+        else:
+            rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
         cv_res = sklearn.model_selection.cross_validate(rf, temp, labels, cv=cv, scoring=metric)
 
         # Shuffle dataset columns - 1 permutation of the columns (leads to permutation of labels)
@@ -1066,7 +1087,7 @@ def permutation_RF(df, labels, iter_num=100, n_trees=200, cv=None, n_fold=3, ran
     return CV, Perm[1:], pvalue
 
 
-def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=15, min_comp=1, kf=None, n_fold=5, scale=False):
+def optim_PLSDA_n_components(df, labels, regres, encode2as1vector=True, max_comp=15, min_comp=1, kf=None, n_fold=5, scale=False):
     """Searches for an optimum number of components to use in PLS-DA.
 
        df: DataFrame; X equivalent in PLS-DA (training vectors).
@@ -1087,9 +1108,13 @@ def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=15, min
    
     unique_labels = list(pd.unique(np.array(labels)))
 
-    is1vector = len(unique_labels) == 2 and encode2as1vector
+    is1vector = (len(unique_labels) == 2 and encode2as1vector) or regres
 
-    matrix = _generate_y_PLSDA(labels, unique_labels, is1vector)
+    if regres:
+        matrix = np.array(labels)
+    else:
+        matrix = _generate_y_PLSDA(labels, unique_labels, is1vector)
+
 
     if is1vector:
         # keep a copy to use later
@@ -1130,7 +1155,7 @@ def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=15, min
     return {'CVscores':CVs, 'CVR2scores':CVr2s}
 
 
-def PLSDA_model_CV(df, labels, n_comp=10,
+def PLSDA_model_CV(df, labels, regres, n_comp=10,
                    kf = None, n_fold=5,
                    iter_num=1,
                    encode2as1vector=True,
@@ -1163,18 +1188,25 @@ def PLSDA_model_CV(df, labels, n_comp=10,
     """
     # Setting up lists and matrices to store results
     CVR2 = []
-    accuracies = []
-    f1_scores = []
-    precision = []
-    recall = []
+    if regres:
+        msquared_errors = []
+    else:
+        accuracies = []
+        f1_scores = []
+        precision = []
+        recall = []
+    
     Imp_Feat = np.zeros((iter_num * n_fold, df.shape[1]))
     f = 0
 
     unique_labels = list(pd.unique(np.array(labels)))
 
-    is1vector = len(unique_labels) == 2 and encode2as1vector
+    is1vector = (len(unique_labels) == 2 and encode2as1vector) or regres
 
-    matrix = _generate_y_PLSDA(labels, unique_labels, is1vector)
+    if regres:
+        matrix = np.array(labels)
+    else:
+        matrix = _generate_y_PLSDA(labels, unique_labels, is1vector)
 
     if is1vector:
         # keep a copy to use later
@@ -1216,41 +1248,46 @@ def PLSDA_model_CV(df, labels, n_comp=10,
             y_pred = plsda.predict(X_test)
             cvr2.append(r2_score(y_test, y_pred))
 
-            # Decision rule for classification
-            # Decision rule chosen: sample belongs to group where it has max y_pred (closer to 1)
-            # In case of 1,0 encoding for two groups, round to nearest integer to compare
-            if not is1vector:
-                rounded_pred = y_pred.copy()
-                for i in range(len(y_pred)):
-                    if list(y_test.iloc[i, :]).index(max(y_test.iloc[i, :])) == np.argmax(
-                        y_pred[i]
-                    ):
-                        nright += 1  # Correct prediction
-                    
-                    for l in range(len(y_pred[i])):
-                        if l == np.argmax(y_pred[i]):
-                            rounded_pred[i, l] = 1
-                        else:
-                            rounded_pred[i, l] = 0
-            
+            if regres:
                 # Save y-test and predictions to calculate F1-score, precision and recall
-                all_tests.iloc[a:a+len(y_test)] = y_test
-                all_preds.iloc[a:a+len(y_test)] = rounded_pred
-                a = a + len(y_test)
-
-            else:
-                rounded = np.round(y_pred)
-                for p in range(len(y_pred)):
-                    if rounded[p] >= 1:
-                        rounded[p] = 1
-                    else:
-                        rounded[p] = 0
-                    if rounded[p] == correct[p]:
-                        nright += 1  # Correct prediction
-                
-                # Save y-test and predictions to calculate F1-score, precision and recall
-                all_preds.extend(list(rounded[:,0]))
+                all_preds.extend(list(y_pred))
                 all_tests.extend(y_test)
+            else:
+                # Decision rule for classification
+                # Decision rule chosen: sample belongs to group where it has max y_pred (closer to 1)
+                # In case of 1,0 encoding for two groups, round to nearest integer to compare
+                if not is1vector:
+                    rounded_pred = y_pred.copy()
+                    for i in range(len(y_pred)):
+                        if list(y_test.iloc[i, :]).index(max(y_test.iloc[i, :])) == np.argmax(
+                            y_pred[i]
+                        ):
+                            nright += 1  # Correct prediction
+                        
+                        for l in range(len(y_pred[i])):
+                            if l == np.argmax(y_pred[i]):
+                                rounded_pred[i, l] = 1
+                            else:
+                                rounded_pred[i, l] = 0
+                
+                    # Save y-test and predictions to calculate F1-score, precision and recall
+                    all_tests.iloc[a:a+len(y_test)] = y_test
+                    all_preds.iloc[a:a+len(y_test)] = rounded_pred
+                    a = a + len(y_test)
+
+                else:
+                    rounded = np.round(y_pred)
+                    for p in range(len(y_pred)):
+                        if rounded[p] >= 1:
+                            rounded[p] = 1
+                        else:
+                            rounded[p] = 0
+                        if rounded[p] == correct[p]:
+                            nright += 1  # Correct prediction
+                    
+                    # Save y-test and predictions to calculate F1-score, precision and recall
+                    all_preds.extend(list(rounded[:,0]))
+                    all_tests.extend(y_test)
             
             # Calculate important features (3 different methods to choose from)
             if feat_type == 'VIP':
@@ -1266,33 +1303,47 @@ def PLSDA_model_CV(df, labels, n_comp=10,
 
             f += 1
 
-        # Calculate the accuracy of the group predicted and storing score results
-        accuracies.append(nright / len(labels))
-        CVR2.append(np.mean(cvr2))
-        # Calculate F1-score, precision and recall for the fold and storing results
-        if not is1vector:
-            f1_scores.append(f1_score(all_tests.astype(int), all_preds.astype(int), average='weighted'))
-            precision.append(precision_score(all_tests.astype(int), all_preds.astype(int), average='weighted'))
-            recall.append(recall_score(all_tests.astype(int), all_preds.astype(int), average='weighted'))
+        if regres:
+            # Calculating the mean squere error of the regression and storing score results
+            CVR2.append(np.mean(cvr2))
+            # Calculating F1-score, precision and recall for the fold and storing results
+            msquared_errors.append(mean_squared_error(all_tests, all_preds))
         else:
-            f1_scores.append(f1_score(all_tests, all_preds, average='weighted'))
-            precision.append(precision_score(all_tests, all_preds, average='weighted'))
-            recall.append(recall_score(all_tests, all_preds, average='weighted'))
+            # Calculating the accuracy of the group predicted and storing score results
+            accuracies.append(nright / len(labels))
+            CVR2.append(np.mean(cvr2))
+            # Calculating F1-score, precision and recall for the fold and storing results
+            if not is1vector:
+                f1_scores.append(f1_score(all_tests.astype(int), all_preds.astype(int), average='weighted'))
+                precision.append(precision_score(all_tests.astype(int), all_preds.astype(int), average='weighted'))
+                recall.append(recall_score(all_tests.astype(int), all_preds.astype(int), average='weighted'))
+            else:
+                f1_scores.append(f1_score(all_tests, all_preds, average='weighted'))
+                precision.append(precision_score(all_tests, all_preds, average='weighted'))
+                recall.append(recall_score(all_tests, all_preds, average='weighted'))
 
 
     # Join and sort all important features values from each cross validation group and iteration.
     Imp_sum = Imp_Feat.sum(axis=0) / (iter_num * n_fold)
     imp_features = sorted(enumerate(Imp_sum), key=lambda x: x[1], reverse=True)
     if iter_num == 1:
-        #results_dict = {'accuracy': accuracies[0], 'F1-scores':f1_scores[0], 'precision': precision[0], 'recall':recall[0],
-        #        'Q2': CVR2[0], 'imp_feat': imp_features}
-        #if accuracy in metrics:
-        #    results_dict.pop('accuracy')
-        return {'accuracy': accuracies[0], 'F1-scores':f1_scores[0], 'precision': precision[0], 'recall':recall[0],
-                'Q2': CVR2[0], 'imp_feat': imp_features}
+        if regres:
+            return {'mean_squared_error': msquared_errors[0],
+                    'Q2': CVR2[0], 'imp_feat': imp_features}
+        else:
+            #results_dict = {'accuracy': accuracies[0], 'F1-scores':f1_scores[0], 'precision': precision[0], 'recall':recall[0],
+            #        'Q2': CVR2[0], 'imp_feat': imp_features}
+            #if accuracy in metrics:
+            #    results_dict.pop('accuracy')
+            return {'accuracy': accuracies[0], 'F1-scores':f1_scores[0], 'precision': precision[0], 'recall':recall[0],
+                    'Q2': CVR2[0], 'imp_feat': imp_features}
     else:
-        return {'accuracy': accuracies, 'F1-scores':f1_scores, 'precision': precision, 'recall':recall,
+        if regres:
+            return {'mean_squared_error': msquared_errors,
                 'Q2': CVR2, 'imp_feat': imp_features}
+        else:
+            return {'accuracy': accuracies, 'F1-scores':f1_scores, 'precision': precision, 'recall':recall,
+                    'Q2': CVR2, 'imp_feat': imp_features}
 
 
 def PLSDA_ROC_cv(treated_data, target, pos_label, n_comp=10, scale=False, n_iter=1, cv=None, n_fold=5):
@@ -1512,6 +1563,186 @@ def permutation_PLSDA(df, labels, n_comp=10, iter_num=100, cv=None, n_fold=5, ra
     ) / (iter_num + 1)
 
     return CV, performance[1:], pvalue
+
+def optimise_xgb_parameters(data, y, regres, obj, params, **kwargs):
+    if regres:
+        xgbo = xgb.XGBRegressor(objective=obj, **kwargs)
+    else:
+        xgbo = xgb.XGBClassifier(objective=obj, **kwargs)
+        y = OrdinalEncoder().fit_transform(pd.DataFrame(y))
+    model = GridSearchCV(estimator=xgbo, param_grid=params, cv=3)
+    model.fit(data,y)
+
+    return model
+
+def XGB_model(df, y, regres, obj, return_cv=True, iter_num=1, n_estimators=200, cv=None, n_fold=5, 
+             metrics = ('accuracy', 'f1_weighted', 'precision_weighted', 'recall_weighted'), **kwargs):
+    "Fitting XGBoost models and rturning the models and their cross-validation scores."
+    results = {}
+
+    if regres:
+        fitted_model = xgb.XGBRegressor(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
+    else:
+        fitted_model = xgb.XGBClassifier(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
+        y = OrdinalEncoder().fit_transform(pd.DataFrame(y))
+
+    fitted_model = fitted_model.fit(df, y)
+    results['model'] = fitted_model
+
+    # Setting up variables for imp_feat storing
+    imp_feat = np.zeros((iter_num * n_fold, len(df.columns)))
+    f = 0
+
+    if not return_cv:
+        return(fitted_model)
+    if cv is None:
+        cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+
+    store_res = {m:[] for m in metrics}
+
+    for _ in range(iter_num):
+
+        if regres:
+            xgboost = xgb.XGBRegressor(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
+        else:
+            xgboost = xgb.XGBClassifier(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
+
+        cv_res = sklearn.model_selection.cross_validate(xgboost, df, y, cv=cv, scoring=metrics)
+
+        for i in metrics:
+            store_res[i].extend(cv_res['test_'+i])
+
+        for train_index, test_index in cv.split(df, y):
+            # Random Forest setup and fit
+            if regres:
+                xgboost = xgb.XGBRegressor(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
+            else:
+                xgboost = xgb.XGBClassifier(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
+            X_train, X_test = df.iloc[train_index, :], df.iloc[test_index, :]
+            y_train, y_test = [y[i] for i in train_index], [y[i] for i in test_index]
+            xgboost.fit(X_train, y_train)
+
+            # Compute important features
+            imp_feat[f, :] = xgboost.feature_importances_ # Importance of each feature
+            f = f + 1
+
+    # Collect and order all important features values from each Random Forest
+    imp_feat_sum = imp_feat.sum(axis=0) / (iter_num * n_fold)
+    results['imp_feat'] = sorted(enumerate(imp_feat_sum), key=lambda x: x[1], reverse=True)
+
+    results.update(store_res)
+    return results
+
+def permutation_XGB(df, labels, regres, obj, iter_num=100, n_estimators=200, cv=None, n_fold=3, random_state=None,
+                   metric = ('accuracy'), **kwargs):
+    """Performs permutation test n times of a dataset for XGBoost models giving its performance (estimated by
+        cross-validation) for the original and all permutations made and respective p-value.
+
+       df: Pandas DataFrame.
+       labels: target labels.
+       iter_num: int (default - 100); number of permutations made.
+       n_estimators: int (default - 200); number of boosting rounds in each XGBoost model.
+       cv: splitter class of sklearn.model_selection (default - None); choose a cross-validation method (and respective args); if
+        None, the default method is stratified cross-validation.
+       n_fold: int (default - 3); number of groups to divide dataset in for k-fold cross-validation (max n_fold = minimum number of
+        samples belonging to one group) if cv is None.
+       random_state: int (default - None); random seed given to make the permutations rng class labels.
+       metric: tuple (default - ('accuracy')); metric to give to scikit-learn cross_validate.
+
+       Returns: (scalar, list of scalars, scalar);
+        estimated predictive accuracy of the non-permuted Random Forest model
+        estimated predictive accuracy of all permuted Random Forest models
+        p-value ((number of permutations with accuracy > original accuracy) + 1)/(number of permutations + 1).
+    """
+
+    # get a bit generator
+    rng = np.random.default_rng(seed=random_state)
+
+    # Setting up variables for result storing
+    Perm = []
+    # List of columns to shuffle and dataframe of the data to put columns in NewC shuffled order
+    NewC = np.arange(df.shape[0])
+    df = df.copy()
+
+    # For dividing the dataset in balanced n_fold groups with a random random state maintained in all permutations (identical splits)
+    if cv is None:
+        cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+
+
+    for _ in range(iter_num + 1):
+        # Number of different permutations + original dataset where Random Forest cross-validation will be made
+        # Temporary dataframe with columns in order of the NewC
+        temp = df.iloc[NewC, :]
+
+        # Random Forest setup and cross-validation
+        if regres:
+            xgboost = xgb.XGBRegressor(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
+        else:
+            xgboost = xgb.XGBClassifier(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
+            labels = OrdinalEncoder().fit_transform(pd.DataFrame(labels))
+
+        rf = skensemble.RandomForestClassifier(n_estimators=n_estimators)
+        cv_res = sklearn.model_selection.cross_validate(xgboost, temp, labels, cv=cv, scoring=metric)
+
+        # Shuffle dataset columns - 1 permutation of the columns (leads to permutation of labels)
+        rng.shuffle(NewC)
+        # Appending K-fold cross-validation predictive accuracy
+        Perm.append(np.mean(cv_res['test_score']))
+
+    # Taking out K-fold cross-validation accuracy for the non-shuffled (labels) dataset and p-value calculation
+    CV = Perm[0] # Non-permuted dataset results - Perm [0]
+    pvalue = (sum(Perm[1:] >= Perm[0]) + 1) / (iter_num + 1)
+
+    return CV, Perm[1:], pvalue
+
+def XGB_ROC_cv(treated_data, target, pos_label, obj, n_estimators=200, n_iter=1, cv=None, n_fold=5, **kwargs):
+    """Fits and extracts Random Forest model data and calculates metrics to plot a ROC curve."""
+    
+    # Run classifier with cross-validation and plot ROC curves
+    tprs = []
+    aucs = []
+    mean_fpr = np.linspace(0, 1, 100)
+    
+    if cv is None:
+        cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+    
+    # Number of times Random Forest cross-validation is made
+    # with `n_fold` randomly generated folds.
+    for itr in range(n_iter):
+        # Fit and evaluate a Random Forest model for each fold in cross validation
+        for train_index, test_index in cv.split(treated_data, target):
+            # Random Forest setup and fit
+            xgboost = xgb.XGBClassifier(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
+            X_train, X_test = treated_data.iloc[train_index, :], treated_data.iloc[test_index, :]
+            y_train, y_test = [target[i] for i in train_index], [target[i] for i in test_index]
+            # Classifier fit
+            xgboost.fit(X_train, y_train)
+
+            # Metrics for ROC curve plotting
+            scores = xgboost.predict_proba(X_test)[:,xgboost.classes_ == pos_label]
+
+            fpr, tpr, _ = roc_curve(y_test, scores, pos_label=pos_label)
+
+            interp_tpr = np.interp(mean_fpr, fpr, tpr)
+            #interp_tpr[0] = 0.0
+            tprs.append(interp_tpr)
+            aucs.append(roc_auc_score(y_test, scores))
+    
+    # Mean of every fold of the cross-validation
+    mean_tpr = np.mean(tprs, axis=0)
+    #mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    std_auc = np.std(aucs)
+
+    std_tpr = np.std(tprs, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+
+    # fpr - false positive rate, tpr - true positive rate, AUC - area under curve
+    return {'average fpr': mean_fpr, 'average tpr': mean_tpr, 
+            'upper tpr': tprs_upper, 'lower trp': tprs_lower,
+            'mean AUC': mean_auc, 'std AUC': std_auc}
+
 
 ### Step 6 Functions
 ### Functions related to perform Univariate Analysis
