@@ -118,6 +118,14 @@ However, in the future, these databases will have corresponding python files tha
 - Changed RAMP ID pathway database to the improved version in HMDB Compound Pathway Assignment section.
 - Updated type of seaborn template for current seaborn versions.
 
+#### V2.4 - XGBoost, Regressions and KEGG colouring (02/02/2024)
+
+- Added regression Random Forest analysis and PLS.
+- Added XGBoost analysis.
+- Added KEGG colour mapping.
+- Small bugfix in index hyperlinks when using Visual Studio Code (did not jump to subsections).
+- Example data in De-duplication section is now skipped if the example dataset is not loaded.
+
 #### In Future Patches:
 
 - Add sMDiN analysis to notebooks.
