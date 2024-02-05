@@ -920,7 +920,7 @@ def compute_df_with_PCs_VE_loadings(df, n_components=5, whiten=True, labels=None
 
 ### These functions are altered versions from the ones available in the multianalysis.py file from the BinSim paper
 
-def RF_model(df, y, regres, return_cv=True, iter_num=1, n_trees=200, cv=None, n_fold=5, 
+def RF_model(df, y, regres=False, return_cv=True, iter_num=1, n_trees=200, cv=None, n_fold=5,
              metrics = ('accuracy', 'f1_weighted', 'precision_weighted', 'recall_weighted'), **kwargs):
     "Fitting RF models and rturning the models and their cross-validation scores."
     results = {}
@@ -975,7 +975,7 @@ def RF_model(df, y, regres, return_cv=True, iter_num=1, n_trees=200, cv=None, n_
     results.update(store_res)
     return results#{'model': fitted_model, 'cv_scores': scores}
 
-def RF_ROC_cv(treated_data, target, regres, pos_label, n_trees=200, n_iter=1, cv=None, n_fold=5):
+def RF_ROC_cv(treated_data, target, pos_label, regres=False, n_trees=200, n_iter=1, cv=None, n_fold=5):
     """Fits and extracts Random Forest model data and calculates metrics to plot a ROC curve."""
     
     # Run classifier with cross-validation and plot ROC curves
@@ -1027,13 +1027,14 @@ def RF_ROC_cv(treated_data, target, regres, pos_label, n_trees=200, n_iter=1, cv
             'mean AUC': mean_auc, 'std AUC': std_auc}
 
 
-def permutation_RF(df, labels, regres, iter_num=100, n_trees=200, cv=None, n_fold=3, random_state=None,
+def permutation_RF(df, labels, regres=False, iter_num=100, n_trees=200, cv=None, n_fold=3, random_state=None,
                    metric = ('accuracy')):
     """Performs permutation test n times of a dataset for Random Forest classifiers giving its performance (estimated by
         cross-validation) for the original and all permutations made and respective p-value.
 
        df: Pandas DataFrame.
        labels: target labels.
+       regres: bool (default: False); True when the biological problem is a regression and False when it is a classification.
        iter_num: int (default - 100); number of permutations made.
        n_trees: int (default - 200); number of trees in each Random Forest.
        cv: splitter class of sklearn.model_selection (default - None); choose a cross-validation method (and respective args); if
@@ -1087,11 +1088,12 @@ def permutation_RF(df, labels, regres, iter_num=100, n_trees=200, cv=None, n_fol
     return CV, Perm[1:], pvalue
 
 
-def optim_PLSDA_n_components(df, labels, regres, encode2as1vector=True, max_comp=15, min_comp=1, kf=None, n_fold=5, scale=False):
+def optim_PLSDA_n_components(df, labels, regres=False, encode2as1vector=True, max_comp=15, min_comp=1, kf=None, n_fold=5, scale=False):
     """Searches for an optimum number of components to use in PLS-DA.
 
        df: DataFrame; X equivalent in PLS-DA (training vectors).
        labels: labels to target
+       regres: bool (default: False); True when the biological problem is a regression and False when it is a classification.
        encode2as1vector: bool (default: True); when you have two classes encode them in a vector.
        max_comp: integer (default: 15); upper limit for the number of components used.
        min_comp: integer (default: 1); lower limit for the number of components used.
@@ -1155,7 +1157,7 @@ def optim_PLSDA_n_components(df, labels, regres, encode2as1vector=True, max_comp
     return {'CVscores':CVs, 'CVR2scores':CVr2s}
 
 
-def PLSDA_model_CV(df, labels, regres, n_comp=10,
+def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
                    kf = None, n_fold=5,
                    iter_num=1,
                    encode2as1vector=True,
@@ -1166,6 +1168,7 @@ def PLSDA_model_CV(df, labels, regres, n_comp=10,
 
        df: pandas DataFrame; includes X equivalent in PLS-DA (training vectors).
        labels: target labels.
+       regres: bool (default: False); True when the biological problem is a regression and False when it is a classification.
        n_comp: integer; number of components to use in PLS-DA.
        kf: default None; pass a specific cross validation method from 
         https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators (3.1.2).
@@ -1564,7 +1567,7 @@ def permutation_PLSDA(df, labels, n_comp=10, iter_num=100, cv=None, n_fold=5, ra
 
     return CV, performance[1:], pvalue
 
-def optimise_xgb_parameters(data, y, regres, obj, params, **kwargs):
+def optimise_xgb_parameters(data, y, params, regres=False, obj="multi:softprob", **kwargs):
     if regres:
         xgbo = xgb.XGBRegressor(objective=obj, **kwargs)
     else:
@@ -1575,7 +1578,7 @@ def optimise_xgb_parameters(data, y, regres, obj, params, **kwargs):
 
     return model
 
-def XGB_model(df, y, regres, obj, return_cv=True, iter_num=1, n_estimators=200, cv=None, n_fold=5, 
+def XGB_model(df, y, regres=False, obj="multi:softprob", return_cv=True, iter_num=1, n_estimators=200, cv=None, n_fold=5,
              metrics = ('accuracy', 'f1_weighted', 'precision_weighted', 'recall_weighted'), **kwargs):
     "Fitting XGBoost models and rturning the models and their cross-validation scores."
     results = {}
@@ -1633,21 +1636,23 @@ def XGB_model(df, y, regres, obj, return_cv=True, iter_num=1, n_estimators=200, 
     results.update(store_res)
     return results
 
-def permutation_XGB(df, labels, regres, obj, iter_num=100, n_estimators=200, cv=None, n_fold=3, random_state=None,
+def permutation_XGB(df, labels, regres=False, obj="multi:softprob", iter_num=100, n_estimators=200, cv=None, n_fold=3, random_state=None,
                    metric = ('accuracy'), **kwargs):
     """Performs permutation test n times of a dataset for XGBoost models giving its performance (estimated by
         cross-validation) for the original and all permutations made and respective p-value.
 
        df: Pandas DataFrame.
        labels: target labels.
-       iter_num: int (default - 100); number of permutations made.
-       n_estimators: int (default - 200); number of boosting rounds in each XGBoost model.
-       cv: splitter class of sklearn.model_selection (default - None); choose a cross-validation method (and respective args); if
+       regres: bool (default: False); True when the biological problem is a regression and False when it is a classification.
+       obj: str (default: 'multi:softprob'); objective function of the XGBoost model.
+       iter_num: int (default: 100); number of permutations made.
+       n_estimators: int (default: 200); number of boosting rounds in each XGBoost model.
+       cv: splitter class of sklearn.model_selection (default: None); choose a cross-validation method (and respective args); if
         None, the default method is stratified cross-validation.
-       n_fold: int (default - 3); number of groups to divide dataset in for k-fold cross-validation (max n_fold = minimum number of
+       n_fold: int (default: 3); number of groups to divide dataset in for k-fold cross-validation (max n_fold = minimum number of
         samples belonging to one group) if cv is None.
-       random_state: int (default - None); random seed given to make the permutations rng class labels.
-       metric: tuple (default - ('accuracy')); metric to give to scikit-learn cross_validate.
+       random_state: int (default: None); random seed given to make the permutations rng class labels.
+       metric: tuple (default: ('accuracy')); metric to give to scikit-learn cross_validate.
 
        Returns: (scalar, list of scalars, scalar);
         estimated predictive accuracy of the non-permuted Random Forest model

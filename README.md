@@ -11,11 +11,12 @@ Repository for the metabolomics data analysis pipeline. This pipeline includes b
 
 - Most packages needed are automatically installed when you install Anaconda (see tutorial here https://docs.anaconda.com/anaconda/install/index.html).
 
-**Metabolinks and UpSetPlot**
+**Metabolinks, UpSetPlot and xgboost**
 
 - Open 'Command Line' or 'Linha de comandos' on your pc.
 - Run the line 'pip install metabolinks'.
 - Run the line 'pip install UpSetPlot'.
+- Run the line 'conda install -c conda-forge py-xgboost'.
 - Restart jupyter.
 
 **pyvenn**
@@ -129,10 +130,9 @@ However, in the future, these databases will have corresponding python files tha
 #### In Future Patches:
 
 - Add sMDiN analysis to notebooks.
-- Add XGBoost analysis.
-- Add customization of fonts in figures.
 - Grant possiblity of extracting more dataframes.
-- (Long term) provide graphical user interface as notebook alternative.
+- Add Formula Assignment to software.
+- Add Kruskal-Wallis and ANOVA analysis to Univariate Analysis section.
 
 
 # Graphical Interface Version Patch Notes
