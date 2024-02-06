@@ -29,6 +29,7 @@ import multianalysis as ma
 pn.extension('plotly', 'floatpanel', 'katex', notifications=True)
 hv.extension('plotly')
 pn.config.sizing_mode="stretch_width"
+mpl.use('agg')
 
 # To allow the interaction of different packages
 pd.DataFrame.iteritems = pd.DataFrame.items
@@ -2221,8 +2222,8 @@ class ComExc_Storage(param.Parameterized):
                                     description='Set the resolution of Intersection Plots'),
         }
         self.class_subset = []
-        self.venn_class_subset = target_list.classes
-        self.inter_class_subset = target_list.classes
+        #self.venn_class_subset = target_list.classes
+        #self.inter_class_subset = target_list.classes
 
         # Control panel for the overview section, for the Venn diagram section and for the Intersection plot section
         return (pn.Param(self, parameters=['class_subset', 'df_type', 'annot'], widgets=widgets, name='Subset of Data to See'),
@@ -2331,13 +2332,15 @@ def _compute_ComExc_button(event):
         end_page_comexc.pop(1)
 
     if 'Venn Diagram' in checkbox_com_exc.value:
+        com_exc_compounds.venn_class_subset = target_list.classes
         end_page_comexc.append(('Venn Diagram', venn_page))
     if 'Intersection Plot' in checkbox_com_exc.value:
+        com_exc_compounds.inter_class_subset = target_list.classes
         end_page_comexc.append(('Intersection Plot', interplot_page))
 
     com_exc_compounds._update_specific_cl_df() # Update the DataFrame shown in the overview tab
-    com_exc_compounds.venn_class_subset = com_exc_compounds.venn_controls[1].value # Updating starting subset value for Venn diagram
-    com_exc_compounds.inter_class_subset = com_exc_compounds.interplot_controls[0][1].value # Updating starting subset value for Intersection Plots
+    #com_exc_compounds.venn_class_subset = com_exc_compounds.venn_controls[1].value # Updating starting subset value for Venn diagram
+    #com_exc_compounds.inter_class_subset = com_exc_compounds.interplot_controls[0][1].value # Updating starting subset value for Intersection Plots
 
 
 # Action when pressing the button
@@ -2484,7 +2487,6 @@ comexc_page = pn.Column(initial_page_comexc, end_page_comexc)
 # Param Class to store parameters and data regarding PCA
 class PCA_Storage(param.Parameterized):
     "Class use to store PCA and PCA related plots parameters, dataframes and figures."
-    # Update the keyword slider based on methodology chosen
 
     # Components to compute PCA
     n_components = param.Number(default=10)
@@ -2515,6 +2517,10 @@ class PCA_Storage(param.Parameterized):
     exp_var_fig_plot = param.List(default=['a'])
     scatter_PCA_plot = param.List(default=['a'])
 
+    # BinSim Flag
+    binsim_flag = param.Boolean(default=False)
+    current_pages_associated = param.List(default=[])
+
     # Update the PCA plot
     @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size', watch=True)
     def _update_PCA_plot(self):
@@ -2526,7 +2532,74 @@ class PCA_Storage(param.Parameterized):
                 filename_string = filename_string + f'_ellipse({self.confidence*100}%confidence)'
             else:
                 filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
-        middle_page_PCA[0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
+        if self.binsim_flag:
+            filename_string = filename_string + f'_BinSim'
+        self.current_pages_associated[0][0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
+
+
+    # Function to see if Z-axis can be edited (3D) or not (2D)
+    @param.depends('n_dimensions', watch=True)
+    def _update_PCz_disabled(self):
+        "Controls PCz widget in PCA plots."
+        if self.n_dimensions == '2 Components':
+            self.controls.widgets['PCz'].disabled = True
+        elif self.n_dimensions == '3 Components':
+            self.controls.widgets['PCz'].disabled = False
+
+
+    # Function updating the possible components to choose based on number of components of the PCA and updating the explained variance plot
+    @param.depends('n_components', watch=True)
+    def _update_PC_options(self):
+        "Controlling options and plots based on the number of components PCA was computed with."
+        # Controlling widget options for components to show in the projection plot
+        self.controls.widgets['PCx'].options = ['PC '+str(i+1) for i in range(self.n_components)]
+        self.controls.widgets['PCy'].options = ['PC '+str(i+1) for i in range(self.n_components)]
+        self.controls.widgets['PCz'].options = ['PC '+str(i+1) for i in range(self.n_components)]
+
+        # Updating the explained variance figure with the number of components PCA was computed
+        self.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(self)
+        filename_string = 'PCA_exp_var_plot'
+        if self.binsim_flag:
+            filename_string = filename_string + f'_BinSim'
+        self.current_pages_associated[1][0] = pn.pane.Plotly(self.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
+
+        # Control the many PCA scatter plots to include less than 6 components if PCA was computed with less than 6 components
+        if len(self.scatter_PCA_plot[0].data[0]['dimensions']) < 6:
+            self.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(self, target_list)
+            filename_string = 'PCA_scatter_plot'
+            if self.binsim_flag:
+                filename_string = filename_string + f'_BinSim'
+            self.current_pages_associated[1][1] = pn.pane.Plotly(self.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
+        else:
+            if self.n_components < 6:
+                self.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(self, target_list)
+                filename_string = 'PCA_scatter_plot'
+                if self.binsim_flag:
+                    filename_string = filename_string + f'_BinSim'
+                self.current_pages_associated[1][1] = pn.pane.Plotly(self.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
+
+
+    # Function enabling/disabling the confidence level parameters for ellipses
+    @param.depends('ellipse_draw', watch=True)
+    def _update_ellipse_options(self):
+        "Controls ellipse widgets based on if they are drawn or not."
+        if self.ellipse_draw:
+            self.controls.widgets['confidence'].disabled = False
+            if self.confidence == 0:
+                self.controls.widgets['confidence_std'].disabled = False
+        else:
+            self.controls.widgets['confidence'].disabled = True
+            self.controls.widgets['confidence_std'].disabled = True
+
+
+    # Function enabling/disabling the confidence level based on std parameter for ellipses
+    @param.depends('confidence', watch=True)
+    def _update_ellipse_std_options(self):
+        "Controls ellipse based on std. confidence widget based on the usual confidence widget."
+        if self.confidence == 0:
+            self.controls.widgets['confidence_std'].disabled = False
+        else:
+            self.controls.widgets['confidence_std'].disabled = True
 
 
     def reset(self):
@@ -2583,7 +2656,11 @@ n_components_compute = pn.widgets.IntInput(name='Number of Components to Compute
 # When pressing the button, runs again the PCA with the designated number of components
 def _compute_PCA_button(event):
     "Computes PCA."
-    principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(DataFrame_Store.treated_df,
+    if PCA_params.binsim_flag:
+        df = DataFrame_Store.binsim_df
+    else:
+        df = DataFrame_Store.treated_df
+    principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(df,
                                        n_components=n_components_compute.value,
                                        whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
     PCA_params.pca_scores = principaldf
@@ -2594,63 +2671,6 @@ def _compute_PCA_button(event):
 
 compute_PCA_button.on_click(_compute_PCA_button)
 
-
-# Function to see if Z-axis can be edited (3D) or not (2D)
-@pn.depends(PCA_params.controls.widgets['n_dimensions'].param.value, watch=True)
-def _update_PCz_disabled(dimensions):
-    "Controls PCz widget in PCA plots."
-    if dimensions == '2 Components':
-        PCA_params.controls.widgets['PCz'].disabled = True
-    elif dimensions == '3 Components':
-        PCA_params.controls.widgets['PCz'].disabled = False
-
-
-# Function updating the possible components to choose based on number of components of the PCA and updating the explained variance plot
-@pn.depends(PCA_params.controls.widgets['n_components'].param.value, watch=True)
-def _update_PC_options(components):
-    "Controlling options and plots based on the number of components PCA was computed with."
-    # Controlling widget options for components to show in the projection plot
-    PCA_params.controls.widgets['PCx'].options = ['PC '+str(i+1) for i in range(components)]
-    PCA_params.controls.widgets['PCy'].options = ['PC '+str(i+1) for i in range(components)]
-    PCA_params.controls.widgets['PCz'].options = ['PC '+str(i+1) for i in range(components)]
-
-    # Updating the explained variance figure with thee number of components PCA was computed
-    PCA_params.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(PCA_params)
-    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot', 'scale':4,}})
-
-    # Control the many PCA scatter plots to include less than 6 components if PCA was computed with less than 6 components
-    if len(PCA_params.scatter_PCA_plot[0].data[0]['dimensions']) < 6:
-        PCA_params.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params, target_list)
-        end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
-    else:
-        if components < 6:
-            PCA_params.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params, target_list)
-            end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
-
-
-# Function enabling/disabling the confidence level parameters for ellipses
-@pn.depends(PCA_params.controls.widgets['ellipse_draw'].param.value,
-            watch=True)
-def _update_ellipse_options(ellipse):
-    "Controls ellipse widgets based on if they are drawn or not."
-    if ellipse:
-        PCA_params.controls.widgets['confidence'].disabled = False
-        if PCA_params.controls.widgets['confidence'].value == 0:
-            PCA_params.controls.widgets['confidence_std'].disabled = False
-    else:
-        PCA_params.controls.widgets['confidence'].disabled = True
-        PCA_params.controls.widgets['confidence_std'].disabled = True
-
-
-# Function enabling/disabling the confidence level based on std parameter for ellipses
-@pn.depends(PCA_params.controls.widgets['confidence'].param.value,
-            watch=True)
-def _update_ellipse_std_options(confidence):
-    "Controls ellipse based on std. confidence widget based on the usual confidence widget."
-    if confidence == 0:
-        PCA_params.controls.widgets['confidence_std'].disabled = False
-    else:
-        PCA_params.controls.widgets['confidence_std'].disabled = True
 
 
 # First section of the page
@@ -2665,6 +2685,12 @@ middle_page_PCA[0,1:3] = 'To plot a PCA'
 
 # Final section of the page
 end_page_PCA = pn.Column('To plot explained variance figure', 'To plot matrices of PCA projections')
+
+# Page sections that will change based on HCA_params
+PCA_params.current_pages_associated.append(middle_page_PCA)
+PCA_params.current_pages_associated.append(end_page_PCA)
+
+
 page_PCA = pn.Column(initial_page_PCA, middle_page_PCA, end_page_PCA)
 
 
@@ -2694,17 +2720,24 @@ class HCA_Storage(param.Parameterized):
     # Storing figure
     HCA_plot = param.List(default=['Pane to Plot a HCA Dendrogram'])
 
+    # BinSim Flag
+    binsim_flag = param.Boolean(default=False)
+    current_pages_associated = param.List(default=[])
+
 
     # Update the HCA plot
     @param.depends('dist_metric', 'link_metric', watch=True)
     def _update_HCA_compute_plot(self):
         "Computes and updates HCA based on distance and linkage metrics."
         # Recompute Distance and Linkage matrices
-        self.dists = dist.pdist(DataFrame_Store.treated_df, metric=self.dist_metric)
+        if self.binsim_flag:
+            self.dists = dist.pdist(DataFrame_Store.binsim_df, metric=self.dist_metric)
+        else:
+            self.dists = dist.pdist(DataFrame_Store.treated_df, metric=self.dist_metric)
         self.Z = hier.linkage(self.dists, method=self.link_metric)
         # Plot the new HCA
         self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
-        page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+        self.current_pages_associated[0][0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
 
 
     @param.depends('fig_text', 'fig_x', 'fig_y', 'col_threshold', 'dpi', watch=True)
@@ -2712,7 +2745,7 @@ class HCA_Storage(param.Parameterized):
         "Updates HCA plot based on figure parameters."
         if type(self.Z) == np.ndarray:
             self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
-            page_HCA[0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+            self.current_pages_associated[0][0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
 
 
     def reset(self):
@@ -2743,7 +2776,7 @@ class HCA_Storage(param.Parameterized):
                                     description='X axis length for HCA plot.'),
             'fig_y': pn.widgets.IntInput(name="Y-axis", value=4, step=1, start=1, end=20, disabled=False,
                                     description='Y axis length for HCA plot.'),
-            'col_threshold': pn.widgets.IntInput(name="Color Threshold",
+            'col_threshold': pn.widgets.FloatInput(name="Color Threshold",
                                     value=0, step=1, start=0, disabled=False,
                                     description='''Select a distance threshold from where clusters are coloured.
                                     E.g. 70 would colour the branches that split under a distance of 70 in the same colour.'''),
@@ -2776,6 +2809,9 @@ page_HCA[0:5,0] = HCA_params.controls
 page_HCA[0:6,1:4] = HCA_params.HCA_plot[0]
 page_HCA[5,0] = save_HCA_plot_button
 
+# Page sections that will change based on HCA_params
+HCA_params.current_pages_associated.append(page_HCA)
+
 # Page with PCA and HCA analysis
 unsup_analysis_page = pn.Tabs(('PCA', page_PCA), ('HCA', page_HCA))
 
@@ -2791,6 +2827,10 @@ plsda_opening_string = desc_str.plsda_opening_string
 # Param Class to store parameters and data regarding PLS-DA
 class PLSDA_Storage(param.Parameterized):
     "Class to store PLS-DA models, parameters and results."
+
+    # PLS-DA flag and dataset to treat
+    binsim_flag = param.Boolean(default=False)
+    current_pages_associated = param.List()
 
     # PLS-DA Optimization
     n_min_max_components = param.Range(default=(2,20))
@@ -2883,14 +2923,20 @@ class PLSDA_Storage(param.Parameterized):
         "Performs optimization, plots the optimization figure and updated corresponding layout."
 
         # Loading Widget while the PLS-DA optimization is being performed
-        pls_optim_section[1] = pn.indicators.LoadingSpinner(value=True, size=90,
+        self.current_pages_associated[0][1] = pn.indicators.LoadingSpinner(value=True, size=90,
                                                             name='Performing Optimization of PLS-DA Components...')
 
         # Round to integer the values in the range
         self.n_min_max_components = int(np.round(self.n_min_max_components[0])), int(np.round(self.n_min_max_components[1]))
 
+        # See what dataset to use
+        if self.binsim_flag:
+            plsda_df = DataFrame_Store.binsim_df
+        else:
+            plsda_df = DataFrame_Store.treated_df
+
         # Performs optimization
-        PLS_optim = metsta.optim_PLSDA_n_components(DataFrame_Store.treated_df, target_list.target, # Data and target
+        PLS_optim = metsta.optim_PLSDA_n_components(plsda_df, target_list.target, # Data and target
                                 encode2as1vector=True,
                                 max_comp=self.n_min_max_components[1], # Max. number of components to search
                                 min_comp=self.n_min_max_components[0], # Min. number of components to search
@@ -2919,9 +2965,11 @@ class PLSDA_Storage(param.Parameterized):
         # Update the layout
         filename_string = f'PLS_optim_plot_{self.n_min_max_components[0]}to{self.n_min_max_components[1]}components_'
         filename_string = filename_string + f'{self.n_fold}-foldstratCV_scale{self.scale}'
-        pls_optim_section[1] = pn.pane.Plotly(self.optim_figure[0],
+        if self.binsim_flag:
+            filename_string = filename_string + '_BinSim'
+        self.current_pages_associated[0][1] = pn.pane.Plotly(self.optim_figure[0],
                                               config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
-        pls_optim_section[0][1].value = self.rec_components
+        self.current_pages_associated[0][0][1].value = self.rec_components
 
 
     # Function to fit the PLS-DA model and obtain results
@@ -2929,7 +2977,7 @@ class PLSDA_Storage(param.Parameterized):
         "Fits a PLS-DA model, gives model performance estimations and feature importance lists, updating the layout."
 
         # Loading Widget while the PLS-DA model is being fitted and assessed
-        pls_results_section[0][1][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+        self.current_pages_associated[1][0][1][1] = pn.indicators.LoadingSpinner(value=True, size=90,
                                                             name='Fitting and Assessing PLS-DA model...')
 
         # Sees what type of feature importance metric will be used
@@ -2940,8 +2988,14 @@ class PLSDA_Storage(param.Parameterized):
         else:
             feat_type = 'Weights'
 
+        # See what dataset to use
+        if self.binsim_flag:
+            plsda_df = DataFrame_Store.binsim_df
+        else:
+            plsda_df = DataFrame_Store.treated_df
+
         # Fits a PLS-DA model under a stratified cross validation scheme
-        PLSDA_results = metsta.PLSDA_model_CV(DataFrame_Store.treated_df, target_list.target, # Data and target
+        PLSDA_results = metsta.PLSDA_model_CV(plsda_df, target_list.target, # Data and target
                        n_comp=self.n_components, # Number of components of PLS-DA model - very important
                        kf = None, n_fold=self.n_fold, # Nº of folds
                        iter_num=self.n_iterations, # Number of iterations of cross-validation to do
@@ -2975,15 +3029,15 @@ class PLSDA_Storage(param.Parameterized):
                                      'feat_imp': self.imp_feature_metric}
 
         # Update the layout
-        pls_results_section[0][1][1] = pn.pane.DataFrame(self.n_results)
-        pls_results_section[3] = pn.pane.DataFrame(self.feat_impor, height=600)
-        plsda_feat_imp_show_annots_only.value = False
-        plsda_feat_imp_show_annots_only.disabled = False
-        save_plsda_feat_imp_button.disabled = False
+        self.current_pages_associated[1][0][1][1] = pn.pane.DataFrame(self.n_results)
+        self.current_pages_associated[1][3] = pn.pane.DataFrame(self.feat_impor, height=600)
+        self.current_pages_associated[3].value = False
+        self.current_pages_associated[3].disabled = False
+        self.current_pages_associated[4].disabled = False
 
         # Fit a PLS-DA model with all samples and store model and x_scores
         self.models[0], self.x_scores = ma.fit_PLSDA_model(
-            DataFrame_Store.treated_df, target_list.target, # Data and target
+            plsda_df, target_list.target, # Data and target
             n_comp=self.n_components, return_scores=True,
             scale=self.scale,
             encode2as1vector=True, lv_prefix='LV ', label_name='Label')
@@ -2997,21 +3051,23 @@ class PLSDA_Storage(param.Parameterized):
                     filename_string = filename_string + f'_ellipse({self.confidence*100}%confidence)'
                 else:
                     filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
+        if self.binsim_flag:
+            filename_string = filename_string + '_BinSim'
 
         self.PLS_plot[0] = iaf._plot_PLS(self, target_list)
-        pls_proj_page[0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
+        self.current_pages_associated[2][0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
-        if len(pls_results_section) == 5:
-            pls_results_section.append('### PLS Projection Section')
-            pls_results_section.append(pls_proj_page)
-            pls_results_section.append('### PLS-DA Permutation Test Section')
-            pls_results_section.append(pn.Column(pn.pane.HTML(permutation_test_description),
+        if len(self.current_pages_associated[1]) == 5:
+            self.current_pages_associated[1].append('### PLS Projection Section')
+            self.current_pages_associated[1].append(pls_proj_page)
+            self.current_pages_associated[1].append('### PLS-DA Permutation Test Section')
+            self.current_pages_associated[1].append(pn.Column(pn.pane.HTML(permutation_test_description),
                                                 pn.pane.LaTeX(pvalue_equation_string, styles={'font-size': '14pt'})))
-            pls_results_section.append(pn.Row(self.controls_permutation,
+            self.current_pages_associated[1].append(pn.Row(self.controls_permutation,
                                         self.perm_figure[0]))
-            pls_results_section.append('### PLS-DA Receiver Operating Characteristic (ROC) Curve Section')
-            pls_results_section.append(pn.pane.HTML(ROC_curve_description))
-            pls_results_section.append(pn.Row(self.controls_roc, self.ROC_figure[0]))
+            self.current_pages_associated[1].append('### PLS-DA Receiver Operating Characteristic (ROC) Curve Section')
+            self.current_pages_associated[1].append(pn.pane.HTML(ROC_curve_description))
+            self.current_pages_associated[1].append(pn.Row(self.controls_roc, self.ROC_figure[0]))
 
 
     # Update the PLS Projection plot
@@ -3026,9 +3082,54 @@ class PLSDA_Storage(param.Parameterized):
                     filename_string = filename_string + f'_ellipse({self.confidence*100}%confidence)'
                 else:
                     filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
+        if self.binsim_flag:
+            filename_string = filename_string + '_BinSim'
 
         self.PLS_plot[0] = iaf._plot_PLS(self, target_list)
-        pls_proj_page[0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
+        self.current_pages_associated[2][0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
+
+
+    # Set of Functions controlling parameters for PLS Projection
+    # Function to see if Z-axis can be edited (3D) or not (2D)
+    @param.depends('n_dimensions', watch=True)
+    def _update_LVz_disabled(self):
+        "Controls LVz widget in PLS plots."
+        if self.n_dimensions == '2 Components':
+            self.controls_projection.widgets['LVz'].disabled = True
+        elif self.n_dimensions == '3 Components':
+            self.controls_projection.widgets['LVz'].disabled = False
+
+
+    # Function updating the possible Latent variables to choose based on number of LVs of the PLS-DA
+    @param.depends('n_components', watch=True)
+    def _update_LV_options(self):
+        "Updates LV options to choose."
+        self.controls_projection.widgets['LVx'].options = ['LV '+str(i+1) for i in range(self.n_components)]
+        self.controls_projection.widgets['LVy'].options = ['LV '+str(i+1) for i in range(self.n_components)]
+        self.controls_projection.widgets['LVz'].options = ['LV '+str(i+1) for i in range(self.n_components)]
+
+
+    # Function enabling/disabling the confidence level parameters for ellipses
+    @param.depends('ellipse_draw', watch=True)
+    def _update_plsda_ellipse_options(self):
+        "Controls ellipse widgets based on if they are drawn or not."
+        if self.ellipse_draw:
+            self.controls_projection.widgets['confidence'].disabled = False
+            if self.confidence == 0:
+                self.controls_projection.widgets['confidence_std'].disabled = False
+        else:
+            self.controls_projection.widgets['confidence'].disabled = True
+            self.controls_projection.widgets['confidence_std'].disabled = True
+
+
+    # Function enabling/disabling the confidence level based on std parameter for ellipses
+    @param.depends('confidence', watch=True)
+    def _update_plsda_ellipse_std_options(self):
+        "Controls ellipse based on std. confidence widget based on the usual confidence widget."
+        if self.confidence == 0:
+            self.controls_projection.widgets['confidence_std'].disabled = False
+        else:
+            self.controls_projection.widgets['confidence_std'].disabled = True
 
 
     # Function to confirm the permutation test to perform
@@ -3036,7 +3137,7 @@ class PLSDA_Storage(param.Parameterized):
         "Performs a permutation test for the PLS-DA model and updates the layout."
 
         # Loading Widget while the Permutation Test is being performed
-        pls_results_section[9][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+        self.current_pages_associated[1][9][1] = pn.indicators.LoadingSpinner(value=True, size=90,
                                                             name='Performing Permutation Test... (It can take a while)')
 
         # Sees what type of feature importance metric will be used
@@ -3049,9 +3150,15 @@ class PLSDA_Storage(param.Parameterized):
         else:
             perm_metric = 'recall_weighted'
 
+        # See what dataset to use
+        if self.binsim_flag:
+            plsda_df = DataFrame_Store.binsim_df
+        else:
+            plsda_df = DataFrame_Store.treated_df
+
         # Performs the Permutation Test on the PLS-DA model under a stratified cross validation scheme
         perm_results_PLSDA = metsta.permutation_PLSDA(
-            DataFrame_Store.treated_df, target_list.target, # Data and target
+            plsda_df, target_list.target, # Data and target
             n_comp=self.n_components, # Number of components
             iter_num=self.n_perm, # Nº of permutations to do in your test - around 500 should be enough
             cv=None, n_fold=self.n_fold, # Choose the number of folds
@@ -3065,12 +3172,12 @@ class PLSDA_Storage(param.Parameterized):
                                      'perm_metric': self.perm_metric}
 
         # Plot the permutation test
-        perm_figure = iaf._plot_permutation_test(perm_results_PLSDA, DataFrame_Store, self.n_fold,
+        perm_figure = iaf._plot_permutation_test(perm_results_PLSDA, plsda_df, self.n_fold,
                                                      self.perm_metric, 'PLS-DA Permutation Test')
         self.perm_figure =[perm_figure,]
 
         # Update the layout
-        pls_results_section[9][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
+        self.current_pages_associated[1][9][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
         self.controls_permutation.widgets['save_figure_button_permutation'].disabled = False
 
 
@@ -3079,18 +3186,26 @@ class PLSDA_Storage(param.Parameterized):
         "Plots a ROC Curve to assess PLS-DA model performance and updates the layout."
 
         # Loading Widget while the ROC Curves are being computed
-        pls_results_section[12][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+        self.current_pages_associated[1][12][1] = pn.indicators.LoadingSpinner(value=True, size=90,
                                                             name='Computing Receiver Operating Characteristic Curves...')
 
+        # See what dataset to use
+        if self.binsim_flag:
+            plsda_df = DataFrame_Store.binsim_df
+        else:
+            plsda_df = DataFrame_Store.treated_df
+
         # Computes the ROC Curve (whether you have 2 or more classes) and returns the plots and corresponding filenames
-        roc_fig, filename = iaf._plot_PLSDA_ROC_curve(self, DataFrame_Store.treated_df, target_list)
+        roc_fig, filename = iaf._plot_PLSDA_ROC_curve(self, plsda_df, target_list)
+        if self.binsim_flag:
+            filename = filename + '_BinSim'
         self.ROC_figure = [roc_fig,]
 
         # Saving filename
         self.current_other_plsda_params.update({'ROC_filename':filename})
 
         # Update the layouts
-        pls_results_section[12][1] = pn.pane.Plotly(self.ROC_figure[0],
+        self.current_pages_associated[1][12][1] = pn.pane.Plotly(self.ROC_figure[0],
                                                 config={'toImageButtonOptions': {'filename': filename, 'scale':4}})
 
 
@@ -3101,6 +3216,7 @@ class PLSDA_Storage(param.Parameterized):
                 setattr(self, param, self.param[param].default)
         self.current_other_plsda_params.clear()
         self.current_other_plsda_params = {}
+
 
     def complete_soft_reset(self):
         "Resets figure parameters."
@@ -3247,6 +3363,8 @@ def _save_figure_button_permutation_PLSDA(event):
     filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["n_folds"]}-foldstratCV_scale'
     filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["scale"]}_metric'
     filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["perm_metric"]}'
+    if PLSDA_store.binsim_flag:
+        filename_string = filename_string + '_BinSim'
     PLSDA_store.perm_figure[0].savefig(filename_string+'.png', dpi=PLSDA_store.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 # Click button to save the aforementioned figure
@@ -3295,7 +3413,10 @@ def _save_plsda_feat_imp_button(event):
         # Building the datafile name
         filename_string = f'PLS-DA_FeatImp_{plsda_params["feat_imp"]}_model_params_components{plsda_params["n_components"]}'
         filename_string = filename_string + f'_{plsda_params["n_folds"]}-foldstratCV_iterations{plsda_params["n_iterations"]}'
-        filename_string = filename_string + f'_scale{plsda_params["scale"]}.xlsx'
+        filename_string = filename_string + f'_scale{plsda_params["scale"]}'
+        if PLSDA_store.binsim_flag:
+            filename_string = filename_string + '_BinSim'
+        filename_string = filename_string + f'.xlsx'
 
         # Saving the file
         PLSDA_store.feat_impor.to_excel(filename_string)
@@ -3305,50 +3426,6 @@ def _save_plsda_feat_imp_button(event):
 
 save_plsda_feat_imp_button.on_click(_save_plsda_feat_imp_button)
 
-
-# Set of Functions controlling parameters for PLS Projection
-# Function to see if Z-axis can be edited (3D) or not (2D)
-@pn.depends(PLSDA_store.controls_projection.widgets['n_dimensions'].param.value, watch=True)
-def _update_LVz_disabled(dimensions):
-    "Controls LVz widget in PLS plots."
-    if dimensions == '2 Components':
-        PLSDA_store.controls_projection.widgets['LVz'].disabled = True
-    elif dimensions == '3 Components':
-        PLSDA_store.controls_projection.widgets['LVz'].disabled = False
-
-
-# Function updating the possible Latent variables to choose based on number of LVs of the PLS-DA
-@pn.depends(PLSDA_store.controls_projection.widgets['n_components'].param.value, watch=True)
-def _update_LV_options(components):
-    "Updates LV options to choose."
-    PLSDA_store.controls_projection.widgets['LVx'].options = ['LV '+str(i+1) for i in range(components)]
-    PLSDA_store.controls_projection.widgets['LVy'].options = ['LV '+str(i+1) for i in range(components)]
-    PLSDA_store.controls_projection.widgets['LVz'].options = ['LV '+str(i+1) for i in range(components)]
-
-
-# Function enabling/disabling the confidence level parameters for ellipses
-@pn.depends(PLSDA_store.controls_projection.widgets['ellipse_draw'].param.value,
-            watch=True)
-def _update_plsda_ellipse_options(ellipse):
-    "Controls ellipse widgets based on if they are drawn or not."
-    if ellipse:
-        PLSDA_store.controls_projection.widgets['confidence'].disabled = False
-        if PLSDA_store.controls_projection.widgets['confidence'].value == 0:
-            PLSDA_store.controls_projection.widgets['confidence_std'].disabled = False
-    else:
-        PLSDA_store.controls_projection.widgets['confidence'].disabled = True
-        PLSDA_store.controls_projection.widgets['confidence_std'].disabled = True
-
-
-# Function enabling/disabling the confidence level based on std parameter for ellipses
-@pn.depends(PLSDA_store.controls_projection.widgets['confidence'].param.value,
-            watch=True)
-def _update_plsda_ellipse_std_options(confidence):
-    "Controls ellipse based on std. confidence widget based on the usual confidence widget."
-    if confidence == 0:
-        PLSDA_store.controls_projection.widgets['confidence_std'].disabled = False
-    else:
-        PLSDA_store.controls_projection.widgets['confidence_std'].disabled = True
 
 
 # Permutation Test associated widgets
@@ -3375,6 +3452,13 @@ pls_results_section = pn.Column(pn.Row(PLSDA_store.controls,
                                pn.pane.DataFrame(PLSDA_store.feat_impor),
                                save_plsda_feat_imp_button,)
 
+# Page sections / Widgets that will change based on PLSDA_store
+PLSDA_store.current_pages_associated.append(pls_optim_section)
+PLSDA_store.current_pages_associated.append(pls_results_section)
+PLSDA_store.current_pages_associated.append(pls_proj_page)
+PLSDA_store.current_pages_associated.append(plsda_feat_imp_show_annots_only)
+PLSDA_store.current_pages_associated.append(save_plsda_feat_imp_button)
+
 # Layout of the PLS-DA page
 page_PLSDA = pn.Column(pn.pane.HTML(plsda_opening_string), pls_optim_section, pls_results_section)
 
@@ -3387,6 +3471,10 @@ rf_opening_string = desc_str.rf_opening_string
 # Param Class to store parameters and data regarding Random Forests
 class RF_Storage(param.Parameterized):
     "Class to store Random Forest models, parameters and results."
+
+    # PLS-DA flag and dataset to treat
+    binsim_flag = param.Boolean(default=False)
+    current_pages_associated = param.List()
 
     # RF Optimization
     n_min_max_trees = param.Range(default=(20,300))
@@ -3460,14 +3548,20 @@ class RF_Storage(param.Parameterized):
         "Performs optimization, plots the optimization figure and updated corresponding layout."
 
         # Loading Widget while the Random Forst optimization is being performed
-        rf_optim_section[1] = pn.indicators.LoadingSpinner(value=True, size=90,
+        self.current_pages_associated[0][1] = pn.indicators.LoadingSpinner(value=True, size=90,
                                                             name='Performing Optimization of RF nº of trees...')
 
         # Round to integer the values in the range
         self.n_min_max_trees = int(np.round(self.n_min_max_trees[0])), int(np.round(self.n_min_max_trees[1]))
 
+        # See what dataset to use
+        if self.binsim_flag:
+            rf_df = DataFrame_Store.binsim_df
+        else:
+            rf_df = DataFrame_Store.treated_df
+
         # Perform Optimization
-        rf_optim = iaf._optimization_n_trees_rf(self, DataFrame_Store.treated_df, target_list.target)
+        rf_optim = iaf._optimization_n_trees_rf(self, rf_df, target_list.target)
         self.optim_scores = list(rf_optim['mean_test_score'])
         self.optim_ntrees = list(rf_optim['param_n_estimators'])
 
@@ -3486,7 +3580,9 @@ class RF_Storage(param.Parameterized):
         # Update the layout
         filename_string = f'RF_optim_plot_{self.n_fold}-foldStratCV_{self.n_min_max_trees[0]}to{self.n_min_max_trees[1]}trees'
         filename_string = filename_string + f'({self.n_interval}interval)'
-        rf_optim_section[1] = pn.pane.Plotly(self.optim_figure[0],
+        if self.binsim_flag:
+            filename_string = filename_string + '_BinSim'
+        self.current_pages_associated[0][1] = pn.pane.Plotly(self.optim_figure[0],
                                               config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
 
 
@@ -3495,7 +3591,7 @@ class RF_Storage(param.Parameterized):
         "Fits a Random Forest model, gives model performance estimations and feature importance lists, updating the layout."
 
         # Loading Widget while the Random Forest model is being fitted and assessed
-        rf_results_section[0][1][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+        self.current_pages_associated[1][0][1][1] = pn.indicators.LoadingSpinner(value=True, size=90,
                                                             name='Fitting and Assessing RF model...')
 
         metrics_to_use = []
@@ -3512,8 +3608,14 @@ class RF_Storage(param.Parameterized):
         if len(self.metrics_to_use) == 0:
             metrics_to_use.append('accuracy')
 
+        # See what dataset to use
+        if self.binsim_flag:
+            rf_df = DataFrame_Store.binsim_df
+        else:
+            rf_df = DataFrame_Store.treated_df
+
         # Fits a RF model under a stratified cross validation scheme
-        RF_results = metsta.RF_model(DataFrame_Store.treated_df, target_list.target, # Data and labels
+        RF_results = metsta.RF_model(rf_df, target_list.target, # Data and labels
                          return_cv=True, iter_num=self.n_iterations, # Number of iterations for it
                          n_trees=self.n_trees, # Number of trees in the model
                          cv=None, n_fold=self.n_fold, # Number of folds
@@ -3538,21 +3640,21 @@ class RF_Storage(param.Parameterized):
         self.current_rf_params = {'n_trees': self.n_trees, 'n_folds': self.n_fold, 'n_iterations': self.n_iterations}
 
         # Update the layout
-        rf_results_section[0][1][1] = pn.pane.DataFrame(self.n_results)
-        rf_results_section[3] = pn.pane.DataFrame(self.feat_impor, height=600)
-        rf_feat_imp_show_annots_only.value = False
-        rf_feat_imp_show_annots_only.disabled = False
-        save_rf_feat_imp_button.disabled = False
+        self.current_pages_associated[1][0][1][1] = pn.pane.DataFrame(self.n_results)
+        self.current_pages_associated[1][3] = pn.pane.DataFrame(self.feat_impor, height=600)
+        self.current_pages_associated[2].value = False
+        self.current_pages_associated[2].disabled = False
+        self.current_pages_associated[3].disabled = False
 
-        if len(rf_results_section) == 5:
-            rf_results_section.append('### Random Forest Permutation Test Section')
-            rf_results_section.append(pn.Column(pn.pane.HTML(permutation_test_description),
+        if len(self.current_pages_associated[1]) == 5:
+            self.current_pages_associated[1].append('### Random Forest Permutation Test Section')
+            self.current_pages_associated[1].append(pn.Column(pn.pane.HTML(permutation_test_description),
                                                  pn.pane.LaTeX(pvalue_equation_string, styles={'font-size': '14pt'})))
-            rf_results_section.append(pn.Row(self.controls_permutation,
+            self.current_pages_associated[1].append(pn.Row(self.controls_permutation,
                                           self.perm_figure[0]))
-            rf_results_section.append('### Random Forest Receiver Operating Characteristic (ROC) Curve Section')
-            rf_results_section.append(pn.pane.HTML(ROC_curve_description))
-            rf_results_section.append(pn.Row(self.controls_roc, self.ROC_figure[0]))
+            self.current_pages_associated[1].append('### Random Forest Receiver Operating Characteristic (ROC) Curve Section')
+            self.current_pages_associated[1].append(pn.pane.HTML(ROC_curve_description))
+            self.current_pages_associated[1].append(pn.Row(self.controls_roc, self.ROC_figure[0]))
 
 
     # Function to confirm the permutation test to perform
@@ -3560,7 +3662,7 @@ class RF_Storage(param.Parameterized):
         "Performs a permutation test for the Random Forest model and updates the layout."
 
         # Loading Widget while the Permutation Test is being performed
-        rf_results_section[7][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+        self.current_pages_associated[1][7][1] = pn.indicators.LoadingSpinner(value=True, size=90,
                                                             name='Performing Permutation Test... (It can take a while)')
 
         # Sees what type of feature importance metric will be used
@@ -3573,9 +3675,15 @@ class RF_Storage(param.Parameterized):
         elif self.perm_metric == 'Recall (weighted)':
             perm_metric = 'recall_weighted'
 
+        # See what dataset to use
+        if self.binsim_flag:
+            rf_df = DataFrame_Store.binsim_df
+        else:
+            rf_df = DataFrame_Store.treated_df
+
         # Performs the Permutation Test on the Random Forest model under a stratified cross validation scheme
         perm_results_RF = metsta.permutation_RF(
-            DataFrame_Store.treated_df, target_list.target, # Data and target
+            rf_df, target_list.target, # Data and target
             iter_num=self.n_perm, # Nº of permutations to do in your test - around 500 should be enough
             n_trees=self.n_trees, # Number of trees in the model
             cv=None, n_fold=self.n_fold, # Choose the number of folds
@@ -3587,12 +3695,12 @@ class RF_Storage(param.Parameterized):
                                      'n_permutations': self.n_perm, 'perm_metric': self.perm_metric}
 
         # Plot the permutation test
-        perm_figure = iaf._plot_permutation_test(perm_results_RF, DataFrame_Store, self.n_fold,
+        perm_figure = iaf._plot_permutation_test(perm_results_RF, rf_df, self.n_fold,
                                                      self.perm_metric, 'Random Forest Permutation Test')
         self.perm_figure = [perm_figure,]
 
         # Update the layout
-        rf_results_section[7][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
+        self.current_pages_associated[1][7][1] = pn.pane.Matplotlib(self.perm_figure[0], height=600)
         self.controls_permutation.widgets['save_figure_button_permutation'].disabled = False
 
 
@@ -3601,18 +3709,26 @@ class RF_Storage(param.Parameterized):
         "Plots a ROC Curve to assess Random Forest model performance and updates the layout."
 
         # Loading Widget while the ROC Curves are being computed
-        rf_results_section[10][1] = pn.indicators.LoadingSpinner(value=True, size=90,
+        self.current_pages_associated[1][10][1] = pn.indicators.LoadingSpinner(value=True, size=90,
                                                             name='Computing Receiver Operating Characteristic Curves...')
 
+        # See what dataset to use
+        if self.binsim_flag:
+            rf_df = DataFrame_Store.binsim_df
+        else:
+            rf_df = DataFrame_Store.treated_df
+
         # Computes the ROC Curve (whether you have 2 or more classes) and returns the plots and corresponding filenames
-        roc_fig, filename = iaf._plot_RF_ROC_curve(self, DataFrame_Store.treated_df, target_list)
+        roc_fig, filename = iaf._plot_RF_ROC_curve(self, rf_df, target_list)
+        if self.binsim_flag:
+            filename = filename + '_BinSim'
         self.ROC_figure = [roc_fig,]
 
         # Saving filename
         self.current_other_rf_params.update({'ROC_filename':filename})
 
         # Update the layouts
-        rf_results_section[10][1] = pn.pane.Plotly(self.ROC_figure[0],
+        self.current_pages_associated[1][10][1] = pn.pane.Plotly(self.ROC_figure[0],
                                                 config={'toImageButtonOptions': {'filename': filename, 'scale':4}})
 
 
@@ -3720,6 +3836,7 @@ RF_store.controls.widgets['confirm_rf_button'].on_click(RF_store._confirm_rf_but
 
 # Click button to perform Random Forest Permutation Test
 RF_store.controls_permutation.widgets['confirm_button_permutation'].on_click(RF_store._confirm_button_permutation)
+
 # Function to save the Permutation Test figure as png
 def _save_figure_button_permutation_RF(event):
     "Saves Random Forest permutation figure."
@@ -3727,8 +3844,11 @@ def _save_figure_button_permutation_RF(event):
     filename_string = filename_string + f'{RF_store.current_rf_params_permutation["n_trees"]}trees_'
     filename_string = filename_string + f'{RF_store.current_rf_params_permutation["n_folds"]}-foldstratCV_metric'
     filename_string = filename_string + f'{RF_store.current_rf_params_permutation["perm_metric"]}'
+    if RF_store.binsim_flag:
+        filename_string = filename_string + '_BinSim'
     RF_store.perm_figure[0].savefig(filename_string+'.png', dpi=RF_store.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
+
 # Click button to save the aforementioned figure
 RF_store.controls_permutation.widgets['save_figure_button_permutation'].on_click(_save_figure_button_permutation_RF)
 
@@ -3770,7 +3890,10 @@ def _save_rf_feat_imp_button(event):
         rf_params = RF_store.current_rf_params
         # Building the datafile name
         filename_string = f'RF_FeatImp_Gini_model_params_{rf_params["n_trees"]}trees_{rf_params["n_folds"]}-foldstratCV_'
-        filename_string = filename_string + f'iterations{rf_params["n_iterations"]}.xlsx'
+        filename_string = filename_string + f'iterations{rf_params["n_iterations"]}'
+        if RF_store.binsim_flag:
+            filename_string = filename_string + '_BinSim'
+        filename_string = filename_string + '.xlsx'
 
         # Saving the file
         RF_store.feat_impor.to_excel(filename_string)
@@ -3787,6 +3910,12 @@ rf_results_section = pn.Column(pn.Row(RF_store.controls,
                                 rf_feat_imp_show_annots_only,
                                pn.pane.DataFrame(RF_store.feat_impor),
                                save_rf_feat_imp_button,)
+
+# Page sections / Widgets that will change based on RF_store
+RF_store.current_pages_associated.append(rf_optim_section)
+RF_store.current_pages_associated.append(rf_results_section)
+RF_store.current_pages_associated.append(rf_feat_imp_show_annots_only)
+RF_store.current_pages_associated.append(save_rf_feat_imp_button)
 
 
 # Layout of the RF page
@@ -4468,7 +4597,8 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
             'vk_max_dot_size': pn.widgets.IntSlider(name='Max. dot size (or dot size in general)',
                                 value=8, start=1, end=20, step=1),
             'vk_show_colorbar': pn.widgets.Checkbox(name='Show colorbar', value=True),
-            'vk_draw_class_rectangle': pn.widgets.Checkbox(name='Draw Peptide, Lignins, Tannins, Nucleotides and Phytochemical area rectangles', value=False),
+            'vk_draw_class_rectangle': pn.widgets.Checkbox(name='Draw Peptide, Lignins, Tannins, Nucleotides and Phytochemical area rectangles',
+                                                            value=False, disabled=True),
             'vk_text': pn.widgets.StaticText(name='',
                                 value='Select which columns with Formulas to consider (at least 1 has to be selected):',
                                 styles={'font-weight': 'bold'}),

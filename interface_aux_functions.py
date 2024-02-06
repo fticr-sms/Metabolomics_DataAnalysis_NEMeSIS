@@ -1206,13 +1206,13 @@ def creating_importance_feat_table(imp_feat_metric, DataFrame_Store, model_feat_
     return imp_feats
 
 
-def _plot_permutation_test(perm_results, DataFrame_Store, n_fold, metric, title='Permutation Test'):
+def _plot_permutation_test(perm_results, df, n_fold, metric, title='Permutation Test'):
     "Plots the permutation test results with matplotlib."
 
     with plt.style.context('seaborn-v0_8-whitegrid'):
         fig, ax = plt.subplots(1,1, figsize=(6,6))
 
-        n_labels = len(DataFrame_Store.treated_df.index)
+        n_labels = len(df.index)
         tab20bcols = sns.color_palette('tab20b', 20)
 
         # Histogram with performance of permutated values
@@ -1400,7 +1400,7 @@ def _optimization_n_trees_rf(RF_store, data, target):
 
     # Setting up the RF model and Grid Search
     rf = skensemble.RandomForestClassifier(n_estimators=200)
-    clf = GridSearchCV(rf, values, cv=RF_store.n_fold) # Change cv to change cross-validation
+    clf = GridSearchCV(rf, values, cv=RF_store.n_fold, scoring='accuracy') # Change cv to change cross-validation
 
     # Fitting RF models
     clf.fit(data, target)
@@ -1742,7 +1742,7 @@ def _plot_VK_diagrams_individual(filt_df, dataviz_store, norm_full_df, target, g
         # Plot a simple Van Krevelen and end the function
         fig = px.scatter(elems, x="O/C", y="H/C", size=[1,]*len(elems),
                          size_max=dataviz_store.vk_max_dot_size, opacity=0.7,
-                         range_x=[-0.1,2.03], range_y=[0.15,3.2],
+                         range_x=[-0.05,1.5], range_y=[0.1,2.2],
                     hover_data={'Rank':True, 'logInt':True}, title='Van Krevelen - ' + group)
         filename = f'VK_plot_{group}_formulacolumns'
         # Create appropriate filename
@@ -1767,7 +1767,7 @@ def _plot_VK_diagrams_individual(filt_df, dataviz_store, norm_full_df, target, g
     fig = px.scatter(elems, x="O/C", y="H/C", color=color,
                  color_continuous_scale='Portland', size=s,
                  size_max=dataviz_store.vk_max_dot_size, opacity=0.7,
-                 range_x=[-0.1,2.03], range_y=[0.15,3.2],
+                 range_x=[-0.05,1.5], range_y=[0.1,2.2],
                     hover_data={dataviz_store.vk_highlight_by + 's':False, # remove
                              'Rank':True, 'logInt':True,
                             }, title='Van Krevelen - ' + group)
