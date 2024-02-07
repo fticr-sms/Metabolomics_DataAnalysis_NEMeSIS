@@ -406,6 +406,33 @@ the pathways that they belong to according to this built file. Your identifiers 
 <strong>If no HMDB identifiers are present, you will not be able to perform this data analysis step</strong>."""
 
 
+# Binary Simplification (BinSim) Analysis Page Description HTML in string format
+
+BinSim_opening_string = '''Here, unsupervised and supervised analysis can be performed by using <strong>BinSim treated
+data</strong> instead of intensity treated data.
+<br>
+<br>
+<strong>Binary Simplification or BinSim</strong> pre-treatment consists of transforming all <strong>intensity
+values</strong> present in the data matrix to <strong>1</strong> (metabolic features present in the data) and all
+<strong>missing values</strong> to <strong>0</strong> (metabolic features absent from the data). Thus, it is a strategy
+focusing on <strong>feature occurrence</strong> instead of intensity patterns. This methodology is rather useful when
+analysing data that is suspected to have considerable intensity variation between analysis (as FT-ICR-MS data tends to
+have) as feature occurrence should be more robust and therefore reproducible. Furthermore, it is a complementing analysis
+to the usual intensity-focused analysis offering a complementary perspective.
+<br>
+<br>
+For more information on this methodology, check out our paper on it at: <strong><a data-fr-linked="true"
+href="https://www.mdpi.com/2218-1989/11/11/788">https://www.mdpi.com/2218-1989/11/11/788</a></strong>.
+<br>
+Citation: Traquete F, Luz J, Cordeiro C, Sousa Silva M, Ferreira AEN. Binary Simplification as an Effective Tool in
+Metabolomics Data Analysis. <em>Metabolites</em>. 2021; 11(11):788. <a data-fr-linked="true"
+href="https://doi.org/10.3390/metabo11110788">https://doi.org/10.3390/metabo11110788</a>.
+<br>
+<br>
+In this section, BinSim treated data is used to perform <strong>PCA</strong>, <strong>HCA</strong> (unsupervised),
+<strong>PLS-DA</strong> and <strong>Random Forest</strong> (supervised) statistical analysis.'''
+
+
 # Report Generation Page Description HTML in string format
 
 report_opening_string = '''This section can provide a <strong>report of the metabolomics dataset</strong> analysed here. It

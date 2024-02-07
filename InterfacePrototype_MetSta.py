@@ -221,7 +221,7 @@ class BinSimPage:
     def __init__(self):
 
         self.content = pn.Column("# Performing BinSim Analysis",
-                                 "Include all previous analysis specifically for BinSim treated data",
+                                 pn.pane.HTML(desc_str.BinSim_opening_string),
                                  binsim_analysis_page)
 
     def view(self):
@@ -1852,6 +1852,7 @@ def _confirm_button_next_step_5(event):
                 end_page_comexc.pop(-1)
 
             # Unsupervised Analysis page
+            n_components_compute.value = 10
             PCA_params.reset()
             HCA_params.reset()
 
@@ -1901,6 +1902,45 @@ def _confirm_button_next_step_5(event):
             while len(hmdb_id_searching_section) > 3:
                 hmdb_id_searching_section.pop(-1)
 
+            # BinSim Analysis Page
+            # PCA
+            n_components_compute_binsim.value = 10
+            PCA_params_binsim.reset()
+            PCA_params_binsim.binsim_flag = True
+            for _, w in PCA_params_binsim.controls.widgets.items():
+                w.disabled = True
+            middle_page_PCA_binsim[0,1:3] = 'To plot a PCA'
+            end_page_PCA_binsim[0] = 'To plot explained variance figure'
+            end_page_PCA_binsim[1] = 'To plot matrices of PCA projections'
+            # HCA
+            HCA_params_binsim.reset()
+            HCA_params_binsim.binsim_flag = True
+            # PLS-DA
+            plsda_feat_imp_show_annots_only_binsim.value = False
+            plsda_feat_imp_show_annots_only_binsim.disabled = True
+            rec_comp_indicator_binsim_widget.value = None
+            PLSDA_store_binsim.soft_reset()
+            pls_optim_section_binsim[1] = PLSDA_store_binsim.optim_figure[0]
+            save_plsda_feat_imp_binsim_button.disabled = True
+            while len(pls_results_section_binsim) > 5:
+                pls_results_section_binsim.pop(-1)
+            pls_results_section_binsim[0][1][1] = PLSDA_store_binsim.n_results
+            pls_results_section_binsim[3] = pn.pane.DataFrame(PLSDA_store_binsim.feat_impor)
+            PLSDA_store_binsim.binsim_flag = True
+            PLSDA_store_binsim.controls.widgets['scale'].disabled = True
+            PLSDA_store_binsim.controls_optim.widgets['scale'].disabled = True
+            # RF
+            rf_feat_imp_show_annots_only_binsim.value = False
+            rf_feat_imp_show_annots_only_binsim.disabled = True
+            RF_store_binsim.reset()
+            rf_optim_section_binsim[1] = RF_store_binsim.optim_figure[0]
+            save_rf_feat_imp_binsim_button.disabled = True
+            while len(rf_results_section_binsim) > 5:
+                rf_results_section_binsim.pop(-1)
+            rf_results_section_binsim[0][1][1] = RF_store_binsim.n_results
+            rf_results_section_binsim[3] = pn.pane.DataFrame(RF_store_binsim.feat_impor)
+            RF_store_binsim.binsim_flag = True
+
             # Compound Finder search tool page
             comp_finder.reset()
             comp_finder_page[1] = 'DataFrame of the Searched Compound'
@@ -1944,6 +1984,8 @@ def _confirm_button_next_step_5(event):
     end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
 
     # Initial calculations for HCA and storing initial plots
+    HCA_params.controls.widgets['dist_metric'].options = ['euclidean', 'cityblock', 'minkowski', 'seuclidean',
+                    'sqeuclidean', 'braycurtis', 'canberra', 'chebyshev', 'correlation', 'cosine']
     HCA_params.dists = dist.pdist(DataFrame_Store.treated_df, metric=HCA_params.dist_metric)
     HCA_params.Z = hier.linkage(HCA_params.dists, method=HCA_params.link_metric)
     HCA_params.HCA_plot[0] = iaf._plot_HCA(HCA_params, target_list)
@@ -1958,6 +2000,13 @@ def _confirm_button_next_step_5(event):
 
     # Updating Widgets for Pathway Assignment
     PathAssign_store._update_widgets(DataFrame_Store.metadata_df, pathway_db)
+
+    # BinSim page updating widgets
+    HCA_params_binsim.controls.widgets['dist_metric'].options = ['dice', 'hamming', 'jaccard', 'kulczynski1', 'rogerstanimoto',
+                                                             'russellrao', 'sokalmichener','sokalsneath', 'yule']
+    HCA_params_binsim.dist_metric = 'jaccard' # This change will also trigger the computation of the base Dendrogram
+    PLSDA_store_binsim.n_folds_limits_and_class_update(target_list)
+    RF_store_binsim.n_folds_limits_and_class_update(target_list)
 
     # Obtaining possibilities to search for based on type of identifier for the compound finder tool
     comp_finder._calculate_possible_options(DataFrame_Store.metadata_df, checkbox_annotation,
@@ -2525,7 +2574,7 @@ class PCA_Storage(param.Parameterized):
     @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size', watch=True)
     def _update_PCA_plot(self):
         "Plots PCA with the set parameters."
-        self.PCA_plot[0] = iaf._plot_PCA(PCA_params, target_list)
+        self.PCA_plot[0] = iaf._plot_PCA(self, target_list)
         filename_string = 'PCA_plot'
         if self.ellipse_draw:
             if self.confidence != 0:
@@ -2552,6 +2601,12 @@ class PCA_Storage(param.Parameterized):
     def _update_PC_options(self):
         "Controlling options and plots based on the number of components PCA was computed with."
         # Controlling widget options for components to show in the projection plot
+        if int(self.PCx[3:]) > self.n_components:
+            self.PCx = 'PC 1'
+        if int(self.PCy[3:]) > self.n_components:
+            self.PCy = 'PC 1'
+        if int(self.PCz[3:]) > self.n_components:
+            self.PCz = 'PC 1'
         self.controls.widgets['PCx'].options = ['PC '+str(i+1) for i in range(self.n_components)]
         self.controls.widgets['PCy'].options = ['PC '+str(i+1) for i in range(self.n_components)]
         self.controls.widgets['PCz'].options = ['PC '+str(i+1) for i in range(self.n_components)]
@@ -2561,22 +2616,25 @@ class PCA_Storage(param.Parameterized):
         filename_string = 'PCA_exp_var_plot'
         if self.binsim_flag:
             filename_string = filename_string + f'_BinSim'
-        self.current_pages_associated[1][0] = pn.pane.Plotly(self.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
+        self.current_pages_associated[1][0] = pn.pane.Plotly(self.exp_var_fig_plot[0],
+                                            config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
 
         # Control the many PCA scatter plots to include less than 6 components if PCA was computed with less than 6 components
-        if len(self.scatter_PCA_plot[0].data[0]['dimensions']) < 6:
-            self.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(self, target_list)
-            filename_string = 'PCA_scatter_plot'
-            if self.binsim_flag:
-                filename_string = filename_string + f'_BinSim'
-            self.current_pages_associated[1][1] = pn.pane.Plotly(self.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
-        else:
-            if self.n_components < 6:
+        if type(self.scatter_PCA_plot[0]) != str:
+            if len(self.scatter_PCA_plot[0].data[0]['dimensions']) < 6:
                 self.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(self, target_list)
                 filename_string = 'PCA_scatter_plot'
                 if self.binsim_flag:
                     filename_string = filename_string + f'_BinSim'
-                self.current_pages_associated[1][1] = pn.pane.Plotly(self.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
+                self.current_pages_associated[1][1] = pn.pane.Plotly(self.scatter_PCA_plot[0],
+                                            config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
+            else:
+                if self.n_components < 6:
+                    self.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(self, target_list)
+                    filename_string = 'PCA_scatter_plot'
+                    if self.binsim_flag:
+                        filename_string = filename_string + f'_BinSim'
+                    self.current_pages_associated[1][1] = pn.pane.Plotly(self.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
 
 
     # Function enabling/disabling the confidence level parameters for ellipses
@@ -2605,7 +2663,7 @@ class PCA_Storage(param.Parameterized):
     def reset(self):
         "Reset parameters."
         for param in self.param:
-            if param not in ["name"]:
+            if param not in ["name", "current_pages_associated"]:
                 setattr(self, param, self.param[param].default)
 
 
@@ -2751,7 +2809,7 @@ class HCA_Storage(param.Parameterized):
     def reset(self):
         "Reset parameters."
         for param in self.param:
-            if param not in ["name"]:
+            if param not in ["name", "current_pages_associated"]:
                 setattr(self, param, self.param[param].default)
 
 
@@ -3059,7 +3117,7 @@ class PLSDA_Storage(param.Parameterized):
 
         if len(self.current_pages_associated[1]) == 5:
             self.current_pages_associated[1].append('### PLS Projection Section')
-            self.current_pages_associated[1].append(pls_proj_page)
+            self.current_pages_associated[1].append(self.current_pages_associated[2])
             self.current_pages_associated[1].append('### PLS-DA Permutation Test Section')
             self.current_pages_associated[1].append(pn.Column(pn.pane.HTML(permutation_test_description),
                                                 pn.pane.LaTeX(pvalue_equation_string, styles={'font-size': '14pt'})))
@@ -3104,6 +3162,12 @@ class PLSDA_Storage(param.Parameterized):
     @param.depends('n_components', watch=True)
     def _update_LV_options(self):
         "Updates LV options to choose."
+        if int(self.LVx[3:]) > self.n_components:
+            self.LVx = 'LV 1'
+        if int(self.LVy[3:]) > self.n_components:
+            self.LVy = 'LV 1'
+        if int(self.LVz[3:]) > self.n_components:
+            self.LVz = 'LV 1'
         self.controls_projection.widgets['LVx'].options = ['LV '+str(i+1) for i in range(self.n_components)]
         self.controls_projection.widgets['LVy'].options = ['LV '+str(i+1) for i in range(self.n_components)]
         self.controls_projection.widgets['LVz'].options = ['LV '+str(i+1) for i in range(self.n_components)]
@@ -3212,7 +3276,8 @@ class PLSDA_Storage(param.Parameterized):
     def soft_reset(self):
         "Reset parameters."
         for param in self.param:
-            if param not in ["name", 'n_dimensions', 'LVx', 'LVy', 'LVz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size']:
+            if param not in ["name", 'n_dimensions', 'LVx', 'LVy', 'LVz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size',
+                             'current_pages_associated']:
                 setattr(self, param, self.param[param].default)
         self.current_other_plsda_params.clear()
         self.current_other_plsda_params = {}
@@ -3355,6 +3420,7 @@ PLSDA_store.controls.widgets['confirm_plsda_button'].on_click(PLSDA_store._confi
 
 # Click button to perform PLS-DA Permutation Test
 PLSDA_store.controls_permutation.widgets['confirm_button_permutation'].on_click(PLSDA_store._confirm_button_permutation)
+
 # Function to save the Permutation Test figure as png
 def _save_figure_button_permutation_PLSDA(event):
     "Save PLS-DA permutation figure."
@@ -3367,6 +3433,7 @@ def _save_figure_button_permutation_PLSDA(event):
         filename_string = filename_string + '_BinSim'
     PLSDA_store.perm_figure[0].savefig(filename_string+'.png', dpi=PLSDA_store.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
+
 # Click button to save the aforementioned figure
 PLSDA_store.controls_permutation.widgets['save_figure_button_permutation'].on_click(_save_figure_button_permutation_PLSDA)
 
@@ -3379,7 +3446,7 @@ rec_comp_indicator_widget = pn.indicators.Number(name='Recommended Components (b
 
 # Organizing the optimization section of the page
 pls_optim_section = pn.Row(pn.Column(PLSDA_store.controls_optim, rec_comp_indicator_widget,
-                                    'A much lower number of components with a similar Q2 may be preferable than the number shown'),
+                                    'A lower number of components with a similar Q2 may be preferable than the number shown'),
                            PLSDA_store.optim_figure[0])
 
 
@@ -3735,7 +3802,7 @@ class RF_Storage(param.Parameterized):
     def reset(self):
         "Reset parameters."
         for param in self.param:
-            if param not in ["name"]:
+            if param not in ["name", "current_pages_associated"]:
                 setattr(self, param, self.param[param].default)
         self.current_other_rf_params.clear()
         self.current_other_rf_params = {}
@@ -5024,7 +5091,378 @@ path_assign_page = pn.Column(path_matching_section, hmdb_id_searching_section)
 
 
 # Page for BinSim Analysis
-binsim_analysis_page = pn.Column()
+
+# Page will have 4 tabs, one for each of the main statistical analysis: PCA, HCA, PLS-DA and Random Forest
+
+# Starting with the PCA section
+
+# Running initial param to store PCA details - BinSim version
+PCA_params_binsim = PCA_Storage()
+PCA_params_binsim.binsim_flag = True # Raising BinSim flag
+# Making PCA Projection Controlling widgets disabled
+for n, w in PCA_params_binsim.controls.widgets.items():
+    w.disabled = True
+
+# Extra widgets for the page
+compute_PCA_binsim_button = pn.widgets.Button(name='Compute', button_type='success')
+n_components_compute_binsim = pn.widgets.IntInput(name='Number of Components to Compute:',
+                                           value=10, step=1, start=2, end=20,
+                                          description='Select 2-20 components.')
+
+
+# Modified version of this function so PCA will be computed and images will be plotted when it is a new analysis
+# When pressing the button, runs the PCA with the designated number of components and the binsim treated data
+def _compute_PCA_binsim_button(event):
+    "Computes PCA, plots the figures in the respective pages if not present."
+
+    # Select DataFrame
+    if PCA_params_binsim.binsim_flag:
+        df = DataFrame_Store.binsim_df
+    else:
+        df = DataFrame_Store.treated_df
+
+    # Calculate PCA and store results
+    principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(df,
+                                       n_components=n_components_compute_binsim.value,
+                                       whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
+    PCA_params_binsim.pca_scores = principaldf
+    PCA_params_binsim.explained_variance = var
+    PCA_params_binsim.pca_loadings = pd.DataFrame(loadings)
+    PCA_params_binsim.n_components = n_components_compute_binsim.value # This may catalyse the 'change in n_components' react function
+    PCA_params_binsim.controls.widgets['n_components'].value = n_components_compute_binsim.value
+
+    # Plot the figures - PCA Projection
+    PCA_params_binsim.PCA_plot[0] = iaf._plot_PCA(PCA_params_binsim, target_list)
+    PCA_filename_string = 'PCA_plot'
+    if PCA_params_binsim.ellipse_draw:
+        if PCA_params_binsim.confidence != 0:
+            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params_binsim.confidence*100}%confidence)'
+        else:
+            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params_binsim.confidence_std}std)'
+    PCA_filename_string = PCA_filename_string + '_BinSim'
+    middle_page_PCA_binsim[0,1:3] = pn.pane.Plotly(PCA_params_binsim.PCA_plot[0],
+                                    config = {'toImageButtonOptions': {'filename': PCA_filename_string, 'scale':4,}})
+
+    # Expected Variance Plot
+    if type(PCA_params_binsim.scatter_PCA_plot[0]) == str:
+        PCA_params_binsim.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(PCA_params_binsim)
+    end_page_PCA_binsim[0] = pn.pane.Plotly(PCA_params_binsim.exp_var_fig_plot[0],
+                                    config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot_BinSim', 'scale':4,}})
+
+    # PCA Scatter Plot
+    if type(PCA_params_binsim.scatter_PCA_plot[0]) == str:
+        PCA_params_binsim.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params_binsim, target_list)
+    end_page_PCA_binsim[1] = pn.pane.Plotly(PCA_params_binsim.scatter_PCA_plot[0],
+                                    config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot_BinSim', 'scale':4,}})
+
+    # Enabling Widgets to control the PCA Projection
+    for n, w in PCA_params_binsim.controls.widgets.items():
+        if n not in ['PCz', 'confidence_std']:
+            w.disabled = False
+
+    PCA_params_binsim._update_ellipse_options()
+    PCA_params_binsim._update_PCz_disabled()
+
+compute_PCA_binsim_button.on_click(_compute_PCA_binsim_button)
+
+
+# Initializing layout of the PCA section
+# First section of the page
+initial_page_PCA_binsim = pn.GridSpec(mode='override')
+initial_page_PCA_binsim[0,:2] = n_components_compute_binsim
+initial_page_PCA_binsim[0,2] = compute_PCA_binsim_button
+
+# Middle section of the page
+middle_page_PCA_binsim = pn.GridSpec(mode='override')
+middle_page_PCA_binsim[0,0] = PCA_params_binsim.controls
+middle_page_PCA_binsim[0,1:3] = 'To plot a PCA'
+
+# Final section of the page
+end_page_PCA_binsim = pn.Column('To plot explained variance figure',
+                                'To plot matrices of PCA projections')
+
+# Page sections that will change based on HCA_params
+PCA_params_binsim.current_pages_associated.append(middle_page_PCA_binsim)
+PCA_params_binsim.current_pages_associated.append(end_page_PCA_binsim)
+
+
+# Complete PCA page
+page_binsim_PCA = pn.Column(pn.pane.HTML("<strong>Principal Component Analysis (PCA)</strong>"),
+                            initial_page_PCA_binsim,
+                            middle_page_PCA_binsim,
+                            end_page_PCA_binsim)
+
+
+
+# HCA section of the BinSim analysis
+HCA_params_binsim = HCA_Storage()
+HCA_params_binsim.binsim_flag = True # Setting the BinSim flag
+
+# Widget to save HCA plot binsim treated (needed since it is a matplotlib plot instead of a plotly plot)
+save_HCA_plot_binsim_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+                                         icon=iaf.download_icon)
+
+# When pressing the button, downloads the figure
+def _save_HCA_plot_binsim_button(event):
+    "Saves HCA plot (BinSim version)."
+    filename = f'HCA_plot_{HCA_params_binsim.dist_metric}Dist_{HCA_params_binsim.link_metric}Linkage_BinSim.png'
+    HCA_params_binsim.HCA_plot[0].savefig(filename, dpi=HCA_params_binsim.dpi)
+    pn.state.notifications.success(f'Dendrogram successfully saved.')
+
+save_HCA_plot_binsim_button.on_click(_save_HCA_plot_binsim_button)
+
+# Organization for the HCA page section in BinSim Analysis
+HCA_binsim = pn.GridSpec(mode='override')
+HCA_binsim[0:5,0] = HCA_params_binsim.controls
+HCA_binsim[0:6,1:4] = HCA_params_binsim.HCA_plot[0]
+HCA_binsim[5,0] = save_HCA_plot_binsim_button
+
+# Page sections that will change based on HCA_params_binsim
+HCA_params_binsim.current_pages_associated.append(HCA_binsim)
+
+# Complete HCA page
+page_binsim_HCA = pn.Column("<strong>Hierarchical Clustering Analysis (HCA)</strong>",
+                           pn.pane.HTML("""Since BinSim treated data is binary (either 0 or 1s), only distance metrics
+                                        suited to this type of boolean data will be available."""),
+                           HCA_binsim)
+
+
+
+# PLS-DA section of the BinSim analysis
+
+# Running initial param to store PLSDA details - BinSim version
+PLSDA_store_binsim = PLSDA_Storage()
+PLSDA_store_binsim.binsim_flag = True # Setting the BinSim flag
+# Disabling the scale attribute since it should not be used with BinSim
+PLSDA_store_binsim.controls.widgets['scale'].disabled = True
+PLSDA_store_binsim.controls_optim.widgets['scale'].disabled = True
+
+# Click button to confirm PLS Optimization
+PLSDA_store_binsim.controls_optim.widgets['confirm_optim_button'].on_click(PLSDA_store_binsim._confirm_optim_button)
+
+# Click button to fit the PLS-DA model and obtain model performance metrics
+PLSDA_store_binsim.controls.widgets['confirm_plsda_button'].on_click(PLSDA_store_binsim._confirm_plsda_button)
+
+# Click button to perform PLS-DA Permutation Test
+PLSDA_store_binsim.controls_permutation.widgets['confirm_button_permutation'].on_click(
+    PLSDA_store_binsim._confirm_button_permutation)
+
+# Function to save the Permutation Test figure as png
+def _save_figure_button_permutation_PLSDA_binsim(event):
+    "Save PLS-DA permutation figure - BinSim version."
+    filename_string = f'PLS-DA_permutation_test_{PLSDA_store_binsim.current_plsda_params_permutation["n_permutations"]}perm_'
+    filename_string = filename_string + f'{PLSDA_store_binsim.current_plsda_params_permutation["n_components"]}comp_'
+    filename_string = filename_string + f'{PLSDA_store_binsim.current_plsda_params_permutation["n_folds"]}-foldstratCV_scale'
+    filename_string = filename_string + f'{PLSDA_store_binsim.current_plsda_params_permutation["scale"]}_metric'
+    filename_string = filename_string + f'{PLSDA_store_binsim.current_plsda_params_permutation["perm_metric"]}'
+    if PLSDA_store_binsim.binsim_flag:
+        filename_string = filename_string + '_BinSim'
+    PLSDA_store_binsim.perm_figure[0].savefig(filename_string+'.png', dpi=PLSDA_store_binsim.dpi)
+    pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
+
+# Click button to save the aforementioned figure
+PLSDA_store_binsim.controls_permutation.widgets['save_figure_button_permutation'].on_click(
+    _save_figure_button_permutation_PLSDA_binsim)
+
+# Click button to compute PLS-DA model ROC curves and obtain the corresponding plots
+PLSDA_store_binsim.controls_roc.widgets['confirm_button_roc'].on_click(PLSDA_store_binsim._confirm_button_roc)
+
+# Widget to add recommended number of components to page
+rec_comp_indicator_binsim_widget = pn.indicators.Number(name='Recommended Components (based on max. Q2)',
+                                    font_size='14pt', title_size='14pt', value=PLSDA_store_binsim.rec_components)
+
+
+# Initial layout of the optimization section of PLS-DA BinSim analysis
+pls_optim_section_binsim = pn.Row(pn.Column(PLSDA_store_binsim.controls_optim, rec_comp_indicator_widget,
+                                    'A lower number of components with a similar Q2 may be preferable than the number shown'),
+                           PLSDA_store_binsim.optim_figure[0])
+
+
+# Results Section of the PLS-DA section of BinSim analysis
+# Specific Widget for PLS results section of the page, shows DataFrame with only annotated metabolites or all metabolites
+plsda_feat_imp_show_annots_only_binsim = pn.widgets.Checkbox(
+    name='Only show annotated metabolites in feature importance table', value=False, disabled=True)
+
+# Change the DataFrame shown based on checkbox
+@pn.depends(plsda_feat_imp_show_annots_only_binsim.param.value, watch=True)
+def _layout_plsda_feat_import_dataframe_binsim(plsda_feat_imp_show_annots_only_binsim):
+    "Update the layout based on if we are showing all metabolites or only annotated ones."
+    # Select DataFrame
+    if plsda_feat_imp_show_annots_only_binsim:
+        df_to_show = PLSDA_store_binsim.feat_impor[PLSDA_store_binsim.feat_impor['Has Match?']]
+    else:
+        df_to_show = PLSDA_store_binsim.feat_impor
+
+    # Update the layout
+    pls_results_section_binsim[3] = pn.pane.DataFrame(df_to_show, height=600)
+
+
+# Widget to save dataframe with features ordered by importance
+save_plsda_feat_imp_binsim_button = pn.widgets.Button(
+    name='Save PLS-DA Feature Importance table (BinSim version) obtained as .xlsx (in current folder)',
+    button_type='warning', icon=iaf.download_icon, disabled=True)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_plsda_feat_imp_binsim_button(event):
+    "Save PLS-DA Feature Importance results as an Excel."
+    try:
+        plsda_params = PLSDA_store_binsim.current_plsda_params
+        # Building the datafile name
+        filename_string = f'PLS-DA_FeatImp_{plsda_params["feat_imp"]}_model_params_components{plsda_params["n_components"]}'
+        filename_string = filename_string + f'_{plsda_params["n_folds"]}-foldstratCV_iterations{plsda_params["n_iterations"]}'
+        filename_string = filename_string + f'_scale{plsda_params["scale"]}'
+        if PLSDA_store_binsim.binsim_flag:
+            filename_string = filename_string + '_BinSim'
+        filename_string = filename_string + f'.xlsx'
+
+        # Saving the file
+        PLSDA_store_binsim.feat_impor.to_excel(filename_string)
+        pn.state.notifications.success(f'{filename_string} successfully saved.')
+    except:
+        pn.state.notifications.error(f'File could not be saved.')
+
+save_plsda_feat_imp_binsim_button.on_click(_save_plsda_feat_imp_binsim_button)
+
+
+# PLS projection section of the page - BinSim Version
+pls_proj_page_binsim = pn.GridSpec(mode='override')
+pls_proj_page_binsim[0,0] = PLSDA_store_binsim.controls_projection
+pls_proj_page_binsim[0,1:3] = 'To plot a PLS'
+
+# Layout of the full results section (Partial, more is added when fitting PLS-DA model)
+pls_results_section_binsim = pn.Column(pn.Row(PLSDA_store_binsim.controls,
+                                       pn.Column('### Model Performance Metrics', PLSDA_store_binsim.n_results)),
+                                '### Feature Importance Table',
+                                plsda_feat_imp_show_annots_only_binsim,
+                               pn.pane.DataFrame(PLSDA_store_binsim.feat_impor),
+                               save_plsda_feat_imp_binsim_button,)
+
+# Page sections / Widgets that will change based on PLSDA_store_binsim
+PLSDA_store_binsim.current_pages_associated.append(pls_optim_section_binsim)
+PLSDA_store_binsim.current_pages_associated.append(pls_results_section_binsim)
+PLSDA_store_binsim.current_pages_associated.append(pls_proj_page_binsim)
+PLSDA_store_binsim.current_pages_associated.append(plsda_feat_imp_show_annots_only_binsim)
+PLSDA_store_binsim.current_pages_associated.append(save_plsda_feat_imp_binsim_button)
+
+
+# Complete layout of the PLS-DA section of BinSim analysis
+page_binsim_PLSDA = pn.Column(pn.pane.HTML(plsda_opening_string),
+                              pls_optim_section_binsim,
+                              pls_results_section_binsim)
+
+
+
+# Random Forest section of the BinSim Analysis
+
+# Running initial param to store RF details - BinSim version
+RF_store_binsim = RF_Storage()
+RF_store_binsim.binsim_flag = True # Setting the BinSim Flag
+
+# Click button to confirm Random Forest Optimization
+RF_store_binsim.controls_optim.widgets['confirm_optim_button'].on_click(RF_store_binsim._confirm_optim_button)
+
+# Click button to fit the Random Forest model and obtain model performance metrics
+RF_store_binsim.controls.widgets['confirm_rf_button'].on_click(RF_store_binsim._confirm_rf_button)
+
+# Click button to perform Random Forest Permutation Test
+RF_store_binsim.controls_permutation.widgets['confirm_button_permutation'].on_click(
+    RF_store_binsim._confirm_button_permutation)
+
+# Function to save the Permutation Test figure as png
+def _save_figure_button_permutation_RF_binsim(event):
+    "Saves Random Forest permutation figure - BinSim version."
+    filename_string = f'RF_permutation_test_{RF_store_binsim.current_rf_params_permutation["n_permutations"]}perm_'
+    filename_string = filename_string + f'{RF_store_binsim.current_rf_params_permutation["n_trees"]}trees_'
+    filename_string = filename_string + f'{RF_store_binsim.current_rf_params_permutation["n_folds"]}-foldstratCV_metric'
+    filename_string = filename_string + f'{RF_store_binsim.current_rf_params_permutation["perm_metric"]}'
+    if RF_store_binsim.binsim_flag:
+        filename_string = filename_string + '_BinSim'
+    RF_store_binsim.perm_figure[0].savefig(filename_string+'.png', dpi=RF_store_binsim.dpi)
+    pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
+
+
+# Click button to save the aforementioned figure
+RF_store_binsim.controls_permutation.widgets['save_figure_button_permutation'].on_click(
+    _save_figure_button_permutation_RF_binsim)
+
+# Click button to compute Random Forest model ROC curves and obtain the corresponding plots
+RF_store_binsim.controls_roc.widgets['confirm_button_roc'].on_click(RF_store_binsim._confirm_button_roc)
+
+
+# Initial layout of the optimization section of Random Forest BinSim analysis
+rf_optim_section_binsim = pn.Row(RF_store_binsim.controls_optim, RF_store_binsim.optim_figure[0])
+
+
+# Results Section of the Random Forest section of BinSim analysis
+# Specific Widget for Random Forest results section of the page, shows DataFrame with only annotated metabolites or all metabolites
+rf_feat_imp_show_annots_only_binsim = pn.widgets.Checkbox(
+    name='Only show annotated metabolites in feature importance table', value=False, disabled=True)
+
+# Change the DataFrame shown based on checkbox
+@pn.depends(rf_feat_imp_show_annots_only_binsim.param.value, watch=True)
+def _layout_rf_feat_import_dataframe_binsim(rf_feat_imp_show_annots_only_binsim):
+    "Update the layout based on if we are showing all metabolites or only annotated ones."
+    # Select DataFrame
+    if rf_feat_imp_show_annots_only_binsim:
+        df_to_show = RF_store_binsim.feat_impor[RF_store_binsim.feat_impor['Has Match?']]
+    else:
+        df_to_show = RF_store_binsim.feat_impor
+
+    # Update the layout
+    rf_results_section_binsim[3] = pn.pane.DataFrame(df_to_show, height=600)
+
+
+# Widget to save dataframe with features ordered by importance
+save_rf_feat_imp_binsim_button = pn.widgets.Button(
+    name='Save Random Forest Feature Importance table (BinSim version) obtained as .xlsx (in current folder)',
+    button_type='warning', icon=iaf.download_icon, disabled=True)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_rf_feat_imp_binsim_button(event):
+    "Save Random Forest Feature Importance results as an Excel."
+    try:
+        rf_params = RF_store_binsim.current_rf_params
+        # Building the datafile name
+        filename_string = f'RF_FeatImp_Gini_model_params_{rf_params["n_trees"]}trees_{rf_params["n_folds"]}-foldstratCV_'
+        filename_string = filename_string + f'iterations{rf_params["n_iterations"]}'
+        if RF_store_binsim.binsim_flag:
+            filename_string = filename_string + '_BinSim'
+        filename_string = filename_string + '.xlsx'
+
+        # Saving the file
+        RF_store_binsim.feat_impor.to_excel(filename_string)
+        pn.state.notifications.success(f'{filename_string} successfully saved.')
+    except:
+        pn.state.notifications.error(f'File could not be saved.')
+
+save_rf_feat_imp_binsim_button.on_click(_save_rf_feat_imp_binsim_button)
+
+
+# Layout of the full results section (Partial, more is added when fitting RF model)
+rf_results_section_binsim = pn.Column(pn.Row(RF_store_binsim.controls,
+                                       pn.Column('### Model Performance Metrics', RF_store_binsim.n_results)),
+                                '### Feature Importance Table',
+                                rf_feat_imp_show_annots_only_binsim,
+                               pn.pane.DataFrame(RF_store_binsim.feat_impor),
+                               save_rf_feat_imp_binsim_button,)
+
+# Page sections / Widgets that will change based on RF_store_binsim
+RF_store_binsim.current_pages_associated.append(rf_optim_section_binsim)
+RF_store_binsim.current_pages_associated.append(rf_results_section_binsim)
+RF_store_binsim.current_pages_associated.append(rf_feat_imp_show_annots_only_binsim)
+RF_store_binsim.current_pages_associated.append(save_rf_feat_imp_binsim_button)
+
+
+# Complete layout of the PLS-DA section of BinSim analysis
+page_binsim_RF = pn.Column(pn.pane.HTML(rf_opening_string),
+                           rf_optim_section_binsim,
+                           rf_results_section_binsim)
+
+
+
+# Complete BinSim Analysis Page Layout
+binsim_analysis_page = pn.Column(pn.Tabs(('PCA', page_binsim_PCA), ('HCA', page_binsim_HCA),
+                                        ('PLS-DA', page_binsim_PLSDA), ('RF ', page_binsim_RF)))
 
 
 
@@ -5361,7 +5799,7 @@ desc_repgen = pn.Row('#### Common and Exclusive Compound Analysis',
               '#### Univariate Analysis',
               '#### Data Diversity Visualization Analysis',
               '#### HMDB Pathways Assignment',
-              '#### BinSim Analysis',)
+              '#### BinSim Analysis (TODO)',)
 
 # Widget to select folder where report figures and tables will be created in
 folder_selection = pn.widgets.TextAreaInput(name='Folder Name where Report and associated Figures and Tables will be Downloaded to (Do Not put a name of a pre-existing folder)',
@@ -5478,6 +5916,7 @@ def Yes_Reset(event):
         end_page_comexc.pop(-1)
 
     # Unsupervised Analysis page
+    n_components_compute.value = 10
     PCA_params.reset()
     HCA_params.reset()
 
@@ -5526,6 +5965,45 @@ def Yes_Reset(event):
         path_matching_section.pop(-1)
     while len(hmdb_id_searching_section) > 3:
         hmdb_id_searching_section.pop(-1)
+
+    # Binary Simplification (BinSim) analysis page
+    # PCA
+    n_components_compute_binsim.value = 10
+    PCA_params_binsim.reset()
+    PCA_params_binsim.binsim_flag = True
+    for _, w in PCA_params_binsim.controls.widgets.items():
+        w.disabled = True
+    middle_page_PCA_binsim[0,1:3] = 'To plot a PCA'
+    end_page_PCA_binsim[0] = 'To plot explained variance figure'
+    end_page_PCA_binsim[1] = 'To plot matrices of PCA projections'
+    # HCA
+    HCA_params_binsim.reset()
+    HCA_params_binsim.binsim_flag = True
+    # PLS-DA
+    plsda_feat_imp_show_annots_only_binsim.value = False
+    plsda_feat_imp_show_annots_only_binsim.disabled = True
+    rec_comp_indicator_binsim_widget.value = None
+    PLSDA_store_binsim.soft_reset()
+    pls_optim_section_binsim[1] = PLSDA_store_binsim.optim_figure[0]
+    save_plsda_feat_imp_binsim_button.disabled = True
+    while len(pls_results_section_binsim) > 5:
+        pls_results_section_binsim.pop(-1)
+    pls_results_section_binsim[0][1][1] = PLSDA_store_binsim.n_results
+    pls_results_section_binsim[3] = pn.pane.DataFrame(PLSDA_store_binsim.feat_impor)
+    PLSDA_store_binsim.binsim_flag = True
+    PLSDA_store_binsim.controls.widgets['scale'].disabled = True
+    PLSDA_store_binsim.controls_optim.widgets['scale'].disabled = True
+    # RF
+    rf_feat_imp_show_annots_only_binsim.value = False
+    rf_feat_imp_show_annots_only_binsim.disabled = True
+    RF_store_binsim.reset()
+    rf_optim_section_binsim[1] = RF_store_binsim.optim_figure[0]
+    save_rf_feat_imp_binsim_button.disabled = True
+    while len(rf_results_section_binsim) > 5:
+        rf_results_section_binsim.pop(-1)
+    rf_results_section_binsim[0][1][1] = RF_store_binsim.n_results
+    rf_results_section_binsim[3] = pn.pane.DataFrame(RF_store_binsim.feat_impor)
+    RF_store_binsim.binsim_flag = True
 
     # Compound Finder search tool page
     comp_finder.reset()
@@ -5656,7 +6134,7 @@ page7_button = pn.widgets.Button(name="Supervised Analysis", button_type="defaul
 page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="default", disabled=True)
 page9_button = pn.widgets.Button(name="Data Visualization", button_type="default", disabled=True)
 page10_button = pn.widgets.Button(name="Pathway Assignment", button_type="default", disabled=True)
-page11_button = pn.widgets.Button(name="BinSim Analysis (TODO)", button_type="default", disabled=True)
+page11_button = pn.widgets.Button(name="BinSim Analysis", button_type="default", disabled=True)
 page12_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
 page13_button = pn.widgets.Button(name="Report Generation", button_type="default", disabled=True)
 RESET_button = pn.widgets.Button(name="RESET", button_type="danger", disabled=False)
@@ -5685,7 +6163,7 @@ RESET_button.on_click(RESET)
 
 sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing and Pre-Treatment', page1_button, page1_1_button, page1_2_button, page2_button, page2_1_button,
                     page3_button, page4_button, '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button, page11_button,
-                    page12_button, '## Report Generation (TODO)', page13_button, '## To Reset', RESET_button)
+                    page12_button, '## Report Generation', page13_button, '## To Reset', RESET_button)
 
 
 app = pn.template.BootstrapTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
