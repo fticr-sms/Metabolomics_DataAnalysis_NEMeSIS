@@ -12,7 +12,7 @@ import numpy as np
 def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
                      data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
-                     rep_gen_page):
+                     PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page):
     "Makes a read-only Word file with the metabolomics data analysis performed of selected statistical analysis."
 
     # Create Folder to put the report in
@@ -495,9 +495,9 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
                 pca_pg2 = document.add_paragraph()
                 if PCA_params.n_dimensions == '2 Components':
-                    pca_pg2.add_run(f'2-D PCA Projection Plot of Components: {PCA_params.PCx} and {PCA_params.PCy}.').bold = True
+                    pca_pg2.add_run(f'2-D PCA Projection Plot of Components: {PCA_params.PCx} and {PCA_params.PCy}').bold = True
                 else:
-                    pca_pg2.add_run(f'3-D PCA Projection Plot of Components: {PCA_params.PCx}, {PCA_params.PCy} and {PCA_params.PCz}.').bold = True
+                    pca_pg2.add_run(f'3-D PCA Projection Plot of Components: {PCA_params.PCx}, {PCA_params.PCy} and {PCA_params.PCz}').bold = True
                 pca_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
                 # Creating filename for the PCA Projection and saving it
@@ -516,9 +516,9 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 # If there is an explained variance plot
                 if type(PCA_params.PCA_plot[0]) != str:
                     # Description
-                    pca_pg = document.add_paragraph()
-                    pca_pg.add_run('Cumulative Explained Variance (by Principal Component) Plot').bold = True
-                    pca_pg.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    pca_pg3 = document.add_paragraph()
+                    pca_pg3.add_run('Cumulative Explained Variance (by Principal Component) Plot').bold = True
+                    pca_pg3.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
                     # Creating filename for the PCA explained variance plot and saving it
                     filename_string = '/Report_PCA_exp_var_plot'
@@ -531,9 +531,9 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 # If there is a PCA Projection (Scatter) Plot of the Principal Components
                 if type(PCA_params.scatter_PCA_plot[0]) != str:
                     # Description
-                    pca_pg = document.add_paragraph()
-                    pca_pg.add_run('2-D PCA Projection (Scatter) Plot of the Principal Components').bold = True
-                    pca_pg.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    pca_pg4 = document.add_paragraph()
+                    pca_pg4.add_run('2-D PCA Projection (Scatter) Plot of the Principal Components').bold = True
+                    pca_pg4.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
                     # Creating filename for the PCA Projection (Scatter) Plot of the Principal Components and saving it
                     filename_string = '/Report_PCA_scatter_plot'
@@ -543,7 +543,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                     # Adding figure
                     document.add_picture(folder+filename_string+'.png', width=Cm(15))
 
-            # If there is no Venn Diagram
+            # If there is no PCA analysis performed
             else:
                 pca_pg = document.add_paragraph('Principal Component Analysis was not performed during the Data Analysis. ')
                 pca_pg.add_run(f"Thus, this section will be skipped.")
@@ -552,7 +552,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
         # HCA Section
         if 'HCA' in stat_methods:
             # Heading
-            document.add_heading('Hierarchical Clustering Analysis (PCA)', level=3)
+            document.add_heading('Hierarchical Clustering Analysis (HCA)', level=3)
 
             # If there is a dendrogram
             if type(HCA_params.HCA_plot[0]) != str:
@@ -560,7 +560,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 hca_pg = document.add_paragraph(f'Hierarchical Clustering Analysis was made with ')
                 hca_pg.add_run(f'{HCA_params.dist_metric} distance metric and {HCA_params.link_metric} linkage metric.')
 
-                # Creating filename for the PCA Projection and saving it
+                # Creating filename for the dendrogram and saving it
                 filename_string = f'/Report_HCA_plot_{HCA_params.dist_metric}Dist_{HCA_params.link_metric}Linkage'
                 HCA_params.HCA_plot[0].savefig(folder + filename_string + '.png', dpi=HCA_params.dpi)
 
@@ -649,10 +649,10 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
                 plsda_pg4 = document.add_paragraph()
                 if PLSDA_store.n_dimensions == '2 Components':
-                    plsda_pg4.add_run(f'2-D PLS Projection Plot of Latent Variables: {PLSDA_store.LVx} and {PLSDA_store.LVy}.').bold = True
+                    plsda_pg4.add_run(f'2-D PLS Projection Plot of Latent Variables: {PLSDA_store.LVx} and {PLSDA_store.LVy}').bold = True
                 else:
                     plsda_pg4.add_run(f'3-D PCA Projection Plot of Latent Variables: {PLSDA_store.LVx}, {PLSDA_store.LVy}').bold = True
-                    plsda_pg4.add_run(f' and {PLSDA_store.LVz}.').bold = True
+                    plsda_pg4.add_run(f' and {PLSDA_store.LVz}').bold = True
                 plsda_pg4.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
                 # Creating filename for the PLS Projection and saving it
@@ -1146,6 +1146,392 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
             path_pg2.add_run(f" showing the IDs considered HMDB-like found in the provided columns.")
 
         # End of section
+        document.add_page_break()
+
+
+
+    # BinSim Analysis Section
+    if len(np.intersect1d(['BinSim - PCA', 'BinSim - HCA', 'BinSim - PLS-DA', 'BinSim - RF'], stat_methods)) != 0:
+        document.add_heading('Binary Simplification (BinSim) Treated Dataset - Multivariate Analysis', level=2)
+
+        binsim_pg = document.add_paragraph(f'Binary Simplification (BinSim) treated data consists of transforming the ')
+        binsim_pg.add_run('original data matrix by changing all intensity values detected to 1 and all missing values to 0. ')
+        binsim_pg.add_run('Thus, it represents the metabolic feature occurrence information complementary to the standard ')
+        binsim_pg.add_run('intensity-based analysis.')
+
+        # PCA Section - BinSim version
+        if 'BinSim - PCA' in stat_methods:
+            # Heading
+            document.add_heading('Principal Component Analysis (PCA) - BinSim Version', level=3)
+
+            # If there is a PCA Projection
+            if type(PCA_params_binsim.PCA_plot[0]) != str:
+                # Description
+                binsim_pca_pg = document.add_paragraph(f'Principal Component Analysis on BinSim treated data was made with ')
+                binsim_pca_pg.add_run(f'{len(PCA_params_binsim.controls.widgets["PCx"].options)} components.')
+
+                binsim_pca_pg2 = document.add_paragraph()
+                if PCA_params_binsim.n_dimensions == '2 Components':
+                    binsim_pca_pg2.add_run(f'2-D PCA Projection Plot of Components: {PCA_params_binsim.PCx} ').bold = True
+                    binsim_pca_pg2.add_run(f'and {PCA_params_binsim.PCy} - BinSim').bold = True
+                else:
+                    binsim_pca_pg2.add_run(f'3-D PCA Projection Plot of Components: {PCA_params_binsim.PCx}, ').bold = True
+                    binsim_pca_pg2.add_run(f'{PCA_params_binsim.PCy} and {PCA_params_binsim.PCz} - BinSim').bold = True
+                binsim_pca_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                # Creating filename for the PCA Projection and saving it
+                filename_string = '/Report_BinSim_PCA_plot'
+                if PCA_params_binsim.ellipse_draw:
+                    if PCA_params_binsim.confidence != 0:
+                        filename_string = filename_string + f'_ellipse({PCA_params_binsim.confidence*100}%confidence)'
+                    else:
+                        filename_string = filename_string + f'_ellipse({PCA_params_binsim.confidence_std}std)'
+                PCA_params_binsim.PCA_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                PCA_params_binsim.PCA_plot[0].write_html(folder+filename_string+".html")
+
+                # Adding figure
+                document.add_picture(folder+filename_string+'.png', width=Cm(12.5))
+
+                # If there is an explained variance plot
+                if type(PCA_params_binsim.PCA_plot[0]) != str:
+                    # Description
+                    binsim_pca_pg3 = document.add_paragraph()
+                    binsim_pca_pg3.add_run('Cumulative Explained Variance (by Principal Component) Plot - BinSim').bold = True
+                    binsim_pca_pg3.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                    # Creating filename for the PCA Projection and saving it
+                    filename_string = '/Report_BinSim_PCA_exp_var_plot'
+                    PCA_params_binsim.exp_var_fig_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                    PCA_params_binsim.exp_var_fig_plot[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(12.5))
+
+                # If there is an explained variance plot
+                if type(PCA_params_binsim.scatter_PCA_plot[0]) != str:
+                    # Description
+                    binsim_pca_pg4 = document.add_paragraph()
+                    binsim_pca_pg4.add_run('2-D PCA Projection (Scatter) Plot of the Principal Components - BinSim').bold = True
+                    binsim_pca_pg4.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                    # Creating filename for the PCA Projection and saving it
+                    filename_string = '/Report_BinSim_PCA_scatter_plot'
+                    PCA_params_binsim.scatter_PCA_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                    PCA_params_binsim.scatter_PCA_plot[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+            # If there is no PCA analysis performed on BinSim treated data
+            else:
+                binsim_pca_pg = document.add_paragraph('Principal Component Analysis was not performed with the BinSim ')
+                binsim_pca_pg.add_run(f"treated data during the Data Analysis. Thus, this section will be skipped.")
+
+
+        # HCA Section - BinSim version
+        if 'BinSim - HCA' in stat_methods:
+            # Heading
+            document.add_heading('Hierarchical Clustering Analysis (HCA) - BinSim Version', level=3)
+
+            # If there is a dendrogram
+            if type(HCA_params_binsim.HCA_plot[0]) != str:
+                # Description
+                binsim_hca_pg = document.add_paragraph(f'Hierarchical Clustering Analysis on BinSim treated data was made ')
+                binsim_hca_pg.add_run(f'with {HCA_params_binsim.dist_metric} distance metric and ')
+                binsim_hca_pg.add_run(f'{HCA_params_binsim.link_metric} linkage metric.')
+
+                # Creating filename for the dendrogram and saving it
+                filename = f'/Report_BinSim_HCA_plot_{HCA_params_binsim.dist_metric}Dist_{HCA_params_binsim.link_metric}Linkage'
+                HCA_params_binsim.HCA_plot[0].savefig(folder + filename_string + '.png', dpi=HCA_params_binsim.dpi)
+
+                # Adding figure
+                document.add_picture(folder+filename_string+'.png', width=Cm(12))
+
+        # End of unsupervised analysis of BinSim section
+        document.add_page_break()
+
+
+        # PLS-DA Section - BinSim Version
+        if 'BinSim - PLS-DA' in stat_methods:
+            # Heading
+            document.add_heading('Partial Least Squares - Discriminant Analysis (PLS-DA) - BinSim Version', level=3)
+
+            # If there is a PLS optimization
+            if type(PLSDA_store_binsim.optim_figure[0]) != str:
+                # Minor Heading
+                document.add_heading('Number of Components Optimization - BinSim', level=4)
+
+                # Description
+                n_min_components, n_max_components = PLSDA_store_binsim.current_other_plsda_params["n_min_max_components"]
+                binsim_plsda_pg = document.add_paragraph(f'First, an optimization of the number of components to use to fit ')
+                binsim_plsda_pg.add_run(f'a PLS-DA model on BinSim treated data was made by fitting PLS models from ')
+                binsim_plsda_pg.add_run(f'{n_min_components} to {n_max_components} components and evaluating their Q2 ')
+                binsim_plsda_pg.add_run(f'(mainly) and R2 scores estimated by {PLSDA_store_binsim.current_other_plsda_params["n_fold_optim"]}')
+                binsim_plsda_pg.add_run(f'-fold stratified cross-validation. Results are shown in the figure below with a ')
+                binsim_plsda_pg.add_run(f'maximum Q2 value with {PLSDA_store_binsim.rec_components} components.')
+
+                # Plot title
+                binsim_plsda_pg2 = document.add_paragraph()
+                binsim_plsda_pg2.add_run('PLS-DA Component Optimization Plot - BinSim').bold = True
+                binsim_plsda_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                # Creating filename for the PLS optimization plot and saving it
+                filename_string = f'/Report_BinSim_PLS_optim_plot_{n_min_components}to{n_max_components}'
+                filename_string = filename_string + f'components_{PLSDA_store_binsim.current_other_plsda_params["n_fold_optim"]}-'
+                filename_string = filename_string + f'foldstratCV_scale{PLSDA_store_binsim.current_other_plsda_params["scale_optim"]}'
+                PLSDA_store_binsim.optim_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                PLSDA_store_binsim.optim_figure[0].write_html(folder+filename_string+".html")
+
+                # Adding figure
+                document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+            else:
+                document.add_paragraph(f'Optimization of the number of components to fit the PLS-DA model on BinSim treated data was not performed.')
+
+
+            # If the PLS-DA model was fitted
+            if type(PLSDA_store_binsim.models[0]) != str:
+                # Minor Heading
+                document.add_heading('PLS-DA Model Fitting and Results - BinSim', level=4)
+
+                # Description
+                binsim_plsda_params = PLSDA_store_binsim.current_plsda_params
+                binsim_plsda_pg3 = document.add_paragraph(f'PLS-DA model was fitted on BinSim treated data using ')
+                binsim_plsda_pg3.add_run(f'{binsim_plsda_params["n_components"]} components estimating model performance and')
+                binsim_plsda_pg3.add_run(f' feature importance ({binsim_plsda_params["feat_imp"]} score method) by ')
+                binsim_plsda_pg3.add_run(f'{binsim_plsda_params["n_folds"]}-fold stratified cross-validation repeated ')
+                binsim_plsda_pg3.add_run(f'{binsim_plsda_params["n_iterations"]} times (randomized folds in cross-validation)')
+                binsim_plsda_pg3.add_run(f'. Model Performance results are shown in the table below (by the metrics chosen) ')
+
+                # Building the filename and saving PLS-DA Feature Importance Table
+                filename_string = f'/Report_BinSim_PLS-DA_FeatImp_{binsim_plsda_params["feat_imp"]}_model_params_components'
+                filename_string = filename_string + f'{binsim_plsda_params["n_components"]}_{binsim_plsda_params["n_folds"]}'
+                filename_string = filename_string + f'-foldstratCV_iterations{binsim_plsda_params["n_iterations"]}_scale'
+                filename_string = filename_string + f'{binsim_plsda_params["scale"]}.xlsx'
+                PLSDA_store_binsim.feat_impor.to_excel(folder+filename_string)
+
+                # Finishing up the description
+                binsim_plsda_pg3.add_run(f"and Feature Importance Table was saved as '{filename_string[1:]}'. ")
+                binsim_plsda_pg3.add_run(f'Furthermore, below we also show a PLS Projection of chosen Latent Variables.')
+
+                # Table with results of PLS-DA
+                table_plsda_results_binsim = document.add_table(rows=len(PLSDA_store_binsim.n_results.index)+1,
+                                                            cols=len(PLSDA_store_binsim.n_results.columns)+1,
+                                                            style='Light Grid')
+                table_plsda_results_binsim = fill_word_table(table_plsda_results_binsim, PLSDA_store_binsim.n_results)
+
+                # Give space after table
+                document.add_paragraph()
+
+                binsim_plsda_pg4 = document.add_paragraph()
+                if PLSDA_store_binsim.n_dimensions == '2 Components':
+                    binsim_plsda_pg4.add_run(f'2-D PLS Projection Plot of Latent Variables: {PLSDA_store_binsim.LVx}').bold = True
+                    binsim_plsda_pg4.add_run(f' and {PLSDA_store_binsim.LVy} - BinSim').bold = True
+                else:
+                    binsim_plsda_pg4.add_run(f'3-D PCA Projection Plot of Latent Variables: {PLSDA_store_binsim.LVx}').bold = True
+                    binsim_plsda_pg4.add_run(f', {PLSDA_store_binsim.LVy} and {PLSDA_store_binsim.LVz} - BinSim').bold = True
+                binsim_plsda_pg4.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                # Creating filename for the PLS Projection and saving it
+                filename_string = '/Report_BinSim_PLS_projection_plot'
+                if PLSDA_store_binsim.n_dimensions == '2 Components':
+                    if PLSDA_store_binsim.ellipse_draw:
+                        if PLSDA_store_binsim.confidence != 0:
+                            filename_string = filename_string + f'_ellipse({PLSDA_store_binsim.confidence*100}%confidence)'
+                        else:
+                            filename_string = filename_string + f'_ellipse({PLSDA_store_binsim.confidence_std}std)'
+                PLSDA_store_binsim.PLS_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                PLSDA_store_binsim.PLS_plot[0].write_html(folder+filename_string+".html")
+
+                # Adding figure
+                document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+
+                # If there is Permutation Test plot
+                if type(PLSDA_store_binsim.perm_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('PLS-DA Permutation Test - BinSim', level=4)
+
+                    # Description
+                    binsim_plsda_pg5 = document.add_paragraph('Permutation Test was performed on BinSim treated data with ')
+                    binsim_plsda_pg5.add_run(f"the same number of components as before - {PLSDA_store_binsim.current_plsda_params_permutation['n_components']}")
+                    binsim_plsda_pg5.add_run(f" - and with {PLSDA_store_binsim.current_plsda_params_permutation['n_permutations']}")
+                    binsim_plsda_pg5.add_run(f" permutations. Model performance was evaluated by ")
+                    binsim_plsda_pg5.add_run(f"{PLSDA_store_binsim.current_plsda_params_permutation['perm_metric']} ")
+                    binsim_plsda_pg5.add_run(f"estimated with {PLSDA_store_binsim.current_plsda_params_permutation['n_folds']}")
+                    binsim_plsda_pg5.add_run(f"-fold stratified cross-validation.")
+
+                    # Creating filename for the PLS-DA Permutation Test and saving it
+                    filename_string = f'/Report_BinSim_PLS-DA_permutation_test_{PLSDA_store_binsim.current_plsda_params_permutation["n_permutations"]}perm_'
+                    filename_string = filename_string + f'{PLSDA_store_binsim.current_plsda_params_permutation["n_components"]}comp_'
+                    filename_string = filename_string + f'{PLSDA_store_binsim.current_plsda_params_permutation["n_folds"]}-foldstratCV_scale'
+                    filename_string = filename_string + f'{PLSDA_store_binsim.current_plsda_params_permutation["scale"]}_metric'
+                    filename_string = filename_string + f'{PLSDA_store_binsim.current_plsda_params_permutation["perm_metric"]}'
+                    PLSDA_store_binsim.perm_figure[0].savefig(folder+filename_string+'.png', dpi=PLSDA_store_binsim.dpi)
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+
+                # If there is ROC Curve plot
+                if type(PLSDA_store_binsim.ROC_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('PLS-DA ROC Curve - BinSim', level=4)
+
+                    # Description
+                    binsim_roc_params = PLSDA_store_binsim.current_other_plsda_params['ROC_filename'].split('_')
+                    if len(target_list.classes) > 2:
+                        binsim_plsda_pg6 = document.add_paragraph('Since there are more than 2 classes, ROC curves were computed')
+                        binsim_plsda_pg6.add_run(f" with a 1vsAll scheme for each of the {len(target_list.classes)} classes.")
+                    else:
+                        binsim_plsda_pg6 = document.add_paragraph('Since there are only 2 classes, ROC curves were computed considering ')
+                        binsim_plsda_pg6.add_run(f"{binsim_roc_params[2][:-8]}").bold = True
+                        binsim_plsda_pg6.add_run(f" as the positive class.")
+                    binsim_plsda_pg6.add_run(f' Other parameters were maintained: number of components - {binsim_roc_params[3][:-10]}')
+                    binsim_plsda_pg6.add_run(f"; {binsim_roc_params[4][:-7]} stratified cross-validation; scale - ")
+                    binsim_plsda_pg6.add_run(f"{binsim_roc_params[6][5:]}. Finally, ROC Curve estimation was repeated ")
+                    binsim_plsda_pg6.add_run(f"{binsim_roc_params[5][:-10]} times (randomized cross-validation folds).")
+
+                    # Creating filename for the PLS-DA ROC Curve and saving it
+                    filename_string = '/Report_BinSim_' + PLSDA_store_binsim.current_other_plsda_params['ROC_filename'][:-7]
+                    PLSDA_store_binsim.ROC_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                    PLSDA_store_binsim.ROC_figure[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+            # If there is no PLS-DA model fitted on the BinSim treated data
+            else:
+                binsim_plsda_pg3 = document.add_paragraph('PLS-DA model was not fitted on the BinSim treated ')
+                binsim_plsda_pg3.add_run(f"data during the Data Analysis. Thus, this section will be skipped.")
+
+
+        # Random Forest Section - BinSim Version
+        if 'BinSim - Random Forest' in stat_methods:
+            # Heading
+            document.add_heading('Random Forest (RF) - BinSim', level=3)
+
+            # If there is a Random Forest Tree Number optimization
+            if type(RF_store_binsim.optim_figure[0]) != str:
+                # Minor Heading
+                document.add_heading('Number of Trees Optimization - BinSim', level=4)
+
+                # Description
+                n_min_trees, n_max_trees = RF_store_binsim.current_other_rf_params["n_min_max_trees"]
+                binsim_rf_pg = document.add_paragraph(f'First, an optimization of the number of trees to use to fit a ')
+                binsim_rf_pg.add_run(f'Random Forest model on BinSim treated data was made by fitting RF models from ')
+                binsim_rf_pg.add_run(f'{n_min_trees} to {n_max_trees} trees in {RF_store_binsim.current_other_rf_params["n_interval"]}')
+                binsim_rf_pg.add_run(f' tree steps, evaluating their model accuracy estimated by ')
+                binsim_rf_pg.add_run(f'{RF_store_binsim.current_other_rf_params["n_fold_optim"]}-fold stratified')
+                binsim_rf_pg.add_run(f' cross-validation. Results are shown in the figure below.')
+
+                # Plot title
+                binsim_rf_pg2 = document.add_paragraph()
+                binsim_rf_pg2.add_run('Random Forest Number of Trees Optimization Plot - BinSim').bold = True
+                binsim_rf_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                # Creating filename for the Random Forest optimization plot and saving it
+                filename_string = f'/Report_BinSim_RF_optim_plot_{RF_store_binsim.current_other_rf_params["n_fold_optim"]}'
+                filename_string = filename_string + f'-foldStratCV_{n_min_trees}to{n_max_trees}trees_'
+                filename_string = filename_string + f'({RF_store_binsim.current_other_rf_params["n_interval"]}interval)'
+                RF_store_binsim.optim_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                RF_store_binsim.optim_figure[0].write_html(folder+filename_string+".html")
+
+                # Adding figure
+                document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+            else:
+                document.add_paragraph(f'Optimization of the number of trees to fit the Random Forest model on BinSim treated data was not performed.')
+
+
+            # If the Random Forest model was fitted
+            if type(RF_store_binsim.models[0]) != str:
+                # Minor Heading
+                document.add_heading('Random Forest Model Fitting and Results - BinSim', level=4)
+
+                # Description
+                binsim_rf_params = RF_store_binsim.current_rf_params
+                binsim_rf_pg3 = document.add_paragraph(f'Random Forest model was fitted on BinSim treated data with ')
+                binsim_rf_pg3.add_run(f'{binsim_rf_params["n_trees"]} trees estimating model performance and feature ')
+                binsim_rf_pg3.add_run(f'importance by {binsim_rf_params["n_folds"]}-fold stratified cross-validation ')
+                binsim_rf_pg3.add_run(f'repeated {binsim_rf_params["n_iterations"]} times (randomized folds in ')
+                binsim_rf_pg3.add_run(f'cross-validation). Model Performance results are shown in the table below (by the ')
+
+                # Building the filename and saving Random Forest Feature Importance Table
+                filename_string = f'/Report_BinSim_RF_FeatImp_Gini_model_params_{binsim_rf_params["n_trees"]}trees_'
+                filename_string = filename_string + f'{binsim_rf_params["n_folds"]}-foldstratCV_iterations'
+                filename_string = filename_string + f'{binsim_rf_params["n_iterations"]}.xlsx'
+                RF_store_binsim.feat_impor.to_excel(folder+filename_string)
+
+                # Finishing up the description
+                binsim_rf_pg3.add_run(f"metrics chosen) and Feature Importance Table was saved as '{filename_string[1:]}'.")
+
+                # Table with results of Random Forest
+                table_rf_results_binsim = document.add_table(rows=len(RF_store_binsim.n_results.index)+1,
+                                                            cols=len(RF_store_binsim.n_results.columns)+1,
+                                                            style='Light Grid')
+                table_rf_results_binsim = fill_word_table(table_rf_results_binsim, RF_store_binsim.n_results)
+
+                # Give space after table
+                document.add_paragraph()
+
+
+                # If there is Permutation Test plot
+                if type(RF_store_binsim.perm_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('Random Forest Permutation Test - BinSim', level=4)
+
+                    # Description
+                    binsim_rf_params_perm = RF_store_binsim.current_rf_params_permutation
+                    binsim_rf_pg4 = document.add_paragraph('Permutation Test was performed on the BinSim treated data with ')
+                    binsim_rf_pg4.add_run(f"the same number of trees as before - {binsim_rf_params_perm['n_trees']} - and ")
+                    binsim_rf_pg4.add_run(f"with {binsim_rf_params_perm['n_permutations']} permutations. Model performance ")
+                    binsim_rf_pg4.add_run(f"was evaluated by {binsim_rf_params_perm['perm_metric']} estimated with ")
+                    binsim_rf_pg4.add_run(f"{binsim_rf_params_perm['n_folds']}-fold stratified cross-validation.")
+
+                    # Creating filename for the Random Forest Permutation Test and saving it
+                    filename_string = f'/Report_BinSim_RF_permutation_test_{binsim_rf_params_perm["n_permutations"]}perm_'
+                    filename_string = filename_string + f'{binsim_rf_params_perm["n_trees"]}comp_'
+                    filename_string = filename_string + f'{binsim_rf_params_perm["n_folds"]}-foldstratCV_metric'
+                    filename_string = filename_string + f'{binsim_rf_params_perm["perm_metric"]}'
+                    RF_store_binsim.perm_figure[0].savefig(folder+filename_string+'.png', dpi=RF_store_binsim.dpi)
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+
+                # If there is ROC Curve plot
+                if type(RF_store_binsim.ROC_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('Random Forest ROC Curve - BinSim', level=4)
+
+                    # Description
+                    binsim_roc_params = RF_store_binsim.current_other_rf_params['ROC_filename'].split('_')
+                    if len(target_list.classes) > 2:
+                        binsim_rf_pg5 = document.add_paragraph('Since there are more than 2 classes, ROC curves were computed')
+                        binsim_rf_pg5.add_run(f" with a 1vsAll scheme for each of the {len(target_list.classes)} classes.")
+                    else:
+                        binsim_rf_pg5 = document.add_paragraph('Since there are only 2 classes, ROC curves were computed considering ')
+                        binsim_rf_pg5.add_run(f"{binsim_roc_params[2][:-8]}").bold = True
+                        binsim_rf_pg5.add_run(f" as the positive class.")
+                    binsim_rf_pg5.add_run(f' Other parameters were maintained: number of trees - {binsim_roc_params[3][:-5]}; ')
+                    binsim_rf_pg5.add_run(f"{binsim_roc_params[4][:-7]} stratified cross-validation. Finally, ROC Curve estimation was ")
+                    binsim_rf_pg5.add_run(f"repeated {binsim_roc_params[5][:-10]} times (randomized cross-validation folds).")
+
+                    # Creating filename for the Random Forest ROC Curve and saving it
+                    filename_string = '/Report_BinSim_' + RF_store_binsim.current_other_rf_params['ROC_filename'][:-7]
+                    RF_store_binsim.ROC_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                    RF_store_binsim.ROC_figure[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+            # If there is no Random Forest model fitted
+            else:
+                binsim_rf_pg3 = document.add_paragraph('Random Forest model was not fitted on the BinSim treated ')
+                binsim_rf_pg3.add_run(f"data during the Data Analysis. Thus, this section will be skipped.")
+
+        # End of BinSim section
         document.add_page_break()
 
 

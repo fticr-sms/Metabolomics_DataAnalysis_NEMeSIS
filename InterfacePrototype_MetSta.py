@@ -36,7 +36,7 @@ pd.DataFrame.iteritems = pd.DataFrame.items
 
 # TODO: Make a way to choose folder where all figures and tables downloaded go to
 # TODO: Updating packages made a series of future deprecation warnings appear - adapt code to them
-# TODO: Make PCA and PLS projection plots saved the current components names in the filename
+# TODO: Make PCA and projection plots save the current components names in the filename
 
 
 # Define pages as classes
@@ -5273,7 +5273,7 @@ rec_comp_indicator_binsim_widget = pn.indicators.Number(name='Recommended Compon
 
 
 # Initial layout of the optimization section of PLS-DA BinSim analysis
-pls_optim_section_binsim = pn.Row(pn.Column(PLSDA_store_binsim.controls_optim, rec_comp_indicator_widget,
+pls_optim_section_binsim = pn.Row(pn.Column(PLSDA_store_binsim.controls_optim, rec_comp_indicator_binsim_widget,
                                     'A lower number of components with a similar Q2 may be preferable than the number shown'),
                            PLSDA_store_binsim.optim_figure[0])
 
@@ -5782,7 +5782,7 @@ class ReportGeneration(param.Parameterized):
                     value=[], options=['Van Krevelen', 'Kendrick Mass Defect', 'Chem. Comp. Series']),
             'pathassign_analysis': pn.widgets.Checkbox(name='HMDB Pathway Assignment', value=False),
             'BinSim_analysis': pn.widgets.CheckBoxGroup(name='BinSim Analysis',
-                    value=[], options=['PCA', 'HCA', 'PLS-DA', 'Random Forest'], disabled=True),
+                    value=[], options=['PCA', 'HCA', 'PLS-DA', 'Random Forest']),
         }
         self.controls = pn.Param(self, parameters=['com_exc_analysis', 'unsup_analysis', 'sup_analysis', 'univ_analysis',
                                                    'dataviz_analysis', 'pathassign_analysis', 'BinSim_analysis'],
@@ -5799,7 +5799,7 @@ desc_repgen = pn.Row('#### Common and Exclusive Compound Analysis',
               '#### Univariate Analysis',
               '#### Data Diversity Visualization Analysis',
               '#### HMDB Pathways Assignment',
-              '#### BinSim Analysis (TODO)',)
+              '#### BinSim Analysis',)
 
 # Widget to select folder where report figures and tables will be created in
 folder_selection = pn.widgets.TextAreaInput(name='Folder Name where Report and associated Figures and Tables will be Downloaded to (Do Not put a name of a pre-existing folder)',
@@ -5828,7 +5828,7 @@ def _report_generation_button(event):
         ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                         target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
                         data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
-                        rep_gen_page)
+                        PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page)
     except:
         while len(rep_gen_page) > 5:
             rep_gen_page.pop(-1)
@@ -6104,7 +6104,7 @@ pages = {
     "Report Generation": ReportGenerationPage(),
 }
 
-# Function to show the selected page - needs update (may cause bug)
+# Function to show the selected page - needs update
 def show_page(page_instance):
     "Shows page chosen in the main area."
     main_area.clear()
