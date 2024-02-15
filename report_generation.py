@@ -8,6 +8,7 @@ from stat import S_IREAD, S_IRGRP, S_IROTH
 import panel as pn
 import pandas as pd
 import numpy as np
+import json
 
 def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
@@ -23,8 +24,8 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     if os.path.isfile(folder+'/Report.docx'):
         pn.state.notifications.warning((f'Report.docx already exists in {folder} folder. Please select another folder) name or erase the'
                                         f' {folder} folder from your directory.'))
-        while len(rep_gen_page) > 5:
-            rep_gen_page.pop(-1)
+        while len(rep_gen_page) > 6:
+            rep_gen_page.pop(5)
         raise ValueError((f'Report.docx already exists in {folder} folder. Please select another folder) name or erase the'
                                         f' {folder} folder from your directory.'))
 
@@ -1543,6 +1544,545 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
         os.chmod(folder+'/Report.docx', S_IREAD|S_IRGRP|S_IROTH)
     except:
         pn.state.notifications.error(f'Report.docx could not be saved since it already existed in {folder} folder.')
-        while len(rep_gen_page) > 5:
-            rep_gen_page.pop(-1)
+        while len(rep_gen_page) > 6:
+            rep_gen_page.pop(5)
         raise ValueError(f'Report.docx could not be saved since it already existed in {folder} folder.')
+
+
+
+
+# Saving Parameters function
+def save_parameters(filename, UnivarA_Store, n_databases, annotation_margin_method_radio, annotation_ppm_deviation,
+                   annotation_Da_deviation, DB_dict, checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params,
+                   PLSDA_store, RF_store, dataviz_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim,
+                   RF_store_binsim, include_data_analysis=True):
+    "Creates a json file containing relevant parameters used in current dataset analysis."
+
+    # Dict with parameters to be saved
+    params_to_be_saved = {}
+
+    # Saving Data Filtering Related Parameters
+    params_to_be_saved['Data Filtering'] = {'filt_method': UnivarA_Store.filt_method,
+                                           'filt_kw': UnivarA_Store.filt_kw} # Special Precautions needed when loading
+
+
+    # Saving Data Annotation Related Parameters
+    # Main Parameters
+    params_to_be_saved['Data Annotation'] = {'n_databases': n_databases.value,
+                                            'annotation_margin_method': annotation_margin_method_radio.value,
+                                            'annotation_ppm_deviation': annotation_ppm_deviation.value,
+                                            'annotation_Da_deviation': annotation_Da_deviation.value}
+    # Database Specific Parameters
+    for d in range(n_databases.value):
+        params_to_be_saved['Data Annotation'][d] = {'file': DB_dict[str(d+1)].file,
+                                                   'abv': DB_dict[str(d+1)].abv,
+                                                   'IDcol': DB_dict[str(d+1)].IDcol,
+                                                   'annotation': DB_dict[str(d+1)].annotation,
+                                                   'formula': DB_dict[str(d+1)].formula,}
+
+
+    # Saving Data Pre-Treatment Related Parameters
+    params_to_be_saved['Data Pre-Treatment'] = {'mvi_method': UnivarA_Store.mvi_method,
+                                               'mvi_kw': UnivarA_Store.mvi_kw,
+                                               'norm_method': UnivarA_Store.norm_method, # Special Precautions needed when loading
+                                               'norm_kw': UnivarA_Store.norm_kw, # Special Precautions needed when loading
+                                               'tf_method': UnivarA_Store.tf_method,
+                                               'tf_kw': UnivarA_Store.tf_kw,
+                                               'scaling_method': UnivarA_Store.scaling_method,
+                                               'scaling_kw': UnivarA_Store.scaling_kw}
+    if UnivarA_Store.tf_method == 'None':
+        params_to_be_saved['Data Pre-Treatment']['tf_method'] = 'None'
+
+
+    # Whether or not to include parameters related to data analysis:
+    if include_data_analysis:
+        # Saving Common and Exclusive Compound Analysis Related Paramaeters
+        params_to_be_saved['Com. and Exc. Comp.'] = {# General
+                                                    'chosen': checkbox_com_exc.value, # Technically can be different
+                                                    # Venn Diagram Related
+                                                    'venn_alpha': com_exc_compounds.venn_alpha,
+                                                    'type_of_venn': com_exc_compounds.type_of_venn,
+                                                    'dpi_venn': com_exc_compounds.dpi_venn,
+                                                    # Intersection Plot Related
+                                                    'inter_include_counts_percentages': com_exc_compounds.inter_include_counts_percentages,
+                                                    'dpi_inter': com_exc_compounds.dpi_inter}
+
+
+        # Saving Unsupervised Analysis Related Parameters
+        # PCA
+        params_to_be_saved['PCA'] = {'n_components': PCA_params.n_components, # Remember to load the widget too
+                                    'ellipse_draw': PCA_params.ellipse_draw,
+                                    'confidence': PCA_params.confidence,
+                                    'confidence_std': PCA_params.confidence_std,
+                                    'dot_size': PCA_params.dot_size}
+        # HCA
+        params_to_be_saved['HCA'] = {'dist_metric': HCA_params.dist_metric,
+                                    'link_metric': HCA_params.link_metric,
+                                    'fig_x': HCA_params.fig_x,
+                                    'fig_y': HCA_params.fig_y,
+                                    'dpi': HCA_params.dpi,}
+
+
+        # Saving Supervised Analysis Related Parameters
+        # PLS-DA
+        params_to_be_saved['PLS-DA'] = {# Optimization Specific Related
+                                        'n_min_max_components': PLSDA_store.n_min_max_components, # Technically can be different
+                                        # PLS-DA Model Fit
+                                        'n_fold': PLSDA_store.n_fold,
+                                        'scale': PLSDA_store.scale,
+                                        'n_components': PLSDA_store.n_components,
+                                        'n_iterations': PLSDA_store.n_iterations,
+                                        'metrics_to_use': PLSDA_store.metrics_to_use, # Technically can be different
+                                        'imp_feature_metric': PLSDA_store.imp_feature_metric,
+                                        # PLS Projection Related
+                                        'ellipse_draw': PLSDA_store.ellipse_draw,
+                                        'confidence': PLSDA_store.confidence,
+                                        'confidence_std': PLSDA_store.confidence_std,
+                                        'dot_size': PLSDA_store.dot_size,
+                                        # PLS-DA Permutation Test Related
+                                        'n_perm': PLSDA_store.n_perm,
+                                        'perm_metric': PLSDA_store.perm_metric,
+                                        'dpi': PLSDA_store.dpi, # Technically can be different
+                                        # PLS-DA ROC Curve Related
+                                        'roc_n_iter': PLSDA_store.roc_n_iter} # Technically can be different
+        # Update to actually used parameters if possible
+        if 'n_folds' in PLSDA_store.current_plsda_params.keys():
+            for k,v in PLSDA_store.current_plsda_params.items():
+                if k == 'n_folds':
+                    params_to_be_saved['PLS-DA']['n_fold'] = v
+                elif k == 'feat_imp':
+                    params_to_be_saved['PLS-DA']['imp_feature_metric'] = v
+                else:
+                    params_to_be_saved['PLS-DA'][k] = v
+        if 'n_min_max_components' in PLSDA_store.current_other_plsda_params.keys():
+            params_to_be_saved['PLS-DA']['n_min_max_components'] = PLSDA_store.current_other_plsda_params[
+                'n_min_max_components']
+        if 'ROC_filename' in PLSDA_store.current_other_plsda_params.keys():
+            params_to_be_saved['PLS-DA']['roc_n_iter'] = PLSDA_store.current_other_plsda_params[
+                'ROC_filename'].split('_')[5][:-10]
+        if 'perm_metric' in PLSDA_store.current_plsda_params_permutation.keys():
+            params_to_be_saved['PLS-DA']['n_perm'] = PLSDA_store.current_plsda_params_permutation['n_permutations']
+            params_to_be_saved['PLS-DA']['perm_metric'] = PLSDA_store.current_plsda_params_permutation['perm_metric']
+
+        # Random Forest
+        params_to_be_saved['Random Forest'] = {# Optimization Specific Related
+                                            'n_min_max_trees': RF_store.n_min_max_trees,
+                                            'n_interval': RF_store.n_interval,
+                                            # Random Forest Model Fit
+                                            'n_fold': RF_store.n_fold,
+                                            'n_trees': RF_store.n_trees,
+                                            'n_iterations': RF_store.n_iterations,
+                                            'metrics_to_use': RF_store.metrics_to_use, # Technically can be different
+                                            # RF Permutation Test Related
+                                            'n_perm': RF_store.n_perm,
+                                            'perm_metric': RF_store.perm_metric,
+                                            'dpi': RF_store.dpi, # Technically can be different
+                                            # RF ROC Curve related
+                                            'roc_n_iter': RF_store.roc_n_iter,}
+        # Update to actually used parameters if possible
+        if 'n_folds' in RF_store.current_rf_params.keys():
+            for k,v in RF_store.current_rf_params.items():
+                if k == 'n_folds':
+                    params_to_be_saved['Random Forest']['n_fold'] = v
+                else:
+                    params_to_be_saved['Random Forest'][k] = v
+        if 'n_min_max_trees' in RF_store.current_other_rf_params.keys():
+            params_to_be_saved['Random Forest']['n_min_max_trees'] = RF_store.current_other_rf_params['n_min_max_trees']
+            params_to_be_saved['Random Forest']['n_interval'] = RF_store.current_other_rf_params['n_interval']
+        if 'ROC_filename' in RF_store.current_other_rf_params.keys():
+            params_to_be_saved['Random Forest']['roc_n_iter'] = RF_store.current_other_rf_params[
+                'ROC_filename'].split('_')[5][:-10]
+        if 'perm_metric' in RF_store.current_rf_params_permutation.keys():
+            params_to_be_saved['Random Forest']['n_perm'] = RF_store.current_rf_params_permutation['n_permutations']
+            params_to_be_saved['Random Forest']['perm_metric'] = RF_store.current_rf_params_permutation['perm_metric']
+
+
+        # Saving Univariate Analysis Related Parameters
+        params_to_be_saved['Univariate Analysis'] = {'univariate_test': UnivarA_Store.univariate_test,
+                                                    'expected_equal_variance': UnivarA_Store.expected_equal_variance,
+                                                    'p_value_threshold': UnivarA_Store.p_value_threshold,
+                                                    'fold_change_threshold': UnivarA_Store.fold_change_threshold,
+                                                    'color_non_sig': UnivarA_Store.color_non_sig,
+                                                    'color_down_sig': UnivarA_Store.color_down_sig,
+                                                    'color_up_sig': UnivarA_Store.color_up_sig,}
+        # Update to actually used parameters if possible
+        if 'Test' in UnivarA_Store.current_univ_params:
+            params_to_be_saved['Univariate Analysis']['univariate_test'] = UnivarA_Store.current_univ_params['Test']
+            params_to_be_saved['Univariate Analysis']['expected_equal_variance'] = UnivarA_Store.current_univ_params[
+                'Expected Equal Var.']
+            params_to_be_saved['Univariate Analysis']['p_value_threshold'] = UnivarA_Store.current_univ_params['p-value']
+            params_to_be_saved['Univariate Analysis']['fold_change_threshold'] = UnivarA_Store.current_univ_params[
+                'Fold Change Threshold']
+
+
+        # Saving Data Diversity Visualization Related Parameters
+        params_to_be_saved['Data Visualization'] = {# Van Krevelen Related
+                                                    'vk_highlight_by': dataviz_store.vk_highlight_by,
+                                                    'vk_colour': dataviz_store.vk_colour,
+                                                    'vk_size': dataviz_store.vk_size,
+                                                    'vk_midpoint': dataviz_store.vk_midpoint,
+                                                    'vk_max_dot_size': dataviz_store.vk_max_dot_size,
+                                                    'vk_show_colorbar': dataviz_store.vk_show_colorbar,
+                                                    'vk_draw_class_rectangle': dataviz_store.vk_draw_class_rectangle,
+                                                    # Kendrick Mass Defect Related
+                                                    'kmd_mass_rounding': dataviz_store.kmd_mass_rounding,
+                                                    'kmd_max_dot_size': dataviz_store.kmd_max_dot_size,
+                                                    # Chemical Composition Series Related
+                                                    'ccs_bar_plot_type': dataviz_store.ccs_bar_plot_type,}
+
+
+        # Saving BinSim Analysis Related Parameters
+        params_to_be_saved['BinSim Analysis'] = {}
+
+        # PCA
+        params_to_be_saved['BinSim Analysis']['PCA'] = {'n_components': PCA_params_binsim.n_components, # Remember to load the widget too
+                                                        'ellipse_draw': PCA_params_binsim.ellipse_draw,
+                                                        'confidence': PCA_params_binsim.confidence,
+                                                        'confidence_std': PCA_params_binsim.confidence_std,
+                                                        'dot_size': PCA_params_binsim.dot_size}
+
+        # HCA
+        params_to_be_saved['BinSim Analysis']['HCA'] = {'dist_metric': HCA_params_binsim.dist_metric,
+                                                        'link_metric': HCA_params_binsim.link_metric,
+                                                        'fig_x': HCA_params_binsim.fig_x,
+                                                        'fig_y': HCA_params_binsim.fig_y,
+                                                        'dpi': HCA_params_binsim.dpi,}
+
+        # PLS-DA
+        params_to_be_saved['BinSim Analysis']['PLS-DA'] = {# Optimization Specific Related
+                                                        'n_min_max_components': PLSDA_store_binsim.n_min_max_components,
+                                                        # PLS-DA Model Fit
+                                                        'n_fold': PLSDA_store_binsim.n_fold,
+                                                        'scale': PLSDA_store_binsim.scale,
+                                                        'n_components': PLSDA_store_binsim.n_components,
+                                                        'n_iterations': PLSDA_store_binsim.n_iterations,
+                                                        'metrics_to_use': PLSDA_store_binsim.metrics_to_use, # Technically can be different
+                                                        'imp_feature_metric': PLSDA_store_binsim.imp_feature_metric,
+                                                        # PLS Projection Related
+                                                        'ellipse_draw': PLSDA_store_binsim.ellipse_draw,
+                                                        'confidence': PLSDA_store_binsim.confidence,
+                                                        'confidence_std': PLSDA_store_binsim.confidence_std,
+                                                        'dot_size': PLSDA_store_binsim.dot_size,
+                                                        # PLS-DA Permutation Test Related
+                                                        'n_perm': PLSDA_store_binsim.n_perm,
+                                                        'perm_metric': PLSDA_store_binsim.perm_metric,
+                                                        'dpi': PLSDA_store_binsim.dpi, # Technically can be different
+                                                        # PLS-DA ROC Curve Related
+                                                        'roc_n_iter': PLSDA_store_binsim.roc_n_iter}
+        # Update to actually used parameters if possible
+        if 'n_folds' in PLSDA_store_binsim.current_plsda_params.keys():
+            for k,v in PLSDA_store_binsim.current_plsda_params.items():
+                if k == 'n_folds':
+                    params_to_be_saved['BinSim Analysis']['PLS-DA']['n_fold'] = v
+                elif k == 'feat_imp':
+                    params_to_be_saved['BinSim Analysis']['PLS-DA']['imp_feature_metric'] = v
+                else:
+                    params_to_be_saved['BinSim Analysis']['PLS-DA'][k] = v
+        if 'n_min_max_components' in PLSDA_store_binsim.current_other_plsda_params.keys():
+            params_to_be_saved['BinSim Analysis']['PLS-DA']['n_min_max_components'] = PLSDA_store_binsim.current_other_plsda_params[
+                'n_min_max_components']
+        if 'ROC_filename' in PLSDA_store_binsim.current_other_plsda_params.keys():
+            params_to_be_saved['BinSim Analysis']['PLS-DA']['roc_n_iter'] = PLSDA_store_binsim.current_other_plsda_params[
+                'ROC_filename'].split('_')[5][:-10]
+        if 'perm_metric' in PLSDA_store_binsim.current_plsda_params_permutation.keys():
+            params_to_be_saved['BinSim Analysis']['PLS-DA'][
+                'n_perm'] = PLSDA_store_binsim.current_plsda_params_permutation['n_permutations']
+            params_to_be_saved['BinSim Analysis']['PLS-DA'][
+                'perm_metric'] = PLSDA_store_binsim.current_plsda_params_permutation['perm_metric']
+
+        # Random Forest
+        params_to_be_saved['BinSim Analysis']['Random Forest'] = {# Optimization Specific Related
+                                                            'n_min_max_trees': RF_store_binsim.n_min_max_trees,
+                                                            'n_interval': RF_store_binsim.n_interval,
+                                                            # Random Forest Model Fit
+                                                            'n_fold': RF_store_binsim.n_fold,
+                                                            'n_trees': RF_store_binsim.n_trees,
+                                                            'n_iterations': RF_store_binsim.n_iterations,
+                                                            'metrics_to_use': RF_store_binsim.metrics_to_use, # Technically can be different
+                                                            # RF Permutation Test Related
+                                                            'n_perm': RF_store_binsim.n_perm,
+                                                            'perm_metric': RF_store_binsim.perm_metric,
+                                                            'dpi': RF_store_binsim.dpi, # Technically can be different
+                                                            # RF ROC Curve related
+                                                            'roc_n_iter': RF_store_binsim.roc_n_iter,}
+        # Update to actually used parameters if possible
+        if 'n_folds' in RF_store_binsim.current_rf_params.keys():
+            for k,v in RF_store_binsim.current_rf_params.items():
+                if k == 'n_folds':
+                    params_to_be_saved['BinSim Analysis']['Random Forest']['n_fold'] = v
+                else:
+                    params_to_be_saved['BinSim Analysis']['Random Forest'][k] = v
+        if 'n_min_max_trees' in RF_store_binsim.current_other_rf_params.keys():
+            params_to_be_saved['BinSim Analysis']['Random Forest']['n_min_max_trees'] = RF_store_binsim.current_other_rf_params[
+                'n_min_max_trees']
+            params_to_be_saved['BinSim Analysis']['Random Forest']['n_interval'] = RF_store_binsim.current_other_rf_params[
+                'n_interval']
+        if 'ROC_filename' in RF_store_binsim.current_other_rf_params.keys():
+            params_to_be_saved['BinSim Analysis']['Random Forest']['roc_n_iter'] = RF_store_binsim.current_other_rf_params[
+                'ROC_filename'].split('_')[5][:-10]
+        if 'perm_metric' in RF_store_binsim.current_rf_params_permutation.keys():
+            params_to_be_saved['BinSim Analysis']['Random Forest']['n_perm'] = RF_store_binsim.current_rf_params_permutation[
+                'n_permutations']
+            params_to_be_saved['BinSim Analysis']['Random Forest']['perm_metric'] = RF_store_binsim.current_rf_params_permutation[
+                'perm_metric']
+
+
+    # Save the parameters in a json file
+    with open(filename+'.json', 'w') as f:
+        json.dump(params_to_be_saved, f, indent=4)
+
+
+
+# Loading parameters from saved json files.
+def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_databases, annotation_margin_method_radio,
+                         annotation_ppm_deviation, annotation_Da_deviation, DB_dict, PreTreatment_Method, checkbox_com_exc,
+                         com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store,
+                         UnivarA_Store, dataviz_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
+                         PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in, params_analysis_loaded_in):
+    "Load in Previously Saved Parameters for Data Analysis."
+
+    # Data Pre-Processing and Pre-Treatment Related Parameters
+    if params_pre_treat_loaded_in:
+        # Loading Data Filtering Related Parameters
+        filt_method.value = params_to_load['Data Filtering']['filt_method']
+        #filt_kw
+
+        # Loading Data Annotation Related Parameters
+        # Main Parameters
+        n_databases_show.value = params_to_load['Data Annotation']['n_databases']
+        n_databases.value = params_to_load['Data Annotation']['n_databases']
+        annotation_margin_method_radio.value = params_to_load['Data Annotation']['annotation_margin_method']
+        annotation_ppm_deviation.value = params_to_load['Data Annotation']['annotation_ppm_deviation']
+        annotation_Da_deviation.value = params_to_load['Data Annotation']['annotation_Da_deviation']
+        # Database Specific Parameters
+        for d in params_to_load['Data Annotation'].keys():
+            if d not in ['n_databases', 'annotation_margin_method', 'annotation_ppm_deviation', 'annotation_Da_deviation']:
+                DB_dict[str(int(d)+1)].content[0][1].value = params_to_load['Data Annotation'][d]["file"]
+                DB_dict[str(int(d)+1)].content[1][1].value = params_to_load['Data Annotation'][d]["abv"]
+                DB_dict[str(int(d)+1)].content[2][1].value = params_to_load['Data Annotation'][d]["IDcol"]
+                DB_dict[str(int(d)+1)].content[3][1].value = params_to_load['Data Annotation'][d]["annotation"]
+                DB_dict[str(int(d)+1)].content[4][1].value = params_to_load['Data Annotation'][d]["formula"]
+
+        # Loading Data Pre-Treatment Related Parameters
+        PreTreatment_Method.mvi_method = params_to_load['Data Pre-Treatment']['mvi_method']
+        if params_to_load['Data Pre-Treatment']['mvi_method'] != 'Zero':
+            PreTreatment_Method.mvi_kw = params_to_load['Data Pre-Treatment']['mvi_kw']
+        #PreTreatment_Method.norm_method = params_to_load['Data Pre-Treatment']['norm_method']
+        #PreTreatment_Method.norm_kw
+        PreTreatment_Method.tf_method = params_to_load['Data Pre-Treatment']['tf_method']
+        PreTreatment_Method.tf_kw = params_to_load['Data Pre-Treatment']['tf_kw']
+        PreTreatment_Method.scaling_method = params_to_load['Data Pre-Treatment']['scaling_method']
+        PreTreatment_Method.scaling_kw = params_to_load['Data Pre-Treatment']['scaling_kw']
+
+
+
+    # Data Analysis Related Parameters
+    if params_analysis_loaded_in:
+        # Loading Common and Exclusive Compound Analysis Related Paramaeters
+        if 'Com. and Exc. Comp.' in params_to_load.keys():
+            # Stopping Figures from trying to be made
+            com_exc_compounds.compute_fig = False
+            # General
+            checkbox_com_exc.value = params_to_load['Com. and Exc. Comp.']['chosen']
+            # Venn Diagram
+            com_exc_compounds.venn_alpha = params_to_load['Com. and Exc. Comp.']['venn_alpha']
+            com_exc_compounds.controls.widgets['venn_alpha'].value = params_to_load['Com. and Exc. Comp.']['venn_alpha']
+            com_exc_compounds.type_of_venn = params_to_load['Com. and Exc. Comp.']['type_of_venn']
+            com_exc_compounds.controls.widgets['type_of_venn'].value = params_to_load['Com. and Exc. Comp.']['type_of_venn']
+            com_exc_compounds.dpi_venn = params_to_load['Com. and Exc. Comp.']['dpi_venn']
+            com_exc_compounds.controls.widgets['dpi_venn'].value = params_to_load['Com. and Exc. Comp.']['dpi_venn']
+            # Intersection Plot Related
+            if '%' in params_to_load['Com. and Exc. Comp.']['inter_include_counts_percentages']:
+                com_exc_compounds.inter_include_counts_percentages = 'Show Nº and % of metabolites'
+            elif 'metabolites' in params_to_load['Com. and Exc. Comp.']['inter_include_counts_percentages']:
+                com_exc_compounds.inter_include_counts_percentages = 'Show Nº of metabolites'
+            else:
+                com_exc_compounds.inter_include_counts_percentages = 'Show neither'
+            com_exc_compounds.dpi_inter = params_to_load['Com. and Exc. Comp.']['dpi_inter']
+            com_exc_compounds.compute_fig = True
+
+        # Loading Unsupervised Analysis Related Paramaeters
+        # PCA
+        if 'PCA' in params_to_load.keys():
+            # Stopping Figures from trying to be made
+            PCA_params.compute_fig = False
+
+            PCA_params.n_components = params_to_load['PCA']['n_components']
+            n_components_compute.value = params_to_load['PCA']['n_components']
+            PCA_params.ellipse_draw = params_to_load['PCA']['ellipse_draw']
+            PCA_params.confidence = params_to_load['PCA']['confidence']
+            PCA_params.confidence_std = params_to_load['PCA']['confidence_std']
+            PCA_params.dot_size = params_to_load['PCA']['dot_size']
+            PCA_params.compute_fig = True
+
+        # HCA
+        if 'HCA' in params_to_load.keys():
+            # Stopping Figures from trying to be made
+            HCA_params.compute_fig = False
+            HCA_params.dist_metric = params_to_load['HCA']['dist_metric']
+            HCA_params.link_metric = params_to_load['HCA']['link_metric']
+            HCA_params.fig_x = params_to_load['HCA']['fig_x']
+            HCA_params.fig_y = params_to_load['HCA']['fig_y']
+            HCA_params.dpi = params_to_load['HCA']['dpi']
+            HCA_params.compute_fig = True
+
+        # Loading Supervised Analysis Related Paramaeters
+        # PLS-DA
+        if 'PLS-DA' in params_to_load.keys():
+            # Stopping Figures from trying to be made
+            PLSDA_store.compute_fig = False
+            # Optimization Specific Related
+            PLSDA_store.n_min_max_components = tuple(params_to_load['PLS-DA']['n_min_max_components'])
+            # PLS-DA Model Fit
+            PLSDA_store.n_fold = params_to_load['PLS-DA']['n_fold']
+            PLSDA_store.scale = params_to_load['PLS-DA']['scale']
+            PLSDA_store.n_components = params_to_load['PLS-DA']['n_components']
+            PLSDA_store.n_iterations = params_to_load['PLS-DA']['n_iterations']
+            PLSDA_store.metrics_to_use = params_to_load['PLS-DA']['metrics_to_use']
+            PLSDA_store.imp_feature_metric = params_to_load['PLS-DA']['imp_feature_metric']
+            # PLS Projection Related
+            PLSDA_store.param['ellipse_draw'].default = params_to_load['PLS-DA']['ellipse_draw']
+            PLSDA_store.ellipse_draw = params_to_load['PLS-DA']['ellipse_draw']
+            PLSDA_store.controls_projection.widgets['ellipse_draw'].value = params_to_load['PLS-DA']['ellipse_draw']
+            PLSDA_store.param['confidence'].default = params_to_load['PLS-DA']['confidence']
+            PLSDA_store.confidence = params_to_load['PLS-DA']['confidence']
+            PLSDA_store.controls_projection.widgets['confidence'].value = params_to_load['PLS-DA']['confidence']
+            PLSDA_store.param['confidence_std'].default = params_to_load['PLS-DA']['confidence_std']
+            PLSDA_store.confidence_std = params_to_load['PLS-DA']['confidence_std']
+            PLSDA_store.controls_projection.widgets['confidence_std'].value = params_to_load['PLS-DA']['confidence_std']
+            PLSDA_store.param['dot_size'].default = params_to_load['PLS-DA']['dot_size']
+            PLSDA_store.dot_size = params_to_load['PLS-DA']['dot_size']
+            PLSDA_store.controls_projection.widgets['dot_size'].value = params_to_load['PLS-DA']['dot_size']
+            # PLS-DA Permutation Test Related
+            PLSDA_store.n_perm = params_to_load['PLS-DA']['n_perm']
+            PLSDA_store.perm_metric = params_to_load['PLS-DA']['perm_metric']
+            PLSDA_store.dpi = params_to_load['PLS-DA']['dpi']
+            # PLS-DA ROC Curve Related
+            PLSDA_store.roc_n_iter = int(params_to_load['PLS-DA']['roc_n_iter'])
+            PLSDA_store.compute_fig = True
+
+        # Random Forest
+        if 'Random Forest' in params_to_load.keys():
+            # Optimization Specific Related
+            RF_store.n_min_max_trees = tuple(params_to_load['Random Forest']['n_min_max_trees'])
+            RF_store.n_interval = params_to_load['Random Forest']['n_interval']
+            # Random Forest Model Fit
+            RF_store.n_fold = params_to_load['Random Forest']['n_fold']
+            RF_store.n_trees = params_to_load['Random Forest']['n_trees']
+            RF_store.n_iterations = params_to_load['Random Forest']['n_iterations']
+            RF_store.metrics_to_use = params_to_load['Random Forest']['metrics_to_use']
+            # RF Permutation Test Related
+            RF_store.n_perm = params_to_load['Random Forest']['n_perm']
+            RF_store.perm_metric = params_to_load['Random Forest']['perm_metric']
+            RF_store.dpi = params_to_load['Random Forest']['dpi']
+            # RF ROC Curve Related
+            RF_store.roc_n_iter = int(params_to_load['Random Forest']['roc_n_iter'])
+
+        # Loading Univariate Analysis Related Parameters
+        if 'Univariate Analysis' in params_to_load.keys():
+            # Stopping Figures from trying to be made
+            UnivarA_Store.compute_fig = False
+            UnivarA_Store.univariate_test = params_to_load['Univariate Analysis']['univariate_test']
+            UnivarA_Store.expected_equal_variance = params_to_load['Univariate Analysis']['expected_equal_variance']
+            UnivarA_Store.p_value_threshold = params_to_load['Univariate Analysis']['p_value_threshold']
+            UnivarA_Store.fold_change_threshold = params_to_load['Univariate Analysis']['fold_change_threshold']
+            UnivarA_Store.color_non_sig = params_to_load['Univariate Analysis']['color_non_sig']
+            UnivarA_Store.color_down_sig = params_to_load['Univariate Analysis']['color_down_sig']
+            UnivarA_Store.color_up_sig = params_to_load['Univariate Analysis']['color_up_sig']
+            UnivarA_Store.compute_fig = True
+
+        # Loading Data Diversity Visualization Related Parameters:
+        if 'Data Visualization' in params_to_load.keys():
+            # Stopping Figures from trying to be made
+            dataviz_store.compute_fig = False
+            # Van Krevelen Related
+            dataviz_store.vk_highlight_by = params_to_load['Data Visualization']['vk_highlight_by']
+            dataviz_store.vk_colour = params_to_load['Data Visualization']['vk_colour']
+            dataviz_store.vk_size = params_to_load['Data Visualization']['vk_size']
+            dataviz_store.vk_midpoint = params_to_load['Data Visualization']['vk_midpoint']
+            dataviz_store.vk_max_dot_size = params_to_load['Data Visualization']['vk_max_dot_size']
+            dataviz_store.vk_show_colorbar = params_to_load['Data Visualization']['vk_show_colorbar']
+            dataviz_store.vk_draw_class_rectangle = params_to_load['Data Visualization']['vk_draw_class_rectangle']
+            # Kendrick Mass Defect Related
+            dataviz_store.kmd_mass_rounding = params_to_load['Data Visualization']['kmd_mass_rounding']
+            dataviz_store.kmd_max_dot_size = params_to_load['Data Visualization']['kmd_max_dot_size']
+            # Chemical Composition Series Related
+            dataviz_store.ccs_bar_plot_type = params_to_load['Data Visualization']['ccs_bar_plot_type']
+            dataviz_store.compute_fig = True
+
+        # Loading BinSim Analysis Related Parameters
+        if 'BinSim Analysis' in params_to_load.keys():
+
+            # PCA
+            # Stopping Figures from trying to be made
+            PCA_params_binsim.compute_fig = False
+            PCA_params_binsim.n_components = params_to_load['BinSim Analysis']['PCA']['n_components']
+            n_components_compute_binsim.value = params_to_load['BinSim Analysis']['PCA']['n_components']
+            PCA_params_binsim.ellipse_draw = params_to_load['BinSim Analysis']['PCA']['ellipse_draw']
+            PCA_params_binsim.confidence = params_to_load['BinSim Analysis']['PCA']['confidence']
+            PCA_params_binsim.confidence_std = params_to_load['BinSim Analysis']['PCA']['confidence_std']
+            PCA_params_binsim.dot_size = params_to_load['BinSim Analysis']['PCA']['dot_size']
+            PCA_params_binsim.compute_fig = True
+
+            # HCA
+            # Stopping Figures from trying to be made
+            HCA_params_binsim.compute_fig = False
+            #HCA_params_binsim.dist_metric = params_to_load['BinSim Analysis']['HCA']['dist_metric']
+            HCA_params_binsim.link_metric = params_to_load['BinSim Analysis']['HCA']['link_metric']
+            HCA_params_binsim.fig_x = params_to_load['BinSim Analysis']['HCA']['fig_x']
+            HCA_params_binsim.fig_y = params_to_load['BinSim Analysis']['HCA']['fig_y']
+            HCA_params_binsim.dpi = params_to_load['BinSim Analysis']['HCA']['dpi']
+            HCA_params_binsim.compute_fig = True
+
+            # PLS-DA
+            # Stopping Figures from trying to be made
+            PLSDA_store_binsim.compute_fig = False
+            # Optimization Specific Related
+            PLSDA_store_binsim.n_min_max_components = tuple(params_to_load['BinSim Analysis']['PLS-DA']['n_min_max_components'])
+            # PLS-DA Model Fit
+            PLSDA_store_binsim.n_fold = params_to_load['BinSim Analysis']['PLS-DA']['n_fold']
+            PLSDA_store_binsim.scale = params_to_load['BinSim Analysis']['PLS-DA']['scale']
+            PLSDA_store_binsim.n_components = params_to_load['BinSim Analysis']['PLS-DA']['n_components']
+            PLSDA_store_binsim.n_iterations = params_to_load['BinSim Analysis']['PLS-DA']['n_iterations']
+            PLSDA_store_binsim.metrics_to_use = params_to_load['BinSim Analysis']['PLS-DA']['metrics_to_use']
+            PLSDA_store_binsim.imp_feature_metric = params_to_load['BinSim Analysis']['PLS-DA']['imp_feature_metric']
+            # PLS Projection Related
+            PLSDA_store_binsim.param['ellipse_draw'].default = params_to_load['BinSim Analysis']['PLS-DA']['ellipse_draw']
+            PLSDA_store_binsim.ellipse_draw = params_to_load['BinSim Analysis']['PLS-DA']['ellipse_draw']
+            PLSDA_store_binsim.controls_projection.widgets['ellipse_draw'].value = params_to_load[
+                'BinSim Analysis']['PLS-DA']['ellipse_draw']
+            PLSDA_store_binsim.param['confidence'].default = params_to_load['BinSim Analysis']['PLS-DA']['confidence']
+            PLSDA_store_binsim.confidence = params_to_load['BinSim Analysis']['PLS-DA']['confidence']
+            PLSDA_store_binsim.controls_projection.widgets['confidence'].value = params_to_load[
+                'BinSim Analysis']['PLS-DA']['confidence']
+            PLSDA_store_binsim.param['confidence_std'].default = params_to_load['BinSim Analysis']['PLS-DA']['confidence_std']
+            PLSDA_store_binsim.confidence_std = params_to_load['BinSim Analysis']['PLS-DA']['confidence_std']
+            PLSDA_store_binsim.controls_projection.widgets['confidence_std'].value = params_to_load[
+                'BinSim Analysis']['PLS-DA']['confidence_std']
+            PLSDA_store_binsim.param['dot_size'].default = params_to_load['BinSim Analysis']['PLS-DA']['dot_size']
+            PLSDA_store_binsim.dot_size = params_to_load['BinSim Analysis']['PLS-DA']['dot_size']
+            PLSDA_store_binsim.controls_projection.widgets['dot_size'].value = params_to_load[
+                'BinSim Analysis']['PLS-DA']['dot_size']
+            # PLS-DA Permutation Test Related
+            PLSDA_store_binsim.n_perm = params_to_load['BinSim Analysis']['PLS-DA']['n_perm']
+            PLSDA_store_binsim.perm_metric = params_to_load['BinSim Analysis']['PLS-DA']['perm_metric']
+            PLSDA_store_binsim.dpi = params_to_load['BinSim Analysis']['PLS-DA']['dpi']
+            # PLS-DA ROC Curve Related
+            PLSDA_store_binsim.roc_n_iter = int(params_to_load['BinSim Analysis']['PLS-DA']['roc_n_iter'])
+            PLSDA_store_binsim.compute_fig = True
+
+            # Random Forest
+            # Optimization Specific Related
+            RF_store_binsim.n_min_max_trees = tuple(params_to_load['BinSim Analysis']['Random Forest']['n_min_max_trees'])
+            RF_store_binsim.n_interval = params_to_load['BinSim Analysis']['Random Forest']['n_interval']
+            # Random Forest Model Fit
+            RF_store_binsim.n_fold = params_to_load['BinSim Analysis']['Random Forest']['n_fold']
+            RF_store_binsim.n_trees = params_to_load['BinSim Analysis']['Random Forest']['n_trees']
+            RF_store_binsim.n_iterations = params_to_load['BinSim Analysis']['Random Forest']['n_iterations']
+            RF_store_binsim.metrics_to_use = params_to_load['BinSim Analysis']['Random Forest']['metrics_to_use']
+            # RF Permutation Test Related
+            RF_store_binsim.n_perm = params_to_load['BinSim Analysis']['Random Forest']['n_perm']
+            RF_store_binsim.perm_metric = params_to_load['BinSim Analysis']['Random Forest']['perm_metric']
+            RF_store_binsim.dpi = params_to_load['BinSim Analysis']['Random Forest']['dpi']
+            # RF ROC Curve Related
+            RF_store_binsim.roc_n_iter = int(params_to_load['BinSim Analysis']['Random Forest']['roc_n_iter'])

@@ -150,6 +150,27 @@ the program or reset every variable.
 '''
 
 
+# Parameter Loading Description HTML in string format
+
+load_parameters_string = """Here, a previously saved file with chosen parameters can be loaded into the interface. This file
+comes from saving your parameters after pre-treatment (for only pre-processing and pre-treatment related parameters) or
+in the report generation steps of the interface (for pre-processing, pre-treatment and data analysis related parameters).
+<br>
+<br>
+This file <strong>does not include every single parameter</strong>. It does not include parameters that are heavily
+dependent on the dataset being analysed such as the control and test class in univariate analysis as an example. It does
+include some parameters that are <strong>still very dependent on the dataset such as the number of components and folds in
+cross-validation for PLS-DA model building which should be tuned based on the dataset itself</strong>.
+<br>
+<br>
+We include this possiblity in order for the user to setup a default set of parameters they like to speed analysis. However,
+since every dataset is unique, we encourage the tuning of parameters for each dataset used.
+<br>
+<br>
+A full list of parameters loaded in can be viewed by opening the corresponding json file."""
+
+
+
 # Data Multiple Annotation De-Duplication Description HTML in string format
 
 annotation_deduplication_opening_string = '''<p>Due to the proximity of mass values, the same compound (or formula) can be
@@ -191,6 +212,19 @@ if not for the existence of two different LOTUS annotations. Hence, the problem.
 <p><br></p>
 <p><h3>Initial report of the observable multiple annotations for each annotation (including formula
 annotation) performed</h3></p>'''
+
+
+# Two strings for Parameter Saving Description HTML in string format
+
+save_parameters_pretreatment_string = """Here, a json file can be created saving the parameters currently used for the
+data pre-processing and pre-treatments steps that can be re-utilized in most analysis (dataset very specific parameters
+such as metadata columns will not be saved). When loading in, there are some parameters that might not be applicable such
+as the feature used in Normalization by a Reference Feature or the minimum number of samples used in data filtering. For
+these cases, a check will be made to see if they can be used and if not, the default value will remain."""
+
+save_parameters_dataanalysis_string = """Furthermore, relevant parameters for the different analysis steps will also be
+saved. These include figure related parameters and methodology related parameters, but not dataset class related such as
+the control and test class in univariate analysis."""
 
 
 # PLS-DA Description HTML in string format
@@ -321,7 +355,8 @@ also choose one as the control class and one as the test class to perform univar
 <br>
 <br>
 Finally, when you have more than 2 classes, each unsupervised analysis will select the samples respective to the 2 classes,
-filter and pre-treatment them the same way it was done on the full dataset before performing unsupervised analysis.
+and pre-treatment will be performed the same way it was done on the full dataset before performing unsupervised analysis
+(data filtering is performed on the full dataset).
 '''
 
 
@@ -450,6 +485,7 @@ shown <strong>exactly</strong> as they were left in the analysis. Please select 
 your working directory.
 <br>
 <br>
-Note 1: An attempt is made to correctly describe the parameters that led to the results obtained in each part but we cannot
-be sure that the figures shown are 100% represented by the parameters described since errors may arise in parameter saving.
+<strong>Note 1</strong>: An attempt is made to correctly describe the parameters that led to the results obtained in each
+part but we cannot be sure that the figures shown are 100% represented by the parameters described since errors may arise
+in parameter saving.
 '''

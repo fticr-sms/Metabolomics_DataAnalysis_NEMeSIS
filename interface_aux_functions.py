@@ -56,6 +56,13 @@ img_confirm_button = '''<svg xmlns="http://www.w3.org/2000/svg"
     <path d="M5 12l5 5l10 -10"></path>
 </svg>'''
 
+upload_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-upload" width="24" height="24" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+   <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+   <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" />
+   <path d="M7 9l5 -5l5 5" />
+   <path d="M12 4l0 12" />
+</svg>'''
+
 download_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-download" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"></path>
@@ -605,14 +612,14 @@ def performing_pretreatment(PreTreatment_Method, original_df, target, sample_col
         norm_kw = 'median'
 
     # Transformation
-    tf_translation = {'Generalized Logarithmic Transformation (glog)':'glog', None: None}
+    tf_translation = {'Generalized Logarithmic Transformation (glog)':'glog', 'None': None}
     tf = tf_translation[PreTreatment_Method.tf_method]
 
     tf_kw = PreTreatment_Method.tf_kw
 
     # Scaling
     scaling_translation = {'Pareto Scaling':'pareto', 'Auto Scaling':'auto', 'Mean Centering':'mean_center',
-                      'Range Scaling':'range', 'Vast Scaling': 'vast', 'Level Scaling': 'level', None: None}
+                      'Range Scaling':'range', 'Vast Scaling': 'vast', 'Level Scaling': 'level', 'None': None}
     scaling = scaling_translation[PreTreatment_Method.scaling_method]
 
     if PreTreatment_Method.scaling_kw == 'Average':
@@ -1552,17 +1559,19 @@ def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list, fi
             target_temp = list(np.array(target_list.target)[selection])
             # Select only samples in the control and test classes
             file_temp = DataFrame_Store.original_df[target_list.sample_cols].copy()
-            file_temp = file_temp.loc[:, selection]
 
             # Perform the same filtering and pre-treatments steps but using only the control and test class samples
             if filt_method.value == 'Total Samples':
                 f_meth = 'total_samples'
             elif filt_method.value == 'Class Samples':
                 f_meth = 'class_samples'
+            else:
+                f_meth = None
             filt_df, _ = initial_filtering(file_temp, file_temp.columns, target=target_list.target,
                                                filt_method=f_meth, filt_kw=filt_kw.value)
+            filt_df = filt_df.loc[:, selection]
             t_data,_,filt_data,_,_  = performing_pretreatment(UnivarA_Store, filt_df,
-                                                                 target_temp, file_temp.columns)
+                                                                 target_temp, filt_df.columns)
 
             univariate_df[test_class] = t_data
 

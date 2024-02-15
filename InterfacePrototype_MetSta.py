@@ -14,13 +14,13 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from upsetplot import from_contents
 import pickle
+import json
 
 # File with functions to auxiliate the graphical interface
 import interface_aux_functions as iaf
 import description_strings as desc_str
-from report_generation import ReportGenerator
+import report_generation
 
-# metanalysis_standard.py file
 import metanalysis_standard as metsta
 import multianalysis as ma
 
@@ -247,7 +247,6 @@ class ReportGenerationPage:
     def __init__(self):
 
         self.content = pn.Column("# Metabolomics Data Analysis Report Generation",
-                                 "## Initial Layout (Under Construction)",
                                  rep_gen_page)
 
     def view(self):
@@ -278,6 +277,7 @@ main_area = OpeningPage().content
 
 # Param Class to store all DataFrames
 # TODO: Put previous dataframes - filtered_df and annotated_df here as well
+# TODO: Confirm if Univariate Analysis is being performed well
 
 # Contains before treatment data, treated_data, processed_data, univariate_data, meta_data, bin_data
 class DataFrame_Storage(param.Parameterized):
@@ -431,6 +431,81 @@ def _load_example_df_button(event):
 load_example_df_button.on_click(_load_example_df_button)
 
 
+### Section to Optionally Load in previously used and saved parameters
+# Define load in variables and dict to store parameters wigets
+params_loaded_in = pn.widgets.Switch(name='Loaded', value=False)
+params_pre_treat_loaded_in = pn.widgets.Switch(name='Loaded Pre-Treatment', value=False)
+params_analysis_loaded_in = pn.widgets.Switch(name='Loaded Data Analysis', value=False)
+params_to_load = pn.widgets.LiteralInput(name='Parameters to load', value={}, type=dict)
+
+# Widget to select file to load parameters from
+file_to_load_params = pn.widgets.FileInput(name='Choose parameters to load file', accept='.json')
+
+# Button to press to load parameters and corresponding function
+confirm_param_file_button = pn.widgets.Button(name='Load in Parameter File', button_type='warning',
+                                              icon=iaf.upload_icon, disabled=True)
+
+# Update button so it can be pressed after you put something in the filename
+@pn.depends(file_to_load_params.param.filename, watch=True)
+def _update_confirm_param_file_button(filename):
+    "Controls the state of the button to confirm and read the file."
+    if filename != '':
+        confirm_param_file_button.disabled = False
+    else:
+        confirm_param_file_button.disabled = True
+
+def _confirm_param_file_button(event):
+    "Read Parameter file, call the function to load parameters and set up necessary widgets."
+
+    # Set up necessary widgets
+    params_loaded_in.value = True
+    params_pre_treat_loaded_in.value = True
+    params_analysis_loaded_in.value = True
+
+    # Read the file if possible
+    try:
+        with open(file_to_load_params.filename, 'rb') as f:
+            params_to_load.value = json.load(f)
+    except:
+        pn.state.notifications.error(f'Could not successfully read {file_to_load_params.filename} json file.')
+        raise ValueError(f'Could not successfully read {file_to_load_params.filename} json file.')
+
+    # Load parameters into the interface
+    try:
+        report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
+                    annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, DB_dict,
+                    PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params, n_components_compute, HCA_params,
+                    PLSDA_store, RF_store, UnivarA_Store, dataviz_store, PCA_params_binsim, n_components_compute_binsim,
+                    HCA_params_binsim, PLSDA_store_binsim,  RF_store_binsim, params_pre_treat_loaded_in.value,
+                    params_analysis_loaded_in.value)
+
+        # Adjust necessary widgets
+        if 'BinSim Analysis' in params_to_load.value.keys():
+            params_analysis_loaded_in.value = True
+        else:
+            params_analysis_loaded_in.value = False
+
+        pn.state.notifications.success(f'Parameters in {file_to_load_params.filename} successfully read.')
+
+    except:
+        pn.state.notifications.error(f'Parameters in {file_to_load_params.filename} could not be read.')
+        params_loaded_in.value = False
+        params_pre_treat_loaded_in.value = False
+        params_analysis_loaded_in.value = False
+        raise ValueError(f'Parameters in {file_to_load_params.filename} could not be read.')
+
+# Associate Function with Button
+confirm_param_file_button.on_click(_confirm_param_file_button)
+
+
+# Layout of parameter loading section
+param_loading_section = pn.Column('## Optionally Load In Data Pre-Processing and Pre-Treatment Related Parameters',
+                                    pn.pane.HTML(desc_str.load_parameters_string),
+                                    file_to_load_params,
+                                    confirm_param_file_button)
+
+
+
 # Confirm file, show next page, disable reading files, update columns of the dataset read
 def _confirm_step1(event):
     "Performs actions to pass from step 1 page to step 1_1 page."
@@ -463,7 +538,9 @@ confirm_button_step1.on_click(_confirm_step1)
 # Setting up the page layout
 section1page = pn.Column(pn.Row(pn.Column(filename, target_included_in_file), pn.Row(load_example_df_button, tooltip_example_df)),
                          pn.Row(confirm_button_filename, tooltip_file),
-                         file.read_df, confirm_button_step1)
+                         file.read_df,
+                         confirm_button_step1,
+                         param_loading_section)
 
 
 
@@ -618,6 +695,18 @@ def _confirm_button_next_step_1_1(event):
     "Performs actions to pass from step 1_1 page to step 1_2 page."
     page1_2_button.disabled = False
     confirm_button_next_step_2.disabled = True
+
+    # Update default data filtering values if parameters loaded in and if possible
+    # And since we are here, update normalization methods and kw as well
+    if params_pre_treat_loaded_in.value:
+        if params_to_load.value['Data Filtering']['filt_kw'] <= filt_kw.end:
+            filt_kw.value = params_to_load.value['Data Filtering']['filt_kw']
+
+        PreTreatment_Method.norm_method = params_to_load.value['Data Pre-Treatment']['norm_method']
+        n_kw = [i for i in params_to_load.value['Data Pre-Treatment']['norm_kw'] if i in PreTreatment_Method.controls.widgets['norm_kw'].options]
+        PreTreatment_Method.norm_kw = n_kw
+        params_pre_treat_loaded_in.value = False
+
     #page2_button.disabled = False
     # Assuring the initial layout of data filtering page
     while len(page1_2) > 3:
@@ -643,10 +732,10 @@ page1_1.append(confirm_button_next_step_1_1)
 
 # Widgets for feature filtering
 filt_method = pn.widgets.Select(name="Feature Filter Method", value="Total Samples",
-                                       options=['Total Samples', 'Class Samples', None])
+                                       options=['Total Samples', 'Class Samples', 'None'])
 filt_kw = pn.widgets.IntSlider(name="Feature Filter Keyword", value=2, start=0, end=len(target_widget.value.split(',')))
 limits_filt = {"Total Samples": len(target_widget.value.split(',')),
-               "Class Samples": pd.Series(target_widget.value.split(',')).value_counts().min(), None: 1}
+               "Class Samples": pd.Series(target_widget.value.split(',')).value_counts().min(), 'None': 1}
 
 # Change the IntSlider limits based on the number of class labels
 @pn.depends(target = target_widget.param.value,
@@ -690,6 +779,8 @@ def _confirm_button_initial_filtering(event):
         f_meth = 'total_samples'
     elif filt_method.value == 'Class Samples':
         f_meth = 'class_samples'
+    else:
+        f_meth = None
     filtered_df.value, characteristics_df.value = iaf.initial_filtering(DataFrame_Store.read_df,
                                     sample_cols, target=target, filt_method=f_meth, filt_kw=filt_kw.value)
 
@@ -1660,7 +1751,7 @@ class PreTreatment(param.Parameterized):
 
             'tf_method': pn.widgets.Select(name="Transformation Method",
                                            value = 'Generalized Logarithmic Transformation (glog)',
-                            options=['Generalized Logarithmic Transformation (glog)', None]),
+                            options=['Generalized Logarithmic Transformation (glog)', 'None']),
             'tf_kw': pn.widgets.FloatInput(name="Transformation Lambda Parameter", value=None,
                     description="""Lambda value in glog transformation. Leave empty or 0 for usual log transformation.
                     Ignored if Transformation Method is None.
@@ -1669,7 +1760,7 @@ class PreTreatment(param.Parameterized):
 
             'scaling_method': pn.widgets.Select(name="Scaling Method", value = 'Pareto Scaling',
                             options=['Pareto Scaling', 'Auto Scaling', 'Mean Centering', 'Range Scaling',
-                                     'Vast Scaling', 'Level Scaling', None]),
+                                     'Vast Scaling', 'Level Scaling', 'None']),
             'scaling_kw': pn.widgets.Select(name="Scaling Factor (for Level Scaling only)", value='Average', disabled=True,
                                            options=['Average', 'Median'], description='After mean-centering, divide each value by its respective feature average or median.'),
 
@@ -1685,7 +1776,7 @@ limits_mvi = {"Minimum of Sample": 1, "Minimum of Feature": 1, "Minimum of Data"
 @pn.depends(PreTreatment_Method.controls.widgets['mvi_method'].param.value, watch=True)
 def _update_limit_mvi(mvi_method):
     "Updates missing value imputation keyword widget limits based on the method chosen."
-    if mvi_method == None:
+    if mvi_method == 'Zero':
         PreTreatment_Method.controls.widgets['mvi_kw'].value = 0
     PreTreatment_Method.controls.widgets['mvi_kw'].end = limits_mvi[
         PreTreatment_Method.controls.widgets['mvi_method'].value]
@@ -1746,6 +1837,8 @@ def _confirm_button_next_step_4(event):
 
     # Setting up the layout of page 4
     page4.clear()
+
+    # Class colours section
     n_classes = len(target_list.color_classes)
     for row in range(0, n_classes, 5):
         new_row = pn.Row()
@@ -1756,6 +1849,9 @@ def _confirm_button_next_step_4(event):
 
         page4.append(new_row)
     page4.append(confirm_button_next_step_transitionalpage)
+
+    # Parameter saving section
+    page4.append(data_pretreatment_param_saving_section)
 
     # Update the main area
     main_area.clear()
@@ -1847,12 +1943,15 @@ def _confirm_button_next_step_5(event):
     if reset_time.value == 0:
         if confirm_button_next_step_transitionalpage.clicks > 1:
             # Common and Exclusive Compound page . Has to be after Data diversity visualization reset
+            com_exc_compounds.compute_fig = False
             com_exc_compounds.reset()
             while len(end_page_comexc) > 0:
                 end_page_comexc.pop(-1)
 
             # Unsupervised Analysis page
             n_components_compute.value = 10
+            PCA_params.compute_fig = False
+            HCA_params.compute_fig = False
             PCA_params.reset()
             HCA_params.reset()
 
@@ -1879,12 +1978,14 @@ def _confirm_button_next_step_5(event):
             rf_results_section[3] = pn.pane.DataFrame(RF_store.feat_impor)
 
             # Univariate Analysis page
+            UnivarA_Store.compute_fig = False
             UnivarA_Store.reset()
             while len(univar_analysis_page) > 2:
                 univar_analysis_page.pop(-1)
 
             # Data Diversity Visualization page
             iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add temporary compounds per class dfs
+            dataviz_store.compute_fig = False
             dataviz_store.reset()
             vk_plots.clear()
             kmd_plots.clear()
@@ -1905,6 +2006,7 @@ def _confirm_button_next_step_5(event):
             # BinSim Analysis Page
             # PCA
             n_components_compute_binsim.value = 10
+            PCA_params_binsim.compute_fig = False
             PCA_params_binsim.reset()
             PCA_params_binsim.binsim_flag = True
             for _, w in PCA_params_binsim.controls.widgets.items():
@@ -1913,6 +2015,7 @@ def _confirm_button_next_step_5(event):
             end_page_PCA_binsim[0] = 'To plot explained variance figure'
             end_page_PCA_binsim[1] = 'To plot matrices of PCA projections'
             # HCA
+            HCA_params_binsim.compute_fig = False
             HCA_params_binsim.reset()
             HCA_params_binsim.binsim_flag = True
             # PLS-DA
@@ -1948,6 +2051,26 @@ def _confirm_button_next_step_5(event):
             comp_finder_page[5] = 'Class Bar Plot of the Searched Compound'
             comp_finder_page[7] = 'Class Boxplot of the Searched Compound'
             com_exc_compounds.reset()
+
+            # Reload parameters of data analysis if they were loaded in
+            try:
+                report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
+                            annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, DB_dict,
+                            PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params, n_components_compute, HCA_params,
+                            PLSDA_store, RF_store, UnivarA_Store, dataviz_store, PCA_params_binsim, n_components_compute_binsim,
+                            HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, False,
+                            params_analysis_loaded_in.value)
+
+                # Adjust necessary widgets
+                if 'BinSim Analysis' in params_to_load.value.keys():
+                    params_analysis_loaded_in.value = True
+                else:
+                    params_analysis_loaded_in.value = False
+
+                pn.state.notifications.success(f'Loaded Parameters were successfully reloaded.')
+
+            except:
+                pn.state.notifications.error(f'Loaded Parameters could not be reloaded.')
 
 
     reset_time.value = 0
@@ -2004,7 +2127,10 @@ def _confirm_button_next_step_5(event):
     # BinSim page updating widgets
     HCA_params_binsim.controls.widgets['dist_metric'].options = ['dice', 'hamming', 'jaccard', 'kulczynski1', 'rogerstanimoto',
                                                              'russellrao', 'sokalmichener','sokalsneath', 'yule']
-    HCA_params_binsim.dist_metric = 'jaccard' # This change will also trigger the computation of the base Dendrogram
+    if params_analysis_loaded_in.value:
+        HCA_params_binsim.dist_metric = params_to_load.value['BinSim Analysis']['HCA']['dist_metric'] # This change will also trigger the computation of the base Dendrogram
+    else:
+        HCA_params_binsim.dist_metric = 'jaccard' # This change will also trigger the computation of the base Dendrogram
     PLSDA_store_binsim.n_folds_limits_and_class_update(target_list)
     RF_store_binsim.n_folds_limits_and_class_update(target_list)
 
@@ -2016,6 +2142,42 @@ def _confirm_button_next_step_5(event):
     main_area.clear()
     show_page(pages["Transitional Page"])
 confirm_button_next_step_transitionalpage.on_click(_confirm_button_next_step_5)
+
+
+# Section related to Data Pre-Processing and Pre-Treatment parameter saving
+# Widget to select filename where parameters will be saved
+params_filename = pn.widgets.TextAreaInput(name='Filename to save parameters to',
+                                           placeholder='met_params', value='met_params', rows=1)
+
+# Button to press to save parameters and corresponding function
+save_parameters_pretreat_button = pn.widgets.Button(name='Save Data Pre-Processing and Pre-Treatment Related Parameters',
+                                                    button_type='warning', icon=iaf.download_icon, disabled=False)
+
+def _save_parameters_pretreat_button(event):
+    "Saves parameters related to the data pre-treatment and pre-processing."
+
+    try:
+        # Trying to save parameters
+        filename = params_filename.value
+        report_generation.save_parameters(filename, UnivarA_Store, n_databases, annotation_margin_method_radio,
+                        annotation_ppm_deviation, annotation_Da_deviation, DB_dict, checkbox_com_exc, com_exc_compounds,
+                        PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PCA_params_binsim, HCA_params_binsim,
+                        PLSDA_store_binsim, RF_store_binsim, include_data_analysis=False)
+
+        pn.state.notifications.success(f'Pre-Treatment Parameters successfully saved in {filename}.json')
+
+    # If the params could not be saved
+    except:
+        pn.state.notifications.error('Pre-Treatment Parameters could not be saved.')
+
+save_parameters_pretreat_button.on_click(_save_parameters_pretreat_button)
+
+# Layout of parameter saving section
+data_pretreatment_param_saving_section = pn.Column('## Optionally Save Data Pre-Processing and Pre-Treatment Related Parameters',
+                                                    pn.pane.HTML(desc_str.save_parameters_pretreatment_string),
+                                                    params_filename,
+                                                    save_parameters_pretreat_button)
+
 
 # Setting up empty page
 page4 = pn.Column()
@@ -2139,6 +2301,9 @@ class ComExc_Storage(param.Parameterized):
     Venn_plot = param.List(default=['Pane for Venn Diagram'])
     IntersectionPlot = param.List(default=['Pane for Intersection Plot1', 'Pane for Intersection Plot2'])
 
+    # Extra Attribute to see if figures should be computed automatically
+    compute_fig = param.Boolean(default=True)
+
 
     # Update the subset df plot based on specifications chosen
     @param.depends('class_subset', 'df_type', 'annot', watch=True)
@@ -2196,97 +2361,73 @@ class ComExc_Storage(param.Parameterized):
     @param.depends('venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn', watch=True)
     def _update_Venn_diagram(self):
         "Update the Venn Diagram based on parameters given."
-        if 1 < len(self.venn_class_subset) < 7:
-            self.Venn_plot = []
-            self.Venn_plot.append(iaf._plot_Venn_diagram(self, target_list))
-            venn_page[0,1:3] = pn.pane.Matplotlib(self.Venn_plot[0], height=800)
-            plt.close()
-        else:
-            pn.state.notifications.info(f'Venn Diagram can only be made with 2 to 6 different classes. You currently have {len(self.venn_class_subset)} classes.')
-        #if len(end_page_comexc) >= 2:
-        #    end_page_comexc[1] = venn_page
+        if self.compute_fig:
+            if 1 < len(self.venn_class_subset) < 7:
+                self.Venn_plot = []
+                self.Venn_plot.append(iaf._plot_Venn_diagram(self, target_list))
+                venn_page[0,1:3] = pn.pane.Matplotlib(self.Venn_plot[0], height=800)
+                plt.close()
+            else:
+                pn.state.notifications.info(f'Venn Diagram can only be made with 2 to 6 different classes. You currently have {len(self.venn_class_subset)} classes.')
+            #if len(end_page_comexc) >= 2:
+            #    end_page_comexc[1] = venn_page
 
 
     # Update the Intersection Plot based on specifications chosen
     @param.depends('inter_class_subset', 'inter_include_counts_percentages', 'dpi_inter', watch=True)
     def _update_Intersectionplot(self):
         "Update the Intersection Plots based on parameters given."
-        if 1 < len(self.inter_class_subset):
-            self.IntersectionPlot = []
+        if self.compute_fig:
+            if 1 < len(self.inter_class_subset):
+                self.IntersectionPlot = []
 
-            # Select the relevant data - all metabolites and annotated metabolites
-            groups_dict = {}
-            groups_dict_ids = {}
-            for df in self.inter_class_subset:
-                groups_dict[df] = self.group_dfs[df].index
-                groups_dict_ids[df] = self.group_dfs_ids[df].index
+                # Select the relevant data - all metabolites and annotated metabolites
+                groups_dict = {}
+                groups_dict_ids = {}
+                for df in self.inter_class_subset:
+                    groups_dict[df] = self.group_dfs[df].index
+                    groups_dict_ids[df] = self.group_dfs_ids[df].index
 
-            ups = from_contents(groups_dict)
-            self.IntersectionPlot.append(iaf._plot_intersection_plots(self, groups_dict, ups))
-            interplot_page[2] = pn.pane.Matplotlib(self.IntersectionPlot[0], height=300)
-            plt.close()
+                ups = from_contents(groups_dict)
+                self.IntersectionPlot.append(iaf._plot_intersection_plots(self, groups_dict, ups))
+                interplot_page[2] = pn.pane.Matplotlib(self.IntersectionPlot[0], height=300)
+                plt.close()
 
-            ups_ids = from_contents(groups_dict_ids)
+                ups_ids = from_contents(groups_dict_ids)
 
-            if sum(DataFrame_Store.metadata_df['Has Match?']) != 0:
-                self.IntersectionPlot.append(iaf._plot_intersection_plots(self, groups_dict_ids, ups_ids))
+                if sum(DataFrame_Store.metadata_df['Has Match?']) != 0:
+                    self.IntersectionPlot.append(iaf._plot_intersection_plots(self, groups_dict_ids, ups_ids))
 
-                interplot_page[5] = pn.pane.Matplotlib(self.IntersectionPlot[1], height=300)
+                    interplot_page[5] = pn.pane.Matplotlib(self.IntersectionPlot[1], height=300)
+                else:
+                    interplot_page[5] = 'No annotations have been found in the dataset to compute this Intersection Plot.'
+                plt.close()
             else:
-                interplot_page[5] = 'No annotations have been found in the dataset to compute this Intersection Plot.'
-            plt.close()
-        else:
-            pn.state.notifications.info(f'Intersection Plot can only be made with 2 or more classes. You currently have {len(self.inter_class_subset)} classes.')
+                pn.state.notifications.info(f'Intersection Plot can only be made with 2 or more classes. You currently have {len(self.inter_class_subset)} classes.')
 
 
     def _update_widgets(self):
         "Update widgets to consider the update list of classes in the target."
-        widgets = {
-            'class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=[], options=target_list.classes,
-                                inline=False, disabled=False),
-            'df_type': pn.widgets.RadioBoxGroup(name='Type of DataFrame', value='Metabolites in chosen classes',
-                                options=['Metabolites in chosen classes',
-                                         'Metabolites in chosen classes and no other class'],
-                                inline=False, disabled=False),
-            'annot': pn.widgets.RadioBoxGroup(name='Annotated', value='See annotated and non-annotated compounds',
-                                options=['See annotated and non-annotated compounds',
-                                         'Only see annotated compounds'],
-                                inline=False, disabled=False),
-            'venn_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
-                                options=target_list.classes, inline=False, disabled=False),
-            'venn_alpha': pn.widgets.FloatInput(name='Transparency of Venn Diagram Circles', value=0.3, start=0.0, end=1.0,
-                                step = 0.01),
-            'type_of_venn': pn.widgets.Select(name='Consider what type of metabolites',
-                                value='All Metabolites (Annotated)',
-                                options=['All Metabolites (Annotated)', 'All Metabolites','Annotated Metabolites']),
-            'dpi_venn': pn.widgets.IntInput(name="DPI (Resolution)",
-                                    value=200, step=10, start=100, disabled=False,
-                                    description='Set the resolution of diagram'),
-            'inter_class_subset': pn.widgets.CheckBoxGroup(name='Classes', value=target_list.classes,
-                                options=target_list.classes, inline=False, disabled=False),
-            'inter_include_counts_percentages': pn.widgets.RadioBoxGroup(name='Show:',
-                                value='Show Nº of metabolites', options=['Show Nº and % of metabolites',
-                                'Show Nº of metabolites', 'Show neither'], inline=False, disabled=False),
-            'dpi_inter': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
-                                    description='Set the resolution of Intersection Plots'),
-        }
-        self.class_subset = []
-        #self.venn_class_subset = target_list.classes
-        #self.inter_class_subset = target_list.classes
+        self.controls.widgets['class_subset'].value = []
+        self.controls.widgets['class_subset'].options = target_list.classes
+        self.controls.widgets['venn_class_subset'].value = target_list.classes
+        self.controls.widgets['venn_class_subset'].options = target_list.classes
+        self.controls.widgets['inter_class_subset'].value = target_list.classes
+        self.controls.widgets['inter_class_subset'].options = target_list.classes
 
         # Control panel for the overview section, for the Venn diagram section and for the Intersection plot section
-        return (pn.Param(self, parameters=['class_subset', 'df_type', 'annot'], widgets=widgets, name='Subset of Data to See'),
-                pn.Param(self, parameters=['venn_class_subset', 'venn_alpha', 'type_of_venn', 'dpi_venn'], widgets=widgets,
-                         name='Parameters to draw Venn Diagram'),
-                pn.Param(self, parameters=['inter_class_subset', 'inter_include_counts_percentages','dpi_inter'],
-                         widgets=widgets, name='Parameters to draw Intersection Plots', default_layout=pn.Row))
+        return (self.controls,
+                self.venn_controls,
+                self.interplot_controls)
 
 
     def reset(self):
         "Reset parameters."
+        self.compute_fig = False
         for param in self.param:
-            if param not in ["name"]:
+            if param not in ["name", "compute_fig"]:
                 setattr(self, param, self.param[param].default)
+        self.compute_fig = True
 
 
     def __init__(self, **params):
@@ -2520,7 +2661,7 @@ interplot_page = pn.Column(com_exc_compounds.interplot_controls, # Control param
                        save_IntersectionPlot_annotatedmets_button)
 
 
-end_page_comexc = pn.Accordion(toggle=True)
+end_page_comexc = pn.Tabs()
 
 comexc_page = pn.Column(initial_page_comexc, end_page_comexc)
 
@@ -2570,20 +2711,25 @@ class PCA_Storage(param.Parameterized):
     binsim_flag = param.Boolean(default=False)
     current_pages_associated = param.List(default=[])
 
+    # Extra Attribute to see if figures should be computed automatically
+    compute_fig = param.Boolean(default=True)
+
+
     # Update the PCA plot
     @param.depends('n_dimensions', 'PCx', 'PCy', 'PCz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size', watch=True)
     def _update_PCA_plot(self):
         "Plots PCA with the set parameters."
-        self.PCA_plot[0] = iaf._plot_PCA(self, target_list)
-        filename_string = 'PCA_plot'
-        if self.ellipse_draw:
-            if self.confidence != 0:
-                filename_string = filename_string + f'_ellipse({self.confidence*100}%confidence)'
-            else:
-                filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
-        if self.binsim_flag:
-            filename_string = filename_string + f'_BinSim'
-        self.current_pages_associated[0][0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
+        if self.compute_fig:
+            self.PCA_plot[0] = iaf._plot_PCA(self, target_list)
+            filename_string = 'PCA_plot'
+            if self.ellipse_draw:
+                if self.confidence != 0:
+                    filename_string = filename_string + f'_ellipse({self.confidence*100}%confidence)'
+                else:
+                    filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
+            if self.binsim_flag:
+                filename_string = filename_string + f'_BinSim'
+            self.current_pages_associated[0][0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
 
     # Function to see if Z-axis can be edited (3D) or not (2D)
@@ -2612,12 +2758,13 @@ class PCA_Storage(param.Parameterized):
         self.controls.widgets['PCz'].options = ['PC '+str(i+1) for i in range(self.n_components)]
 
         # Updating the explained variance figure with the number of components PCA was computed
-        self.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(self)
-        filename_string = 'PCA_exp_var_plot'
-        if self.binsim_flag:
-            filename_string = filename_string + f'_BinSim'
-        self.current_pages_associated[1][0] = pn.pane.Plotly(self.exp_var_fig_plot[0],
-                                            config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
+        if self.compute_fig:
+            self.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(self)
+            filename_string = 'PCA_exp_var_plot'
+            if self.binsim_flag:
+                filename_string = filename_string + f'_BinSim'
+            self.current_pages_associated[1][0] = pn.pane.Plotly(self.exp_var_fig_plot[0],
+                                                config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
 
         # Control the many PCA scatter plots to include less than 6 components if PCA was computed with less than 6 components
         if type(self.scatter_PCA_plot[0]) != str:
@@ -2662,9 +2809,11 @@ class PCA_Storage(param.Parameterized):
 
     def reset(self):
         "Reset parameters."
+        self.compute_fig = False
         for param in self.param:
             if param not in ["name", "current_pages_associated"]:
                 setattr(self, param, self.param[param].default)
+        self.compute_fig = True
 
 
     def __init__(self, **params):
@@ -2782,35 +2931,42 @@ class HCA_Storage(param.Parameterized):
     binsim_flag = param.Boolean(default=False)
     current_pages_associated = param.List(default=[])
 
+    # Extra Attribute to see if figures should be computed automatically
+    compute_fig = param.Boolean(default=True)
+
 
     # Update the HCA plot
     @param.depends('dist_metric', 'link_metric', watch=True)
     def _update_HCA_compute_plot(self):
         "Computes and updates HCA based on distance and linkage metrics."
-        # Recompute Distance and Linkage matrices
-        if self.binsim_flag:
-            self.dists = dist.pdist(DataFrame_Store.binsim_df, metric=self.dist_metric)
-        else:
-            self.dists = dist.pdist(DataFrame_Store.treated_df, metric=self.dist_metric)
-        self.Z = hier.linkage(self.dists, method=self.link_metric)
-        # Plot the new HCA
-        self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
-        self.current_pages_associated[0][0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+        if self.compute_fig:
+            # Recompute Distance and Linkage matrices
+            if self.binsim_flag:
+                self.dists = dist.pdist(DataFrame_Store.binsim_df, metric=self.dist_metric)
+            else:
+                self.dists = dist.pdist(DataFrame_Store.treated_df, metric=self.dist_metric)
+            self.Z = hier.linkage(self.dists, method=self.link_metric)
+            # Plot the new HCA
+            self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
+            self.current_pages_associated[0][0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
 
 
     @param.depends('fig_text', 'fig_x', 'fig_y', 'col_threshold', 'dpi', watch=True)
     def _update_HCA_plot(self):
         "Updates HCA plot based on figure parameters."
-        if type(self.Z) == np.ndarray:
-            self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
-            self.current_pages_associated[0][0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+        if self.compute_fig:
+            if type(self.Z) == np.ndarray:
+                self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
+                self.current_pages_associated[0][0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
 
 
     def reset(self):
         "Reset parameters."
+        self.compute_fig = False
         for param in self.param:
-            if param not in ["name", "current_pages_associated"]:
+            if param not in ["name", "current_pages_associated", "compute_fig"]:
                 setattr(self, param, self.param[param].default)
+        self.compute_fig = True
 
 
     def __init__(self, **params):
@@ -2914,8 +3070,9 @@ class PLSDA_Storage(param.Parameterized):
     x_scores = param.DataFrame()
 
     # Params Used Store
-    current_plsda_params = param.Dict()
+    current_plsda_params = param.Dict({})
     current_other_plsda_params = param.Dict({})
+    current_plsda_params_permutation = param.Dict({})
 
     # PLS Projection plot parameters
     n_dimensions = param.String(default='2 Components') # N dimensions to show in plot
@@ -2936,7 +3093,6 @@ class PLSDA_Storage(param.Parameterized):
     dpi = param.Number(default=200)
     confirm_button_permutation = param.Boolean(default=False)
     save_figure_button_permutation = param.Boolean(default=False)
-    current_plsda_params_permutation = param.Dict()
 
     # ROC Curve
     positive_class = param.String(default='')
@@ -2948,6 +3104,10 @@ class PLSDA_Storage(param.Parameterized):
     PLS_plot = param.List(default=['To Plot the PLS Projection Figure'])
     ROC_figure = param.List(default=['To Plot the ROC Curve(s)'])
     perm_figure = param.List(default=['To Plot the Permutation Test Figure'])
+
+    # Extra Attribute to see if figures should be computed automatically
+    compute_fig = param.Boolean(default=True)
+
 
     # Update number of folds limits
     def n_folds_limits_and_class_update(self, target_list):
@@ -3101,6 +3261,7 @@ class PLSDA_Storage(param.Parameterized):
             encode2as1vector=True, lv_prefix='LV ', label_name='Label')
         self.complete_soft_reset()
 
+
         # Name of the file
         filename_string = f'PLS_plot_({self.n_components}comp)'
         if self.n_dimensions == '2 Components':
@@ -3132,19 +3293,20 @@ class PLSDA_Storage(param.Parameterized):
     @param.depends('n_dimensions', 'LVx', 'LVy', 'LVz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size', watch=True)
     def _update_PLS_plot(self):
         "Updates PLS plot based on figure parameters."
-        # Name of the file
-        filename_string = f'PLS_plot_({self.n_components}comp)'
-        if self.n_dimensions == '2 Components':
-            if self.ellipse_draw:
-                if self.confidence != 0:
-                    filename_string = filename_string + f'_ellipse({self.confidence*100}%confidence)'
-                else:
-                    filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
-        if self.binsim_flag:
-            filename_string = filename_string + '_BinSim'
+        if self.compute_fig:
+            # Name of the file
+            filename_string = f'PLS_plot_({self.n_components}comp)'
+            if self.n_dimensions == '2 Components':
+                if self.ellipse_draw:
+                    if self.confidence != 0:
+                        filename_string = filename_string + f'_ellipse({self.confidence*100}%confidence)'
+                    else:
+                        filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
+            if self.binsim_flag:
+                filename_string = filename_string + '_BinSim'
 
-        self.PLS_plot[0] = iaf._plot_PLS(self, target_list)
-        self.current_pages_associated[2][0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
+            self.PLS_plot[0] = iaf._plot_PLS(self, target_list)
+            self.current_pages_associated[2][0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
 
     # Set of Functions controlling parameters for PLS Projection
@@ -3162,12 +3324,13 @@ class PLSDA_Storage(param.Parameterized):
     @param.depends('n_components', watch=True)
     def _update_LV_options(self):
         "Updates LV options to choose."
-        if int(self.LVx[3:]) > self.n_components:
-            self.LVx = 'LV 1'
-        if int(self.LVy[3:]) > self.n_components:
-            self.LVy = 'LV 1'
-        if int(self.LVz[3:]) > self.n_components:
-            self.LVz = 'LV 1'
+        if self.compute_fig:
+            if int(self.LVx[3:]) > self.n_components:
+                self.LVx = 'LV 1'
+            if int(self.LVy[3:]) > self.n_components:
+                self.LVy = 'LV 1'
+            if int(self.LVz[3:]) > self.n_components:
+                self.LVz = 'LV 1'
         self.controls_projection.widgets['LVx'].options = ['LV '+str(i+1) for i in range(self.n_components)]
         self.controls_projection.widgets['LVy'].options = ['LV '+str(i+1) for i in range(self.n_components)]
         self.controls_projection.widgets['LVz'].options = ['LV '+str(i+1) for i in range(self.n_components)]
@@ -3562,8 +3725,9 @@ class RF_Storage(param.Parameterized):
     models = param.List(default=[''])
 
     # Params Used Store
-    current_rf_params = param.Dict()
+    current_rf_params = param.Dict({})
     current_other_rf_params = param.Dict({})
+    current_rf_params_permutation = param.Dict({})
 
     # Permutation Test
     n_perm = param.Number(default=500)
@@ -3571,7 +3735,6 @@ class RF_Storage(param.Parameterized):
     dpi = param.Number(default=200)
     confirm_button_permutation = param.Boolean(default=False)
     save_figure_button_permutation = param.Boolean(default=False)
-    current_rf_params_permutation = param.Dict()
 
     # ROC Curve
     positive_class = param.String(default='')
@@ -4057,6 +4220,9 @@ class UnivariateAnalysis_Store(param.Parameterized):
     specific_cl_df = param.DataFrame()
     inter_description = param.String(default='')
 
+    # Extra Attribute to see if figures should be computed automatically
+    compute_fig = param.Boolean(default=True)
+
 
     def locking_filtering_params(self, filt_method_widget, filt_kw_widget):
         "Locking in parameters regarding to the data filtering made."
@@ -4129,29 +4295,30 @@ class UnivariateAnalysis_Store(param.Parameterized):
     @param.depends('color_non_sig', 'color_down_sig', 'color_up_sig', watch=True)
     def _update_Volcano_plot(self):
         "Update the Volcano plot based on change in colours."
-        # Repeated content from the main function to not add another attribute to the class
-        results_df = self.univariate_results_non_filt.copy()
-        results_df['-log10(Adj. p-value)'] = -np.log10(results_df['FDR adjusted p-value'])
+        if self.compute_fig:
+            # Repeated content from the main function to not add another attribute to the class
+            results_df = self.univariate_results_non_filt.copy()
+            results_df['-log10(Adj. p-value)'] = -np.log10(results_df['FDR adjusted p-value'])
 
-        expression = []
-        for i in results_df.index:
-            if i not in self.univariate_results.index:
-                expression.append('Non-Significant')
-            elif results_df.loc[i, 'log2FC'] < 0:
-                expression.append('Downregulated')
-            else:
-                expression.append('Upregulated')
-        results_df['Expression'] = expression
+            expression = []
+            for i in results_df.index:
+                if i not in self.univariate_results.index:
+                    expression.append('Non-Significant')
+                elif results_df.loc[i, 'log2FC'] < 0:
+                    expression.append('Downregulated')
+                else:
+                    expression.append('Upregulated')
+            results_df['Expression'] = expression
 
-        Volcano_fig = iaf._plot_Volcano_plot(results_df, self,)
-        self.Volcano_fig = [Volcano_fig,]
-        # Update the layout
-        univ_parameters = self.current_univ_params
-        filename_string = f'VolcanoPlot - {univ_parameters["Test Class"]}_vs_{univ_parameters["Control Class"]}'
-        filename_string = filename_string + f'_{univ_parameters["Test"]}_pvalue{univ_parameters["p-value"]}_FC'
-        filename_string = filename_string + f'{univ_parameters["Fold Change Threshold"]}'
-        layout_volcano[0,1:3] = pn.pane.Plotly(self.Volcano_fig[0], config={'toImageButtonOptions': {
-                   'filename': filename_string, 'scale':4}})
+            Volcano_fig = iaf._plot_Volcano_plot(results_df, self,)
+            self.Volcano_fig = [Volcano_fig,]
+            # Update the layout
+            univ_parameters = self.current_univ_params
+            filename_string = f'VolcanoPlot - {univ_parameters["Test Class"]}_vs_{univ_parameters["Control Class"]}'
+            filename_string = filename_string + f'_{univ_parameters["Test"]}_pvalue{univ_parameters["p-value"]}_FC'
+            filename_string = filename_string + f'{univ_parameters["Fold Change Threshold"]}'
+            layout_volcano[0,1:3] = pn.pane.Plotly(self.Volcano_fig[0], config={'toImageButtonOptions': {
+                    'filename': filename_string, 'scale':4}})
 
 
     @param.depends('test_class_subset', 'show_annots_only', watch=True)
@@ -4164,10 +4331,12 @@ class UnivariateAnalysis_Store(param.Parameterized):
 
     def reset(self):
         "Reset parameters."
+        self.compute_fig = False
         for param in self.param:
             if param not in ["name", 'color_non_sig', 'color_down_sig', 'color_up_sig', 'filt_method', 'filt_kw', 'mvi_method',
-                             'mvi_kw', 'norm_method', 'norm_kw', 'tf_method', 'tf_kw', 'scaling_method', 'scaling_kw']:
+                             'mvi_kw', 'norm_method', 'norm_kw', 'tf_method', 'tf_kw', 'scaling_method', 'scaling_kw', 'compute_fig']:
                 setattr(self, param, self.param[param].default)
+        self.compute_fig = True
 
 
     def __init__(self, **params):
@@ -4425,65 +4594,69 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
     KendrickMD_filenames = param.List(default=[])
     CCS_plot = param.List(default=['Pane for Chemical Composition Series'])
 
+    # Extra Attribute to see if figures should be computed automatically
+    compute_fig = param.Boolean(default=True)
+
     # Update the VK Plots
     @param.depends('vk_highlight_by', 'vk_colour', 'vk_size', 'vk_midpoint', 'vk_max_dot_size', 'vk_show_colorbar',
                    'vk_draw_class_rectangle', 'vk_formula_to_consider', watch=True)
     def _compute_VK_plots(self):
         "Computes Van Krevelen Plots and updates layout and widgets."
 
-        if len(self.vk_formula_to_consider) == 0:
-            pn.state.notifications.error('At least 1 Formula Annotation column must be provided for VK plot.')
+        if self.compute_fig:
+            if len(self.vk_formula_to_consider) == 0:
+                pn.state.notifications.error('At least 1 Formula Annotation column must be provided for VK plot.')
+                vk_plots.clear()
+                self.VanKrevelen_plot = ['Pane for Van Krevelen Plot']
+                self.vanKrevelen_filenames = []
+                raise ValueError('At least 1 Formula Annotation column must be provided for VK plot.')
+
+            # Enabling and Disabling widgets
+            if self.vk_highlight_by == 'None':
+                self.controls_vk.widgets['vk_colour'].disabled = True
+                self.controls_vk.widgets['vk_size'].disabled = True
+                self.controls_vk.widgets['vk_midpoint'].disabled = True
+                self.controls_vk.widgets['vk_show_colorbar'].disabled = True
+            else:
+                if self.controls_vk.widgets['vk_colour'].disabled == True:
+                    self.controls_vk.widgets['vk_colour'].disabled = False
+                    self.controls_vk.widgets['vk_size'].disabled = False
+                    self.controls_vk.widgets['vk_midpoint'].disabled = False
+                    self.controls_vk.widgets['vk_show_colorbar'].disabled = False
+
+            # Setting up stores for figures and filenames
+            figures_list = []
+            filenames = []
+
+            for g in com_exc_compounds.group_dfs:
+                # Getting the Van Krevelen Plots and filenames for each class and adding it to the store
+                fig, f = iaf._plot_VK_diagrams_individual(com_exc_compounds.group_dfs[g], # Filtered DF for specific class
+                                                    self, # Parameters to use for VK
+                                                    DataFrame_Store.univariate_df, # Full normalized data
+                                                    target_list.target, g) # Target and current class
+
+                if self.vk_draw_class_rectangle:
+                    fig = iaf.vk_add_class_rectangles(fig)
+
+                figures_list.append(fig)
+                filenames.append(f)
+
+            # Storing as attributes
+            self.VanKrevelen_plot = figures_list
+            self.VanKrevelen_filenames = filenames
+
+            # Updating the layouts with the new VK plots
             vk_plots.clear()
-            self.VanKrevelen_plot = ['Pane for Van Krevelen Plot']
-            self.vanKrevelen_filenames = []
-            raise ValueError('At least 1 Formula Annotation column must be provided for VK plot.')
-
-        # Enabling and Disabling widgets
-        if self.vk_highlight_by == 'None':
-            self.controls_vk.widgets['vk_colour'].disabled = True
-            self.controls_vk.widgets['vk_size'].disabled = True
-            self.controls_vk.widgets['vk_midpoint'].disabled = True
-            self.controls_vk.widgets['vk_show_colorbar'].disabled = True
-        else:
-            if self.controls_vk.widgets['vk_colour'].disabled == True:
-                self.controls_vk.widgets['vk_colour'].disabled = False
-                self.controls_vk.widgets['vk_size'].disabled = False
-                self.controls_vk.widgets['vk_midpoint'].disabled = False
-                self.controls_vk.widgets['vk_show_colorbar'].disabled = False
-
-        # Setting up stores for figures and filenames
-        figures_list = []
-        filenames = []
-
-        for g in com_exc_compounds.group_dfs:
-            # Getting the Van Krevelen Plots and filenames for each class and adding it to the store
-            fig, f = iaf._plot_VK_diagrams_individual(com_exc_compounds.group_dfs[g], # Filtered DF for specific class
-                                                  self, # Parameters to use for VK
-                                                  DataFrame_Store.univariate_df, # Full normalized data
-                                                  target_list.target, g) # Target and current class
-
-            if self.vk_draw_class_rectangle:
-                fig = iaf.vk_add_class_rectangles(fig)
-
-            figures_list.append(fig)
-            filenames.append(f)
-
-        # Storing as attributes
-        self.VanKrevelen_plot = figures_list
-        self.VanKrevelen_filenames = filenames
-
-        # Updating the layouts with the new VK plots
-        vk_plots.clear()
-        for i in range(len(self.VanKrevelen_plot)):
-            # Repeating this since otherwise the legend does not appear - it still does not appear
-            self.VanKrevelen_plot[i].update_layout(showlegend=True, legend=dict(
-                yanchor="top",
-                y=0.99,
-                xanchor="right",
-                x=0.99)),
-            pane = pn.pane.Plotly(self.VanKrevelen_plot[i],
-                           config = {'toImageButtonOptions': {'filename': self.VanKrevelen_filenames[i], 'scale':4,}})
-            vk_plots.append(pane)
+            for i in range(len(self.VanKrevelen_plot)):
+                # Repeating this since otherwise the legend does not appear - it still does not appear
+                self.VanKrevelen_plot[i].update_layout(showlegend=True, legend=dict(
+                    yanchor="top",
+                    y=0.99,
+                    xanchor="right",
+                    x=0.99)),
+                pane = pn.pane.Plotly(self.VanKrevelen_plot[i],
+                            config = {'toImageButtonOptions': {'filename': self.VanKrevelen_filenames[i], 'scale':4,}})
+                vk_plots.append(pane)
 
 
     # Update the KMD Plots
@@ -4491,37 +4664,38 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
     def _compute_KMD_plots(self):
         "Computes Kendrick Mass Defect Plots and updates layout."
 
-        # Setting up stores for figures and filenames
-        figures_list = []
-        filenames = []
+        if self.compute_fig:
+            # Setting up stores for figures and filenames
+            figures_list = []
+            filenames = []
 
-        # Kendrick Mass Defect Plots cannot be computed without a neutral mass column
-        if radiobox_neutral_mass.value == 'None':
+            # Kendrick Mass Defect Plots cannot be computed without a neutral mass column
+            if radiobox_neutral_mass.value == 'None':
+                kmd_plots.clear()
+                self.KendrickMD_plot = ['Pane for Chemical Composition Series']
+                self.KendrickMD_filenames = []
+                return
+
+            for g in com_exc_compounds.group_dfs:
+                # Getting the Kendrick Mass Defect Plots for each class and adding it to the store
+                fig, f = iaf._plot_KMD_plot_individual(com_exc_compounds.group_dfs[g], # Filtered DF for specific class
+                                                    self, # Parameters to use for VK
+                                                    g, # Current class
+                                                    radiobox_neutral_mass.value) # Neutral Mass Column
+
+                figures_list.append(fig)
+                filenames.append(f)
+
+            # Storing as attributes
+            self.KendrickMD_plot = figures_list
+            self.KendrickMD_filenames = filenames
+
+            # Updating the layouts with the new Kendrick Mass Defect plots
             kmd_plots.clear()
-            self.KendrickMD_plot = ['Pane for Chemical Composition Series']
-            self.KendrickMD_filenames = []
-            return
-
-        for g in com_exc_compounds.group_dfs:
-            # Getting the Kendrick Mass Defect Plots for each class and adding it to the store
-            fig, f = iaf._plot_KMD_plot_individual(com_exc_compounds.group_dfs[g], # Filtered DF for specific class
-                                                   self, # Parameters to use for VK
-                                                   g, # Current class
-                                                   radiobox_neutral_mass.value) # Neutral Mass Column
-
-            figures_list.append(fig)
-            filenames.append(f)
-
-        # Storing as attributes
-        self.KendrickMD_plot = figures_list
-        self.KendrickMD_filenames = filenames
-
-        # Updating the layouts with the new Kendrick Mass Defect plots
-        kmd_plots.clear()
-        for i in range(len(self.KendrickMD_plot)):
-            pane = pn.pane.Plotly(self.KendrickMD_plot[i],
-                           config = {'toImageButtonOptions': {'filename': self.KendrickMD_filenames[i], 'scale':4,}})
-            kmd_plots.append(pane)
+            for i in range(len(self.KendrickMD_plot)):
+                pane = pn.pane.Plotly(self.KendrickMD_plot[i],
+                            config = {'toImageButtonOptions': {'filename': self.KendrickMD_filenames[i], 'scale':4,}})
+                kmd_plots.append(pane)
 
 
     # Update the CCS Plot
@@ -4530,80 +4704,81 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
                           series_order=('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP', 'other')):
         "Computes and plots the chemical compostion series plot, updating the corresponding layout."
 
-        if len(self.ccs_formula_to_consider) == 0:
-            pn.state.notifications.error('At least 1 Formula Annotation column must be provided for CCS plot.')
-            # Clear the page
-            while len(ccs_page) > 2:
-                ccs_page.pop(-1)
-            self.CCS_plot = ['Pane for Chemical Composition Series']
-            raise ValueError('At least 1 Formula Annotation column must be provided for CCS plot.')
+        if self.compute_fig:
+            if len(self.ccs_formula_to_consider) == 0:
+                pn.state.notifications.error('At least 1 Formula Annotation column must be provided for CCS plot.')
+                # Clear the page
+                while len(ccs_page) > 2:
+                    ccs_page.pop(-1)
+                self.CCS_plot = ['Pane for Chemical Composition Series']
+                raise ValueError('At least 1 Formula Annotation column must be provided for CCS plot.')
 
-        # Initialize figure
-        fig = go.Figure()
+            # Initialize figure
+            fig = go.Figure()
 
-        # Initialize the DataFrame
-        series_df = pd.DataFrame()
+            # Initialize the DataFrame
+            series_df = pd.DataFrame()
 
-        # Description of the number of formulas assigned considered for each class and from how many peaks they came from.
-        desc_string = [f'**Description with number of formulas assigned considered**', '']
+            # Description of the number of formulas assigned considered for each class and from how many peaks they came from.
+            desc_string = [f'**Description with number of formulas assigned considered**', '']
 
-        # For each class
-        for g in com_exc_compounds.group_dfs:
-            # Calculating H/C and O/C ratios and series classes for data diversity plots.
-            forms = com_exc_compounds.group_dfs[g].dropna(subset=self.ccs_formula_to_consider, how='all')
-            elems = iaf.create_element_counts(forms, formula_subset=self.ccs_formula_to_consider)
+            # For each class
+            for g in com_exc_compounds.group_dfs:
+                # Calculating H/C and O/C ratios and series classes for data diversity plots.
+                forms = com_exc_compounds.group_dfs[g].dropna(subset=self.ccs_formula_to_consider, how='all')
+                elems = iaf.create_element_counts(forms, formula_subset=self.ccs_formula_to_consider)
 
-            # Calculating counts of each series for each class
-            counts = elems['Series'].value_counts().reindex(series_order)
-            series_df[g] = counts # Store the counts in the dataframe
+                # Calculating counts of each series for each class
+                counts = elems['Series'].value_counts().reindex(series_order)
+                series_df[g] = counts # Store the counts in the dataframe
 
-            # Adding the class' bars to the plot
+                # Adding the class' bars to the plot
+                if self.ccs_bar_plot_type == 'Horizontal': # Horizontal bar plot
+                    fig.add_trace(go.Bar(name=g, x=counts, y=series_order, orientation='h', marker_color=target_list.color_classes[g]))
+                else: # Vertical bar plot
+                    fig.add_trace(go.Bar(name=g, x=series_order, y=counts, orientation='v', marker_color=target_list.color_classes[g]))
+
+                # Adding to the description
+                n_peaks = pd.Series(elems.index).value_counts().shape[0]
+                group_string = f'**{g}**: **{counts.sum()}** formulas were considered from a total of **{n_peaks}** peaks.'
+                desc_string.append(group_string)
+
+            # Defining x and y labels for horizontal and vertical barplots
             if self.ccs_bar_plot_type == 'Horizontal': # Horizontal bar plot
-                fig.add_trace(go.Bar(name=g, x=counts, y=series_order, orientation='h', marker_color=target_list.color_classes[g]))
+                xlabel = 'Nº of Formulas'
+                ylabel = 'Composition Series'
             else: # Vertical bar plot
-                fig.add_trace(go.Bar(name=g, x=series_order, y=counts, orientation='v', marker_color=target_list.color_classes[g]))
+                xlabel = 'Composition Series'
+                ylabel = 'Nº of Formulas'
 
-            # Adding to the description
-            n_peaks = pd.Series(elems.index).value_counts().shape[0]
-            group_string = f'**{g}**: **{counts.sum()}** formulas were considered from a total of **{n_peaks}** peaks.'
-            desc_string.append(group_string)
+            # Defining major figure characteristics
+            fig.update_layout(
+                title="Chemical Composition Series",
+                xaxis_title=xlabel,
+                yaxis_title=ylabel,
+                legend_title="Classes")
 
-        # Defining x and y labels for horizontal and vertical barplots
-        if self.ccs_bar_plot_type == 'Horizontal': # Horizontal bar plot
-            xlabel = 'Nº of Formulas'
-            ylabel = 'Composition Series'
-        else: # Vertical bar plot
-            xlabel = 'Composition Series'
-            ylabel = 'Nº of Formulas'
+            # Setting up the attributes
+            self.CCS_plot[0] = fig
+            self.ccs_desc = '<br />'.join(desc_string) # <br /> leads to line breaks in Markdown
+            self.ccs_df = series_df.T
+            filename = 'CCS_Plot_formulacolumns'
+            # Create appropriate filename
+            for cl in self.ccs_formula_to_consider:
+                filename = filename + f'_{cl}'
 
-        # Defining major figure characteristics
-        fig.update_layout(
-            title="Chemical Composition Series",
-            xaxis_title=xlabel,
-            yaxis_title=ylabel,
-            legend_title="Classes")
-
-        # Setting up the attributes
-        self.CCS_plot[0] = fig
-        self.ccs_desc = '<br />'.join(desc_string) # <br /> leads to line breaks in Markdown
-        self.ccs_df = series_df.T
-        filename = 'CCS_Plot_formulacolumns'
-        # Create appropriate filename
-        for cl in self.ccs_formula_to_consider:
-            filename = filename + f'_{cl}'
-
-        # Updating chemical composition series layout
-        if len(ccs_page) == 2:
-            ccs_page.append(self.ccs_desc)
-            ccs_page.append(pn.pane.Plotly(self.CCS_plot[0], height=600,
-                            config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}}))
-            ccs_page.append(pn.pane.DataFrame(series_df.T, height=400))
-            ccs_page.append(save_ccs_table_button)
-        else:
-            ccs_page[2] = self.ccs_desc
-            ccs_page[3] = pn.pane.Plotly(self.CCS_plot[0], height=600,
-                            config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
-            ccs_page[4] = pn.pane.DataFrame(series_df.T, height=400)
+            # Updating chemical composition series layout
+            if len(ccs_page) == 2:
+                ccs_page.append(self.ccs_desc)
+                ccs_page.append(pn.pane.Plotly(self.CCS_plot[0], height=600,
+                                config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}}))
+                ccs_page.append(pn.pane.DataFrame(series_df.T, height=400))
+                ccs_page.append(save_ccs_table_button)
+            else:
+                ccs_page[2] = self.ccs_desc
+                ccs_page[3] = pn.pane.Plotly(self.CCS_plot[0], height=600,
+                                config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
+                ccs_page[4] = pn.pane.DataFrame(series_df.T, height=400)
 
 
     def update_widgets(self):
@@ -4635,13 +4810,15 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
 
     def reset(self):
         "Reset parameters."
+        self.compute_fig = False
         self.vk_highlight_by = 'None'
         for param in self.param:
-            if param not in ["name", 'vk_formula_to_consider', 'kmd_formula_to_consider', 'ccs_formula_to_consider', 'vk_highlight_by']:
+            if param not in ["name", 'vk_formula_to_consider', 'kmd_formula_to_consider', 'ccs_formula_to_consider', 'vk_highlight_by', 'compute_fig']:
                 setattr(self, param, self.param[param].default)
         self.vk_highlight_by = 'Rank'
         for param in ['vk_formula_to_consider', 'kmd_formula_to_consider', 'ccs_formula_to_consider']:
             setattr(self, param, self.param[param].default)
+        self.compute_fig = True
 
 
     def __init__(self, **params):
@@ -5751,7 +5928,7 @@ class ReportGeneration(param.Parameterized):
 
     # Checkboxes to select which analysis will be shown
     com_exc_analysis = param.List(default=[])
-    unsup_analysis = param.List(default=['PCA', 'HCA',])
+    unsup_analysis = param.List(default=[])
     sup_analysis = param.List(default=[])
     univ_analysis = param.Boolean(default=False)
     dataviz_analysis =param.List(default=[])
@@ -5774,7 +5951,7 @@ class ReportGeneration(param.Parameterized):
             'com_exc_analysis': pn.widgets.CheckBoxGroup(name='Common and Exclusive Compounds Analysis',
                     value=[], options=['Overview', 'Venn Diagram', 'Intersection Plot']),
             'unsup_analysis': pn.widgets.CheckBoxGroup(name='Unsupervised Analysis',
-                    value=['PCA', 'HCA'], options=['PCA', 'HCA']),
+                    value=[], options=['PCA', 'HCA']),
             'sup_analysis': pn.widgets.CheckBoxGroup(name='Supervised Analysis',
                     value=[], options=['PLS-DA', 'Random Forest']),
             'univ_analysis': pn.widgets.Checkbox(name='Univariate Analysis', value=False),
@@ -5816,22 +5993,22 @@ report_generation_button = pn.widgets.Button(
 def _report_generation_button(event):
     "Calls the function that generates the report while pressed."
 
-    while len(rep_gen_page) > 5:
-        rep_gen_page.pop(-1)
+    while len(rep_gen_page) > 6:
+        rep_gen_page.pop(5)
 
     # Loading Widget while report is being generated
-    rep_gen_page.append(pn.indicators.LoadingSpinner(value=True, size=100,
+    rep_gen_page.insert(5, pn.indicators.LoadingSpinner(value=True, size=100,
                                                         name='Report is currently being generated with selected statistical analysis...'))
 
     # Perform Report Generation
     try:
-        ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
-                        target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                        data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
-                        PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page)
+        report_generation.ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
+                                        target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
+                                        data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
+                                        PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page)
     except:
-        while len(rep_gen_page) > 5:
-            rep_gen_page.pop(-1)
+        while len(rep_gen_page) > 6:
+            rep_gen_page.pop(5)
         pn.state.notifications.error('Report was not successfully generated.')
         raise ValueError('Report was not successfully generated.')
 
@@ -5841,12 +6018,46 @@ def _report_generation_button(event):
 report_generation_button.on_click(_report_generation_button)
 
 
+# Parameter saving section widgets
+# Button to save parameters and corresponding function
+save_parameters_analysis_button = pn.widgets.Button(
+    name='Save Data Pre-Processing, Pre-Treatment and Data Analysis Related Parameters',
+    button_type='warning', icon=iaf.download_icon, disabled=False)
+
+def _save_parameters_analysis_button(event):
+    "Saves parameters related to the data pre-treatment, pre-processing and data analysis."
+
+    #try:
+        # Trying to save parameters
+    filename = params_filename.value
+    report_generation.save_parameters(filename, UnivarA_Store, n_databases, annotation_margin_method_radio,
+                    annotation_ppm_deviation, annotation_Da_deviation, DB_dict, checkbox_com_exc, com_exc_compounds,
+                    PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PCA_params_binsim, HCA_params_binsim,
+                    PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True)
+
+    pn.state.notifications.success(f'Parameters successfully saved in {filename}.json')
+
+    # If the params could not be saved
+    #except:
+    #    pn.state.notifications.error('Parameters could not be saved.')
+
+save_parameters_analysis_button.on_click(_save_parameters_analysis_button)
+
+# Layout of parameter saving section
+data_analysis_param_saving_section = pn.Column('## Optionally Save Data Pre-Processing, Pre-Treatment and Analysis Related Parameters',
+                                                pn.pane.HTML(desc_str.save_parameters_pretreatment_string),
+                                                pn.pane.HTML(desc_str.save_parameters_dataanalysis_string),
+                                                params_filename,
+                                                save_parameters_analysis_button)
+
+
 # Initializing the page
 rep_gen_page = pn.Column(pn.pane.HTML(desc_str.report_opening_string),
                          folder_selection,
                          desc_repgen,
                          widgets_repgen,
-                         report_generation_button)
+                         report_generation_button,
+                         data_analysis_param_saving_section)
 
 
 
@@ -5899,6 +6110,22 @@ def Yes_Reset(event):
     # Resetting other Pre-Treatment related Param classes
     PreTreatment_Method.reset()
 
+    # Parameter Loading and Saving widgets
+    params_loaded_in.value = False
+    params_pre_treat_loaded_in.value = False
+    params_analysis_loaded_in.value = False
+    params_to_load.value = {}
+    file_to_load_params.value = ""
+    params_filename.value = 'met_params'
+    PLSDA_store.param['ellipse_draw'].default = True
+    PLSDA_store.param['confidence'].default = 0.95
+    PLSDA_store.param['confidence_std'].default = 2
+    PLSDA_store.param['dot_size'].default = 5
+    PLSDA_store_binsim.param['ellipse_draw'].default = True
+    PLSDA_store_binsim.param['confidence'].default = 0.95
+    PLSDA_store_binsim.param['confidence_std'].default = 2
+    PLSDA_store_binsim.param['dot_size'].default = 5
+
     # Disable all sidebar buttons except data reading
     page1_1_button.disabled = True
     page1_2_button.disabled = True
@@ -5911,12 +6138,15 @@ def Yes_Reset(event):
     # Resetting all statistical analysis performed
 
     # Common and Exclusive Compound page
+    com_exc_compounds.compute_fig = False
     com_exc_compounds.reset()
     while len(end_page_comexc) > 0:
         end_page_comexc.pop(-1)
 
     # Unsupervised Analysis page
     n_components_compute.value = 10
+    PCA_params.compute_fig = False
+    HCA_params.compute_fig = False
     PCA_params.reset()
     HCA_params.reset()
 
@@ -5949,6 +6179,7 @@ def Yes_Reset(event):
 
     # Data Diversity Visualization page
     iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
+    dataviz_store.compute_fig = False
     dataviz_store.reset()
     vk_plots.clear()
     kmd_plots.clear()
@@ -5969,6 +6200,7 @@ def Yes_Reset(event):
     # Binary Simplification (BinSim) analysis page
     # PCA
     n_components_compute_binsim.value = 10
+    PCA_params_binsim.compute_fig = False
     PCA_params_binsim.reset()
     PCA_params_binsim.binsim_flag = True
     for _, w in PCA_params_binsim.controls.widgets.items():
@@ -5977,6 +6209,7 @@ def Yes_Reset(event):
     end_page_PCA_binsim[0] = 'To plot explained variance figure'
     end_page_PCA_binsim[1] = 'To plot matrices of PCA projections'
     # HCA
+    HCA_params_binsim.compute_fig = False
     HCA_params_binsim.reset()
     HCA_params_binsim.binsim_flag = True
     # PLS-DA
@@ -6136,7 +6369,7 @@ page9_button = pn.widgets.Button(name="Data Visualization", button_type="default
 page10_button = pn.widgets.Button(name="Pathway Assignment", button_type="default", disabled=True)
 page11_button = pn.widgets.Button(name="BinSim Analysis", button_type="default", disabled=True)
 page12_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
-page13_button = pn.widgets.Button(name="Report Generation", button_type="default", disabled=True)
+page13_button = pn.widgets.Button(name="Report Generation + Param. Saving", button_type="default", disabled=True)
 RESET_button = pn.widgets.Button(name="RESET", button_type="danger", disabled=False)
 
 # Set up button click callbacks
