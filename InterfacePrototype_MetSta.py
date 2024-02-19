@@ -1953,7 +1953,12 @@ def _confirm_button_next_step_5(event):
             PCA_params.compute_fig = False
             HCA_params.compute_fig = False
             PCA_params.reset()
+            for _, w in PCA_params.controls.widgets.items():
+                w.disabled = True
             HCA_params.reset()
+            middle_page_PCA[0,1:3] = 'To plot a PCA'
+            end_page_PCA[0] = 'To plot explained variance figure'
+            end_page_PCA[1] = 'To plot matrices of PCA projections'
 
             # Supervised Analysis page
             plsda_feat_imp_show_annots_only.value = False
@@ -2054,20 +2059,21 @@ def _confirm_button_next_step_5(event):
 
             # Reload parameters of data analysis if they were loaded in
             try:
-                report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
-                            annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, DB_dict,
-                            PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params, n_components_compute, HCA_params,
-                            PLSDA_store, RF_store, UnivarA_Store, dataviz_store, PCA_params_binsim, n_components_compute_binsim,
-                            HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, False,
-                            params_analysis_loaded_in.value)
+                if params_loaded_in.value:
+                    report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
+                                annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, DB_dict,
+                                PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params, n_components_compute, HCA_params,
+                                PLSDA_store, RF_store, UnivarA_Store, dataviz_store, PCA_params_binsim, n_components_compute_binsim,
+                                HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, False,
+                                params_analysis_loaded_in.value)
 
-                # Adjust necessary widgets
-                if 'BinSim Analysis' in params_to_load.value.keys():
-                    params_analysis_loaded_in.value = True
-                else:
-                    params_analysis_loaded_in.value = False
+                    # Adjust necessary widgets
+                    if 'BinSim Analysis' in params_to_load.value.keys():
+                        params_analysis_loaded_in.value = True
+                    else:
+                        params_analysis_loaded_in.value = False
 
-                pn.state.notifications.success(f'Loaded Parameters were successfully reloaded.')
+                    pn.state.notifications.success(f'Loaded Parameters were successfully reloaded.')
 
             except:
                 pn.state.notifications.error(f'Loaded Parameters could not be reloaded.')
@@ -2086,25 +2092,6 @@ def _confirm_button_next_step_5(event):
     page12_button.disabled = False
     page13_button.disabled = False
 
-    # Initial Calculations for PCA and storing initial plots
-    principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(DataFrame_Store.treated_df,
-                                       n_components=n_components_compute.value,
-                                       whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
-    PCA_params.pca_scores = principaldf
-    PCA_params.explained_variance = var
-    PCA_params.pca_loadings = pd.DataFrame(loadings)
-    PCA_params.PCA_plot[0] = iaf._plot_PCA(PCA_params, target_list)
-    PCA_filename_string = 'PCA_plot'
-    if PCA_params.ellipse_draw:
-        if PCA_params.confidence != 0:
-            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params.confidence*100}%confidence)'
-        else:
-            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params.confidence_std}std)'
-    middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0], config = {'toImageButtonOptions': {'filename': PCA_filename_string, 'scale':4,}})
-    PCA_params.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(PCA_params)
-    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot', 'scale':4,}})
-    PCA_params.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params, target_list)
-    end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
 
     # Initial calculations for HCA and storing initial plots
     HCA_params.controls.widgets['dist_metric'].options = ['euclidean', 'cityblock', 'minkowski', 'seuclidean',
@@ -2852,6 +2839,9 @@ class PCA_Storage(param.Parameterized):
 
 # Running initial param to store PCA details
 PCA_params = PCA_Storage()
+# Making PCA Projection Controlling widgets disabled
+for n, w in PCA_params.controls.widgets.items():
+    w.disabled = True
 
 
 # Extra widgets for the page
@@ -2860,21 +2850,57 @@ n_components_compute = pn.widgets.IntInput(name='Number of Components to Compute
                                            value=10, step=1, start=2, end=20,
                                           description='Select 2-20 components.')
 
-# When pressing the button, runs again the PCA with the designated number of components
+
+# When pressing the button, runs the PCA with the designated number of components
 def _compute_PCA_button(event):
-    "Computes PCA."
+    "Computes PCA, plots the figures in the respective pages if not present."
+
+    # Select DataFrame
     if PCA_params.binsim_flag:
         df = DataFrame_Store.binsim_df
     else:
         df = DataFrame_Store.treated_df
+
+    # Calculate PCA and store results
     principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(df,
                                        n_components=n_components_compute.value,
                                        whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
     PCA_params.pca_scores = principaldf
     PCA_params.explained_variance = var
     PCA_params.pca_loadings = pd.DataFrame(loadings)
-    PCA_params.n_components = n_components_compute.value
+    PCA_params.n_components = n_components_compute.value # This may catalyse the 'change in n_components' react function
     PCA_params.controls.widgets['n_components'].value = n_components_compute.value
+
+    # Plot the figures - PCA Projection
+    PCA_params.PCA_plot[0] = iaf._plot_PCA(PCA_params, target_list)
+    PCA_filename_string = 'PCA_plot'
+    if PCA_params.ellipse_draw:
+        if PCA_params.confidence != 0:
+            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params.confidence*100}%confidence)'
+        else:
+            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params.confidence_std}std)'
+    middle_page_PCA[0,1:3] = pn.pane.Plotly(PCA_params.PCA_plot[0],
+                                    config = {'toImageButtonOptions': {'filename': PCA_filename_string, 'scale':4,}})
+
+    # Expected Variance Plot
+    if type(PCA_params.scatter_PCA_plot[0]) == str:
+        PCA_params.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(PCA_params)
+    end_page_PCA[0] = pn.pane.Plotly(PCA_params.exp_var_fig_plot[0],
+                                    config = {'toImageButtonOptions': {'filename': 'PCA_exp_var_plot', 'scale':4,}})
+
+    # PCA Scatter Plot
+    if type(PCA_params.scatter_PCA_plot[0]) == str:
+        PCA_params.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params, target_list)
+    end_page_PCA[1] = pn.pane.Plotly(PCA_params.scatter_PCA_plot[0],
+                                    config = {'toImageButtonOptions': {'filename': 'PCA_scatter_plot', 'scale':4,}})
+
+    # Enabling Widgets to control the PCA Projection
+    for n, w in PCA_params.controls.widgets.items():
+        if n not in ['PCz', 'confidence_std']:
+            w.disabled = False
+
+    PCA_params._update_ellipse_options()
+    PCA_params._update_PCz_disabled()
 
 compute_PCA_button.on_click(_compute_PCA_button)
 
@@ -5287,7 +5313,6 @@ n_components_compute_binsim = pn.widgets.IntInput(name='Number of Components to 
                                           description='Select 2-20 components.')
 
 
-# Modified version of this function so PCA will be computed and images will be plotted when it is a new analysis
 # When pressing the button, runs the PCA with the designated number of components and the binsim treated data
 def _compute_PCA_binsim_button(event):
     "Computes PCA, plots the figures in the respective pages if not present."
@@ -6148,7 +6173,12 @@ def Yes_Reset(event):
     PCA_params.compute_fig = False
     HCA_params.compute_fig = False
     PCA_params.reset()
+    for _, w in PCA_params.controls.widgets.items():
+        w.disabled = True
     HCA_params.reset()
+    middle_page_PCA[0,1:3] = 'To plot a PCA'
+    end_page_PCA[0] = 'To plot explained variance figure'
+    end_page_PCA[1] = 'To plot matrices of PCA projections'
 
     # Supervised Analysis page
     plsda_feat_imp_show_annots_only.value = False
