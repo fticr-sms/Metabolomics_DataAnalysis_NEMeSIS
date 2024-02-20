@@ -277,7 +277,6 @@ main_area = OpeningPage().content
 
 # Param Class to store all DataFrames
 # TODO: Put previous dataframes - filtered_df and annotated_df here as well
-# TODO: Confirm if Univariate Analysis is being performed well
 
 # Contains before treatment data, treated_data, processed_data, univariate_data, meta_data, bin_data
 class DataFrame_Storage(param.Parameterized):

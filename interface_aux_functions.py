@@ -15,8 +15,9 @@ from matplotlib.colors import TwoSlopeNorm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np
 import panel as pn
-import venn
+import math
 import upsetplot
+import venn
 
 import holoviews as hv
 import plotly.express as px
@@ -1559,17 +1560,26 @@ def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list, fi
             target_temp = list(np.array(target_list.target)[selection])
             # Select only samples in the control and test classes
             file_temp = DataFrame_Store.original_df[target_list.sample_cols].copy()
+            file_temp = file_temp.loc[:, selection]
 
-            # Perform the same filtering and pre-treatments steps but using only the control and test class samples
-            if filt_method.value == 'Total Samples':
+           # Perform the same filtering and pre-treatments steps but using only the control and test class samples
+            if UnivarA_Store.filt_method == 'Total Samples':
                 f_meth = 'total_samples'
-            elif filt_method.value == 'Class Samples':
+                # Adapting the filt_kw to a smaller subset of samples
+                # Use percentage of the original filtering used to calculate the equivalent number of samples in subset and round UP
+                # Possible Issue - since we already used the filtered dataset (because it has annotations and de-duplications),
+                # the data filtering with 'total_samples' is not perfect - since a feature must pass this data filtering but also
+                # the original data filtering made
+                f_kw = math.ceil(UnivarA_Store.filt_kw/len(target_list.sample_cols)*sum(selection))
+            elif UnivarA_Store.filt_method == 'Class Samples':
                 f_meth = 'class_samples'
+                f_kw = UnivarA_Store.filt_kw
             else:
                 f_meth = None
-            filt_df, _ = initial_filtering(file_temp, file_temp.columns, target=target_list.target,
-                                               filt_method=f_meth, filt_kw=filt_kw.value)
-            filt_df = filt_df.loc[:, selection]
+
+            # Perform the Data Filtering and the Pre-Treament
+            filt_df, _ = initial_filtering(file_temp, file_temp.columns, target=target_temp,
+                                       filt_method=f_meth, filt_kw=f_kw)
             t_data,_,filt_data,_,_  = performing_pretreatment(UnivarA_Store, filt_df,
                                                                  target_temp, filt_df.columns)
 

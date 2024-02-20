@@ -19,7 +19,8 @@ retention parameters of the latter 2 and as such may not be the most suitable to
 <br>
 - This software includes reading the data, data filtering, data annotation based on mass (or <em>m/z</em> peak)
 deviation, data pre-treatment, univariate, multivariate unsupervised and supervised analysis, common and exclusive
-compound analysis and data diversity visualization tools (Van Krevelen and Chemical Composition Series).
+compound analysis, data diversity visualization tools (Van Krevelen, Kendrick Mass Defect Plots and Chemical Composition
+Series) and Pathway matching between identified HMDB based IDs.
 <br>
 - It also includes statistical analysis performe on data treated with Binary Simplification (BinSim),
 that is, feature occurrence data that can be useful for extreme-resolution data with plenty of missing values.
@@ -111,7 +112,7 @@ indicate the problem at the beginning of the corresponding page. In general, the
 page of the analysis section.</p>
 <p><br></p>
 <p><strong>Performance of the Different Parts of the Program</strong></p>
-<p>- The program generally runs smoothly and quickly with low latency and chugging. The exceptions are the very first page
+<p>- The program generally runs smoothly and quickly with low latency. The exceptions are the very first page
 when data reading which can slow down the program for a few seconds as well as some parts when certain analysis such as
 PLS-DA or Random Forest finish and the page layout is updated with the results.</p>
 <p>- The possible slow downs and time of analysis is also dependent on the size of the dataset. The bigger the dataset to
@@ -355,8 +356,20 @@ also choose one as the control class and one as the test class to perform univar
 <br>
 <br>
 Finally, when you have more than 2 classes, each unsupervised analysis will select the samples respective to the 2 classes,
-and pre-treatment will be performed the same way it was done on the full dataset before performing unsupervised analysis
-(data filtering is performed on the full dataset).
+data filtering and pre-treatment will be performed the same way it was done on the dataset before performing unsupervised
+analysis (starting from the dataset <strong>after data filtering, annotation and de-duplication</strong>)*. In case of
+filtering based on the total number of samples a feature appears in, the number used on the full dataset is converted to
+percentage-based and then a new number is calculated based on the number of samples of the control and test class, which is
+then rounded up.
+<br>
+<br>
+* - We cannot start from the completely full dataset since we have no annotations associated with it despite the fact that,
+when using total number of samples based data filtering, there could be some fatures that were initially filtered out that
+could remain in the dataset. E.g. if you choose a minimum of 4 samples to appear in a 15-sample 5-class dataset. When
+performing univariate analysis on 2 classes that have a total of 6 samples, the minimum 5 samples would be transformed to a
+minimum of 2 samples in the 6-sample subset (4 out of 15 represents 26.67% of samples, which is 1.6 out of 6 samples rounded
+up to 2). There could be features that appear in 2 of these 6 samples but that did not appear in 4 of the original 15 samples
+and were thus previously removed from the dataset. These features <strong>stay removed</strong>.
 '''
 
 

@@ -147,6 +147,15 @@ However, in the future, these databases will have corresponding python files tha
 - Datasets up to 100 MB can now be read in the software (previously 20 MB was the maximum).
 - Many bugfixes (especially in previously non-considered fringe cases), improvements and updates to handling page layouts, saving current parameters used for different analysis, improved image and table filenames (that could be saved with incorrect parameters in the name), better description and organization of different variables, to the software reset and soft-reset (in case of change in pre-treatments) procedures - see commits 45 to 53 for more details on these issues.
 
+#### Version Alpha.2 (20/02/2024)
+
+- Added BinSim Analysis Page to the interface software (also included in report generation).
+- Added possibility to save used data pre-processing, pre-treatment and data analysis parameters and to load them back in posterior analysis.
+- Adapted classes and pages to work with possible save and loading of parameters. Attribute 'compute_fig' added to many classes allowing to cancel and restarting automatic figure updating.
+- PCA now is not computed automatically when going into the data analysis section of the software.
+- Bugfix in Univariate Analysis and change in how it is made (data filtering section within it). Now if data filtering used is 'total_samples', the filtering is performed by the percentage of samples allowed used with the full dataset rounded up. E.g. if the minimum nº of samples a feature must appear in a 15-sample dataset is 4, then by performing univariate analysis between 2 classes on a 6-sample subset, the minimum nº of samples allowed is (4/15) * 6 = 1.6 rounded up, that is, it has to appear in at least 2 of that 6 sample-subset (and 4 samples of the original 15).
+- Multiple minor changes and improvements.
+
 ### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
 
 - panel >= 1.3.4
