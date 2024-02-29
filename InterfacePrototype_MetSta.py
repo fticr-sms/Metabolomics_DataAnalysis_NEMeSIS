@@ -1026,7 +1026,7 @@ def _press_confirm_button_db(db1, db2, db3, db4, db5):
 # Annotation parameters widgets
 annotation_margin_method_radio = pn.widgets.RadioBoxGroup(name='Annotation Margin Method', value='PPM Deviation',
                                                 options=['PPM Deviation', 'Absolute Dalton Deviation'], inline=True)
-annotation_ppm_deviation = pn.widgets.IntInput(name='Maximum PPM Deviation', value=1, step=1, start=1)
+annotation_ppm_deviation = pn.widgets.FloatInput(name='Maximum PPM Deviation', value=1, step=1, start=0.1)
 annotation_Da_deviation = pn.widgets.FloatInput(name='Maximum Absolute Dalton Deviation', value=0.001, step=0.001, 
                                                 page_step_multiplier=10)
 tooltip_annotation = pn.widgets.TooltipIcon(
@@ -1285,10 +1285,15 @@ class AnnDeDuplication_Storage(param.Parameterized):
         # TODO: See deduplication function better
         annotated_data, mergings_performed, merging_situations, merge_description, mp = iaf.duplicate_disambiguator(
             self, ann_df, sample_cols, neutral_mass_col, mz_col=False)
+        merge_df = pd.DataFrame(merge_description).T
+        if len(merge_df) == 0:
+            n_m_peaks = 0
+        else:
+            n_m_peaks = pd.DataFrame(merge_description).T['Nº merged peaks'].sum()
 
         # Report
         self.merge_report = f'''Nº of Mergings: **{len(merge_description)}**
-        Nº of Metabolic Features merged: **{pd.DataFrame(merge_description).T['Nº merged peaks'].sum()}**
+        Nº of Metabolic Features merged: **{n_m_peaks}**
         Nº of Metabolic Features dropped: **{len(ann_df) - len(annotated_data.index)}**
         Nº of Metabolic Features before merging: **{len(ann_df)}**
         Nº of Metabolic Features after merging: **{len(annotated_data.index)}**'''
@@ -5727,7 +5732,7 @@ class CompoundFinder(param.Parameterized):
 
         # Default option for id_type - setting up widgets
         self.controls.widgets['id_comp'].options = list(metadata_df.index)
-        self.controls.widgets['id_comp'].placeholder = metadata_df.index[0]
+        self.controls.widgets['id_comp'].placeholder = str(metadata_df.index[0])
 
 
     def find_id_df(self, processed_df, groups):
@@ -6207,7 +6212,7 @@ def Yes_Reset(event):
         univar_analysis_page.pop(-1)
 
     # Data Diversity Visualization page
-    iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
+    #iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
     dataviz_store.compute_fig = False
     dataviz_store.reset()
     vk_plots.clear()

@@ -126,7 +126,7 @@ def read_file(filename, target_in_file):
 
     # Treated the read file to put them as we want it - # Important for database match
     try:
-        file.insert(1, 'Neutral Mass', file['Bucket label'].str.replace('Da', '').astype('float'))
+        file.insert(1, 'Neutral Mass', file['Bucket label'].astype('str').str.replace('Da', '').astype('float'))
         nm_column = True
     except:
         pn.state.notifications.warning('Neutral Mass could not be inferred from Bucket Label. No annotation can be performed.')
