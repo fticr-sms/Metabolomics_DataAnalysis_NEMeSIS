@@ -56,7 +56,15 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     dataset_cols = len(file.read_df.columns)
     # If a neutral mass column was added to the dataset
     if RepGen.neutral_mass_column:
-        nm_string = f' Furthermore, a "Neutral Mass" column was added to the data by interpreting the bucket label given as floats (numbers).'
+        nm_string = f' Furthermore, a "Neutral Mass" column was added to the data '
+        if RepGen.type_of_mass_values_in_file == 'Neutral':
+            nm_string = nm_string + 'by directly interpreting the first column mass values given as floats (numbers).'
+        elif RepGen.type_of_mass_values_in_file == 'm/z (Positive)':
+            nm_string = nm_string + 'by interpreting the first column mass values given as floats (numbers) representing'
+            nm_string = nm_string + ' m/z values obtained in positive ionization mode and subtracting one proton mass from them.'
+        elif RepGen.type_of_mass_values_in_file == 'm/z (Negative)':
+            nm_string = nm_string + 'by interpreting the first column mass values given as floats (numbers) representing'
+            nm_string = nm_string + ' m/z values obtained in negative ionization mode  and subtracting one H- mass from them.'
         dataset_cols = dataset_cols - 1
     else:
         nm_string = ''

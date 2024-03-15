@@ -79,7 +79,7 @@ hourglass_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tab
 
 
 # Function related to File data reading
-def read_file(filename, target_in_file):
+def read_file(filename, target_in_file, type_of_mass_values):
     "Function to read the file given."
 
     # Samples names frequently have 00000.
@@ -126,12 +126,24 @@ def read_file(filename, target_in_file):
 
     # Treated the read file to put them as we want it - # Important for database match
     try:
-        file.insert(1, 'Neutral Mass', file['Bucket label'].astype('str').str.replace('Da', '').astype('float'))
+        # If the masses in the index are Neutral
+        file.insert(1, 'Neutral Mass', file[file.columns[0]].astype('str').str.replace('Da', '').astype('float'))
+        # If the masses are m/z values obtained in Positive Ionization Mode
+        if type_of_mass_values == 'm/z (Positive)':
+            electron_mass = 0.0005485799090654
+            H_mass = 1.007825031898
+            file['Neutral Mass'] = file['Neutral Mass'] - H_mass + electron_mass
+        # If the masses are m/z values obtained in Negative Ionization Mode
+        elif type_of_mass_values == 'm/z (Negative)':
+            electron_mass = 0.0005485799090654
+            H_mass = 1.007825031898
+            file['Neutral Mass'] = file['Neutral Mass'] + H_mass + electron_mass
         nm_column = True
     except:
-        pn.state.notifications.warning('Neutral Mass could not be inferred from Bucket Label. No annotation can be performed.')
+        pn.state.notifications.warning('Neutral Mass could not be inferred from the 1st column of your data. No annotation can be performed.')
 
-    file = file.set_index('Bucket label')
+    file = file.set_index(file.columns[0])
+    file.index.name = 'Bucket label'
     # Replaces zeros with numpy nans. Essential for data processing
     file = file.replace({0:np.nan})
 

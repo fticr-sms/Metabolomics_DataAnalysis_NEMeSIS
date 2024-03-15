@@ -373,6 +373,10 @@ file = FileReading()
 filename = pn.widgets.FileInput(name='Choose file', accept='.csv,.xlsx,.xls')
 target_included_in_file = pn.widgets.Checkbox(name='The first row of the file corresponds to the target (sample class labels).', value=False)
 temp_target = param.Parameter(default={})
+type_of_mass_values_text = pn.widgets.StaticText(name='Mass Values in your data are', value='')
+type_of_mass_values = pn.widgets.RadioBoxGroup(name='Type of mass values in data',
+                                               options=['Neutral', 'm/z (Positive)', 'm/z (Negative)'],
+                                               value='Neutral', inline=True)
 
 confirm_button_filename = pn.widgets.Button(name='Read File', button_type='primary', disabled=True)
 tooltip_file = pn.widgets.TooltipIcon(
@@ -393,11 +397,13 @@ def _confirm_button_filename(event):
     "Reads the file given."
 
     # Read the file, updating widgets and parameters
-    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file(filename.filename, target_included_in_file.value)
+    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file(filename.filename, target_included_in_file.value,
+                                                                                      type_of_mass_values.value)
 
     # Parameters to store for Report Generation
     RepGen.filename = filename.filename
     RepGen.target_included_in_file = target_included_in_file.value
+    RepGen.type_of_mass_values_in_file = type_of_mass_values.value
     RepGen.neutral_mass_column = file.neutral_mass_column_inserted
 
     # Enabling button for next step
@@ -416,11 +422,13 @@ def _load_example_df_button(event):
     "Reads the example file ofthe software."
 
     # Read the file, updating widgets and parameters
-    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file('5yeasts_notnorm.csv', False)
+    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file('5yeasts_notnorm.csv', False,
+                                                                                      type_of_mass_values.value)
 
     # Parameters to store for Report Generation
     RepGen.filename = 'Example Dataset (5yeasts_not_norm.csv)'
     RepGen.target_included_in_file = False
+    RepGen.type_of_mass_values_in_file = 'Neutral'
     RepGen.neutral_mass_column = file.neutral_mass_column_inserted
 
     # Enabling button for next step
@@ -535,7 +543,8 @@ def _confirm_step1(event):
 confirm_button_step1.on_click(_confirm_step1)
 
 # Setting up the page layout
-section1page = pn.Column(pn.Row(pn.Column(filename, target_included_in_file), pn.Row(load_example_df_button, tooltip_example_df)),
+section1page = pn.Column(pn.Row(pn.Column(filename, target_included_in_file, type_of_mass_values_text, type_of_mass_values),
+                                pn.Row(load_example_df_button, tooltip_example_df)),
                          pn.Row(confirm_button_filename, tooltip_file),
                          file.read_df,
                          confirm_button_step1,
@@ -5945,6 +5954,7 @@ class ReportGeneration(param.Parameterized):
     # Related to File Reading
     filename = param.String('')
     target_included_in_file = param.Boolean(default=False)
+    type_of_mass_values_in_file = param.String(default='Neutral')
     neutral_mass_column = param.Boolean(default=False)
 
     # Related to Annotation
