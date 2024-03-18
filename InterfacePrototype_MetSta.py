@@ -10,6 +10,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as hier
+import sklearn.model_selection
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from upsetplot import from_contents
@@ -2119,6 +2120,8 @@ def _confirm_button_next_step_5(event):
 
     # Updating Widgets for Supervised Analysis
     PLSDA_store.n_folds_limits_and_class_update(target_list)
+    if PLSDA_store.n_fold == 5:
+        PLSDA_store._update_max_comp_n_comp()
     RF_store.n_folds_limits_and_class_update(target_list)
 
     # Updating Widgets for Pathway Assignment
@@ -2132,6 +2135,8 @@ def _confirm_button_next_step_5(event):
     else:
         HCA_params_binsim.dist_metric = 'jaccard' # This change will also trigger the computation of the base Dendrogram
     PLSDA_store_binsim.n_folds_limits_and_class_update(target_list)
+    if PLSDA_store_binsim.n_fold == 5:
+        PLSDA_store_binsim._update_max_comp_n_comp()
     RF_store_binsim.n_folds_limits_and_class_update(target_list)
 
     # Obtaining possibilities to search for based on type of identifier for the compound finder tool
@@ -3229,6 +3234,35 @@ class PLSDA_Storage(param.Parameterized):
         self.current_pages_associated[0][0][1].value = self.rec_components
 
 
+    # Function to adjust maximum number of components and number of components allowed
+    @param.depends('n_fold', watch=True)
+    def _update_max_comp_n_comp(self):
+        "Controls possible maximum number of components to use based on number of folds and size of dataset."
+        if self.compute_fig:
+            # Define maximum number of components based on numebr of folds and dataset size.
+            kf = sklearn.model_selection.StratifiedKFold(self.n_fold, shuffle=True)
+            train_set_sizes = []
+            for train_index, _ in kf.split(target_list.target, target_list.target):
+                train_set_sizes.append(len(train_index))
+            max_n_comps = min(train_set_sizes) - 1
+
+            # Adjust maximum number of components widget and value for optimization
+            if max_n_comps < 30:
+                self.controls_optim.widgets['n_min_max_components'].end = max_n_comps
+            else:
+                self.controls_optim.widgets['n_min_max_components'].end = 30
+            self.controls_optim.widgets['n_min_max_components'].fixed_end = max_n_comps
+            if max_n_comps < self.n_min_max_components[1]:
+                self.n_min_max_components = (self.n_min_max_components[0], max_n_comps)
+                self.controls_optim.widgets['n_min_max_components'].value = self.n_min_max_components
+
+            # Adjust maximum number of components widget and value for optimization
+            self.controls.widgets['n_components'].end = max_n_comps
+            if max_n_comps < self.n_components:
+                self.n_components = max_n_comps
+                self.controls.widgets['n_components'].value = self.n_components
+
+
     # Function to fit the PLS-DA model and obtain results
     def _confirm_plsda_button(self, event):
         "Fits a PLS-DA model, gives model performance estimations and feature importance lists, updating the layout."
@@ -3477,10 +3511,17 @@ class PLSDA_Storage(param.Parameterized):
 
     def soft_reset(self):
         "Reset parameters."
+        self.compute_fig = False
+        if self.n_min_max_components[1] < 31:
+            self.controls_optim.widgets['n_min_max_components'].end = 30
+            self.controls_optim.widgets['n_min_max_components'].fixed_end = 30
+        if self.n_components < 31:
+            self.controls.widgets['n_components'].end = 30
         for param in self.param:
             if param not in ["name", 'n_dimensions', 'LVx', 'LVy', 'LVz', 'ellipse_draw', 'confidence', 'confidence_std', 'dot_size',
-                             'current_pages_associated']:
+                             'current_pages_associated', 'compute_fig']:
                 setattr(self, param, self.param[param].default)
+        self.compute_fig = True
         self.current_other_plsda_params.clear()
         self.current_other_plsda_params = {}
 
@@ -3498,7 +3539,7 @@ class PLSDA_Storage(param.Parameterized):
         widgets_optim = {
             'n_min_max_components': pn.widgets.EditableRangeSlider(
                 name='Range of Components to test for optimization',
-                start=1, end=30, fixed_start=1, fixed_end=40, value=(2, 20), step=1),
+                start=1, end=30, fixed_start=1, fixed_end=30, value=(2, 20), step=1),
             'n_fold': pn.widgets.IntInput(name="Number of folds for stratified cross-validation",
                 value=5, start=2, end=20,
                 description='''Value cannot be higher than the number of samples of your lowest sample number class.

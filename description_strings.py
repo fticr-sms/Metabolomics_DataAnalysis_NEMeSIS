@@ -241,7 +241,11 @@ start with an optimization of this number. This is performed by fitting a PLS mo
 number of starting components to a chosen final number of components. The <strong>Q<sup>2</sup> and R<sup>2</sup></strong>
 scores are then estimated by stratified cross-validation (number of folds <strong>K</strong> is also chosen by the user).
 The chosen number of components should be the number <strong>where Q<sup>2</sup> specifically</strong> stops increasing. A
-figure is provided to evaluate this.
+figure is provided to evaluate this. The maximum number of components chosen cannot be higher than the number of samples
+that will train a model minus 1. For example, if you have 15 samples and a 3-fold cross-validation each fold will have 5
+samples. A training set will be comprised of two of those folds thus it will have 10 samples, thus the number of components
+cannot be higher than 9. Another example if you have 22 samples and 5 folds, the folds will have 4/4/4/5/5 samples each. A
+training set will have four of these folds and the minimum sum of them is 4+4+4+5-1=16, thus it cannot be higher than 16.
 <br>
 <br>
 - <strong>Q<sup>2</sup></strong> - Mean squared error of PLS-DA predictions based on the test samples, thus it is ideal
@@ -282,7 +286,7 @@ available. This will allow the user to choose an optimal number of trees by obse
 Forest models (by stratified cross validation - number of folds <strong>K</strong> chosen by the user). The usual pattern
 is that the accuracy will increase until a certain number of trees and will then fluctuate around that accuracy. Since RF
 are somewhat resistant to overfitting, the value chosen will be one where the accuracy has stop increasing but not too high
-as to make the model training too slow. A usual number used in our lab is 200.
+as to make the model training too slow.
 <br>
 <br>
 After this optimization, a RF model can be fitted with the chosen parameters and number of trees. Model performance
