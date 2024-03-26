@@ -80,7 +80,7 @@ especially those that do not update with every parameter change to safeguard pos
 generated.</p>
 <p>- All tables saved will be downloaded to your current working directory, that is the folder where you are running the
 interface from. As for figures, there are figures that were created using the Python package "Plotly" (interactive figures)
-and others created using the Python package "Matplotlib" (statis figures). The former are saved in your downloads and are
+and others created using the Python package "Matplotlib" (static figures). The former are saved in your downloads and are
 downloaded using the toolbar that appears at the top right of the figure when hovering over it. The latter are saved using
 an available button in the software and are downloaded to the current working directory identically to the tables.</p>
 <p>- When you start running something there is not a way to stop the process. You can observe if the program is running by

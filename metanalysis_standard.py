@@ -42,6 +42,7 @@ def characterize_data(dataset, name='dataset', target=None):
 
     n_samples, n_feats = dataset.shape
 
+    # Target related characteristics
     if target:
         n_classes = len(np.unique(np.array(target)))
         Samp_Class = len(target)/len(np.unique(np.array(target))) # Number of Sample per Class
@@ -71,10 +72,12 @@ def characterize_data(dataset, name='dataset', target=None):
                 'Feature value median': median_feature_value,
                 }
 
+
 ### Step 1.2 Functions
 ### Functions related to metabolite annotations
 
 def metabolite_annotation(annotated_data, dbs, ppm_margin, adduct_cols=[]):
+    # Go through the selected databases
     for d in dbs:
         print('Annotating with',d, end=' ')
         matched_ids_col = 'Matched '+d+' IDs'
@@ -85,15 +88,20 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, adduct_cols=[]):
         annotated_data[matched_names_col] = ""
         annotated_data[matched_formulas_col] = ""
         annotated_data[match_count_col] = ""
-        ##
+
+        # And for each metabolic feature
         for a in tqdm(annotated_data.index):
+            # Information to store
             matched_ids = []
             matched_names = []
             matched_formulas = []
             mass_values = dbs[d]['DB'][dbs[d]['Mass_col']]
+
+            # Calculate ppm deviation and select compounds within the margin
             ppm_dev = abs((mass_values-annotated_data['Neutral Mass'][a])/annotated_data[
                 'Neutral Mass'][a])*10**6
             ppm_dev = ppm_dev[ppm_dev<ppm_margin] # ppm_margin used here
+            # If adduct columns were selected, search for the masses in these columns as well and add them
             for ad_col in adduct_cols:
                 ppm_dev_ad = abs((mass_values-annotated_data[ad_col][a])/annotated_data[ad_col][a])*10**6
                 ppm_dev_ad = ppm_dev_ad[ppm_dev_ad<ppm_margin]
@@ -104,6 +112,7 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, adduct_cols=[]):
                 matched_names.append(dbs[d]['DB'][dbs[d]['Name_col']][i])
                 matched_formulas.append(dbs[d]['DB'][dbs[d]['Formula_col']][i])
 
+            # Perform annotation (if any compound was found)
             if len(matched_ids) > 0:
                 annotated_data.at[a, matched_ids_col] = matched_ids
                 annotated_data.at[a, matched_names_col] = matched_names
@@ -207,16 +216,15 @@ chemdict = {'H':1.007825031898,
             'Bk':247.070297} 
 
 def calculate_monoisotopic_mass(formula):
-    """Returns the monoisotopic mass"""
-        
-    composition = element_composition(formula)
-    
+    """Returns the monoisotopic mass of a given formula."""
+
+    composition = element_composition(formula) # Transform string formulas into dict format
+
     mass = 0
-    
+
     for e in composition:
         mass = mass + chemdict[e]*composition[e]
-        
-    
+
     return mass
 
 
@@ -225,16 +233,16 @@ def calculate_monoisotopic_mass(formula):
 
 def duplicate_disambiguator(annotated_data, sample_cols, mcid, mz_col=True, verbose=True):
     """Attempts to remove duplicate (or more) annotations of peaks by merging them when possible.
-    
+
        See explanation of procedure in explanation of Step 1.3.
-       
+
        returns: annotated_data (pandas DataFrame with data after merging), 
                 mergings_performed (dictionary with summary of mergings made),
                 merging_situations (dictionary with counts of times each situation of merging was used),
                 merge_description (dictionary with descriptions of mergings made),
                 merge_problems (dictionary with descriptions of possible problems to merge)
     """
-    
+
     # To store results
     merge_problems = {}
     merging_situations = {'Overwrite': 0, 'Merge same adducts':0, 'Merge different adducts':0, 'Problems': 0}
@@ -468,26 +476,26 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mz_col=True, verb
         for old_idx, new_idx in new_idxs.items():
             annotated_data = annotated_data.rename(index= {old_idx : new_idx})
             n_merged_peaks += 1
-            
+
     print('Nº of Mergings:            ', n_merged_peaks)
     print('Nº of Peaks merged:        ', n_merged_peaks + n_dropped_peaks)
     print('Nº of Peaks dropped:       ', n_dropped_peaks)
     print('Nº of Peaks before merging:', n_total_peaks)
     print('Nº of Peaks after merging: ', len(annotated_data.index))
-            
+
     return annotated_data, mergings_performed, merging_situations, merge_description, merge_problems
 
 
 def individually_merging(annotated_data, given_idxs, annotation, db, sample_cols, mcid, mz_col=True):
     """Attempts to merge a set of peaks given in the DataFrame.
-    
+
        This ignores if the Formula assigned between the peaks is different. If it is, it will become the Formula of the
         peak with the highest average intensity across the samples
-       
+
        returns: annotated_data (pandas DataFrame with data after merging), 
                 merge_description (dictionary with description of the merging)
     """
-    
+
     # To store results
     merge_description = {}
 
@@ -505,7 +513,6 @@ def individually_merging(annotated_data, given_idxs, annotation, db, sample_cols
 
     # Grab the part of the dataframe you want to merge
     subset_df = annotated_data.loc[given_idxs]
-    name = annotation
 
     saving_annotations = {} # To store the annotations to keep in the merged line
     for col_alt in mcid: # All other databases
@@ -693,7 +700,7 @@ def individually_merging(annotated_data, given_idxs, annotation, db, sample_cols
     # Assigning the new bucket labels
     for old_idx, new_idx in new_idxs.items():
         annotated_data = annotated_data.rename(index= {old_idx : new_idx})
-            
+
     return annotated_data, merge_description
 
 
@@ -703,7 +710,7 @@ def individually_merging(annotated_data, given_idxs, annotation, db, sample_cols
 def basic_feat_filtering(file, target=None, filt_method='total_samples', filt_kw=2,
                   extra_filt=None, extra_filt_data=None):
     "Performs feature filtering in 2 steps."
-    
+
     # Filtering based on the sampels each feature appears in
     if filt_method == 'total_samples': # Filter features based on the times (filt_kw) they appear in the dataset
         # Minimum can be a percentage if it is a value between 0 and 1!
@@ -715,7 +722,7 @@ def basic_feat_filtering(file, target=None, filt_method='total_samples', filt_kw
         data_filt = file.copy()
     else:
         raise ValueError('Feature Filtering strategy not accepted/implemented in function. Implement if new strategy.')
-        
+
     # Extra filtering based if the features are annotated
     if extra_filt == 'Formula': # Keep only features with a formula annotated on the dataset
         meta_cols_formulas = [i for i in extra_filt_data.columns if 'formulas' in i]
@@ -743,12 +750,12 @@ def basic_feat_filtering(file, target=None, filt_method='total_samples', filt_kw
         data_filt = data_filt.copy()
     else:
         raise ValueError('Feature Filtering strategy not accepted/implemented in function. Implement if new strategy.')
-    
+
     return data_filt
 
 def missing_value_imputer(data_filt, mvi='min_sample', mvi_kw=1/5):
     "Performs Missing Value Imputation of choice based on parameters passed."
-    
+
     # Missing Value Imputation
     if mvi == 'min_sample': # Replace NaN's by a fraction (mvi_kw) of the minimum value of the sample the NaN belongs to.
         imputed = transf.fillna_frac_min_feature(data_filt.T, fraction=mvi_kw).T
@@ -760,12 +767,12 @@ def missing_value_imputer(data_filt, mvi='min_sample', mvi_kw=1/5):
         imputed = transf.fillna_zero(data_filt)
     else:
         raise ValueError('Missing Value Imputation strategy not accepted/implemented in function. Implement if new strategy.')
-        
+
     return imputed
 
 def normalizer(data, norm='ref_feat', norm_kw='555.2692975341 Da'):
     "Performs Normalization of choice based on parameters passed."
-        
+
     # Normalizations
     if norm == 'ref_feat': # Normalization by a reference feature indicated by the norm_kw
         N = transf.normalize_ref_feature(data, feature=norm_kw, remove=True)
@@ -779,12 +786,12 @@ def normalizer(data, norm='ref_feat', norm_kw='555.2692975341 Da'):
         N = data.copy()
     else:
         raise ValueError('Normalization strategy not accepted/implemented in function. Implement if new strategy.')
-    
+
     return N
 
 def transformer(N, tf='glog', tf_kw=None):
     "Performs Transformation of choice based on parameters passed."
-        
+
     # Transformations
     if tf == 'glog': # Generalized Logarithmic Transformation with lambda = trans_kw, usually, None.
         NG = transf.glog(N, lamb=tf_kw)
@@ -792,12 +799,12 @@ def transformer(N, tf='glog', tf_kw=None):
         NG = N.copy()
     else:
         raise ValueError('Transforamtion strategy not accepted/implemented in function. Implement if new strategy.')
-    
+
     return NG
 
 def scaler(NG, scaling='pareto', scaling_kw=None):
     "Performs Scaling of choice based on parameters passed."
-    
+
     # Scalings
     if scaling == 'pareto': # Pareto scaling (no scaling_kw)
         NGP = transf.pareto_scale(NG)
@@ -815,7 +822,7 @@ def scaler(NG, scaling='pareto', scaling_kw=None):
         NGP = NG.copy()
     else:
         raise ValueError('Scaling strategy not accepted/implemented in function. Implement if new strategy.')
-    
+
     return NGP
 
 def filtering_pretreatment(data, target, sample_cols,
@@ -826,27 +833,27 @@ def filtering_pretreatment(data, target, sample_cols,
                   tf='glog', tf_kw=None, # Transformation
                   scaling='pareto', scaling_kw=None): # Scaling
     """Performs all feature filtering and data pre-treatments of choice based on parameters passed.
-    
+
        Returns: Five DataFrames."""
-    
+
     # Cols for the meta data and with the samples
     sample_cols = sample_cols
     meta_cols = [i for i in data.columns if i not in sample_cols]
-    
+
     # Separates feature intensity data from "metadata" (m/z and annotations)
     meta_data = data[meta_cols]
     sample_data = data[sample_cols].T
-    
+
     # Filtering
     filt_sample_data = basic_feat_filtering(sample_data, target, filt_method=filt_method, filt_kw=filt_kw,
                                             extra_filt=extra_filt, extra_filt_data=meta_data)
-    
+
     # Treated data DataFrame
     imputed = missing_value_imputer(filt_sample_data.copy(), mvi=mvi, mvi_kw=mvi_kw) # Missing Value Imputation
     N = normalizer(imputed, norm=norm, norm_kw=norm_kw) # Normalization
     NG = transformer(N, tf=tf, tf_kw=tf_kw) # Transformation
     NGP = scaler(NG, scaling=scaling, scaling_kw=scaling_kw) # Scaling
-    
+
     # Meta data DataFrame
     meta_data = meta_data.reindex(NGP.columns)
 
@@ -854,15 +861,15 @@ def filtering_pretreatment(data, target, sample_cols,
     norm_sample_data=normalizer(filt_sample_data, norm=norm, norm_kw=norm_kw) # Normalization without missing value imputation
     inverted_norm_sample_data = norm_sample_data.T
     processed_data = pd.concat([meta_data, inverted_norm_sample_data], axis=1,join='inner') # Obtaining the processed dataframe
-    
+
     # univariate_data DataFrame
     univariate_data = N.copy()
-    
+
     # BinSim DataFrame
     BinSim = filt_sample_data.mask(filt_sample_data.notnull(), 1).mask(filt_sample_data.isnull(), 0)
     if norm == 'ref_feat':
         BinSim = BinSim.drop(columns=norm_kw)
-    
+
     return NGP, processed_data, univariate_data, meta_data, BinSim
 
 
@@ -871,26 +878,25 @@ def filtering_pretreatment(data, target, sample_cols,
 
 def common(samples):
     """Given a list of n samples, compute common features (intersection).
-    
+
        Returns a DataFrame with common features"""
-    
+
     df = pd.concat(samples, axis=1, join='inner', keys=range(len(samples)))
     return df[0]
 
 def exclusive(samples):
     """Given a list of samples, compute exclusive features for each sample.
-    
+
        Returns a list of DataFrames with exclusive features for each corresponding sample in input"""
-    
+
     # concat all samples
     concatenation = pd.concat(samples)
-    
+
     # find indexes that occur only once
     reps = concatenation.index.value_counts()
     exclusive_feature_counts = reps[reps == 1]
-    
-    # keep only those in each sample
 
+    # keep only those in each sample
     exclusive = [s[s.index.isin(exclusive_feature_counts.index)] for s in samples]
     return exclusive
 
@@ -900,6 +906,9 @@ def exclusive(samples):
 
 # Specific PCA calculation that also returns loadings
 def compute_df_with_PCs_VE_loadings(df, n_components=5, whiten=True, labels=None, return_var_ratios_and_loadings=False):
+    "Computes PCA as well as the variance explained in each component (PC) and associated loadings."
+
+    # Fit PCA model and extract PCA scores, loadings and variance explained
     pca = PCA(n_components=n_components, svd_solver='full', whiten=whiten)
     pc_coords = pca.fit_transform(df)
     var_explained = pca.explained_variance_ratio_[:pca.n_components_]
@@ -910,10 +919,13 @@ def compute_df_with_PCs_VE_loadings(df, n_components=5, whiten=True, labels=None
     if labels is not None:
         labels_col = pd.DataFrame(labels, index=principaldf.index, columns=['Label'])
         principaldf = pd.concat([principaldf, labels_col], axis=1)
+
+    # Return
     if not return_var_ratios_and_loadings:
         return principaldf
     else:
         return principaldf, var_explained, loadings
+
 
 ### Step 5 Functions
 ### Functions related to perform and evaluate through different metrics Random Forests and PLS-DA
@@ -925,11 +937,13 @@ def RF_model(df, y, regres=False, return_cv=True, iter_num=1, n_trees=200, cv=No
     "Fitting RF models and rturning the models and their cross-validation scores."
     results = {}
 
+    # Fit RF model section
+    # Classifier or Regression model
     if regres:
         fitted_model = skensemble.RandomForestRegressor(n_estimators=n_trees)
     else:
         fitted_model = skensemble.RandomForestClassifier(n_estimators=n_trees)
-    
+
     fitted_model = fitted_model.fit(df, y)
     results['model'] = fitted_model
 
@@ -939,21 +953,27 @@ def RF_model(df, y, regres=False, return_cv=True, iter_num=1, n_trees=200, cv=No
 
     if not return_cv:
         return(fitted_model)
+
+    # Evaluate RF model through cross-validation section (includes feature importance retrieval)
     if cv is None:
         cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
 
     store_res = {m:[] for m in metrics}
 
+    # Go through the iterations specified and evaluate the model through cross-validation
+    # Manually fit the model to train folds and extract feature importance information
     for _ in range(iter_num):
         if regres:
             rf = skensemble.RandomForestRegressor(n_estimators=n_trees)
         else:
             rf = skensemble.RandomForestClassifier(n_estimators=n_trees)
-        
+
+        # Evaluate model performance
         cv_res = sklearn.model_selection.cross_validate(rf, df, y, cv=cv, scoring=metrics, **kwargs)
         for i in metrics:
             store_res[i].extend(cv_res['test_'+i])
 
+        # Split the data into folds and extract feature importance for each
         for train_index, test_index in cv.split(df, y):
             # Random Forest setup and fit
             if regres:
@@ -977,18 +997,18 @@ def RF_model(df, y, regres=False, return_cv=True, iter_num=1, n_trees=200, cv=No
 
 def RF_ROC_cv(treated_data, target, pos_label, regres=False, n_trees=200, n_iter=1, cv=None, n_fold=5):
     """Fits and extracts Random Forest model data and calculates metrics to plot a ROC curve."""
-    
+
     # Run classifier with cross-validation and plot ROC curves
     tprs = []
     aucs = []
     mean_fpr = np.linspace(0, 1, 100)
-    
+
     if cv is None:
         cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
-    
+
     # Number of times Random Forest cross-validation is made
     # with `n_fold` randomly generated folds.
-    for itr in range(n_iter):
+    for _ in range(n_iter):
         # Fit and evaluate a Random Forest model for each fold in cross validation
         for train_index, test_index in cv.split(treated_data, target):
             # Random Forest setup and fit
@@ -1010,7 +1030,7 @@ def RF_ROC_cv(treated_data, target, pos_label, regres=False, n_trees=200, n_iter
             #interp_tpr[0] = 0.0
             tprs.append(interp_tpr)
             aucs.append(roc_auc_score(y_test, scores))
-    
+
     # Mean of every fold of the cross-validation
     mean_tpr = np.mean(tprs, axis=0)
     #mean_tpr[-1] = 1.0
@@ -1104,10 +1124,11 @@ def optim_PLSDA_n_components(df, labels, regres=False, encode2as1vector=True, ma
 
        Returns: (list, list), n-fold cross-validation (q2) score and r2 score for all components searched.
     """
+
     # Preparating lists to store results
     CVs = []
     CVr2s = []
-   
+
     unique_labels = list(pd.unique(np.array(labels)))
 
     is1vector = (len(unique_labels) == 2 and encode2as1vector) or regres
@@ -1129,7 +1150,7 @@ def optim_PLSDA_n_components(df, labels, regres=False, encode2as1vector=True, ma
 
         if kf is None:
             kf = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
-        
+
         # Splitting data into groups for n-fold cross-validation
         for train_index, test_index in kf.split(df, labels):
             # NOTE: scale=True if scaling has not been done up until this point
@@ -1146,7 +1167,7 @@ def optim_PLSDA_n_components(df, labels, regres=False, encode2as1vector=True, ma
             plsda.fit(X=X_train, Y=y_train)
 
             # Obtain results with the test group
-            y_pred = plsda.predict(X_test)
+            #y_pred = plsda.predict(X_test)
             cv.append(plsda.score(X_test, y_test))
             cvr2.append(r2_score(plsda.predict(X_train), y_train))
 
@@ -1189,6 +1210,7 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
         imp_features: list of tuples (index number of feature, feature importance)
             ordered by decreasing feature importance.
     """
+
     # Setting up lists and matrices to store results
     CVR2 = []
     if regres:
@@ -1198,7 +1220,7 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
         f1_scores = []
         precision = []
         recall = []
-    
+
     Imp_Feat = np.zeros((iter_num * n_fold, df.shape[1]))
     f = 0
 
@@ -1219,7 +1241,7 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
     for i in range(iter_num):
         if kf is None:
             kf = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
-        
+
         # Setting up storing variables for cross-validation
         nright = 0 # For accuracy
         cvr2 = [] # For R2 score
@@ -1266,13 +1288,13 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
                             y_pred[i]
                         ):
                             nright += 1  # Correct prediction
-                        
+
                         for l in range(len(y_pred[i])):
                             if l == np.argmax(y_pred[i]):
                                 rounded_pred[i, l] = 1
                             else:
                                 rounded_pred[i, l] = 0
-                
+
                     # Save y-test and predictions to calculate F1-score, precision and recall
                     all_tests.iloc[a:a+len(y_test)] = y_test
                     all_preds.iloc[a:a+len(y_test)] = rounded_pred
@@ -1287,11 +1309,11 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
                             rounded[p] = 0
                         if rounded[p] == correct[p]:
                             nright += 1  # Correct prediction
-                    
+
                     # Save y-test and predictions to calculate F1-score, precision and recall
                     all_preds.extend(list(rounded[:,0]))
                     all_tests.extend(y_test)
-            
+
             # Calculate important features (3 different methods to choose from)
             if feat_type == 'VIP':
                 Imp_Feat[f, :] = _calculate_vips(plsda)
@@ -1334,10 +1356,6 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
             return {'mean_squared_error': msquared_errors[0],
                     'Q2': CVR2[0], 'imp_feat': imp_features}
         else:
-            #results_dict = {'accuracy': accuracies[0], 'F1-scores':f1_scores[0], 'precision': precision[0], 'recall':recall[0],
-            #        'Q2': CVR2[0], 'imp_feat': imp_features}
-            #if accuracy in metrics:
-            #    results_dict.pop('accuracy')
             return {'accuracy': accuracies[0], 'F1-scores':f1_scores[0], 'precision': precision[0], 'recall':recall[0],
                     'Q2': CVR2[0], 'imp_feat': imp_features}
     else:
@@ -1545,7 +1563,6 @@ def permutation_PLSDA(df, labels, n_comp=10, iter_num=100, cv=None, n_fold=5, ra
                 precision.append(precision_score(all_tests, all_preds, average='weighted'))
                 recall.append(recall_score(all_tests, all_preds, average='weighted'))
 
-
         # Shuffle dataset rows, generating 1 permutation of the labels
         rng.shuffle(NewC)
 
@@ -1568,11 +1585,16 @@ def permutation_PLSDA(df, labels, n_comp=10, iter_num=100, cv=None, n_fold=5, ra
     return CV, performance[1:], pvalue
 
 def optimise_xgb_parameters(data, y, params, regres=False, obj="multi:softprob", **kwargs):
+    "Test and Optimize different parameters in XGBoost model."
+
+    # Preparing model and target
     if regres:
         xgbo = xgb.XGBRegressor(objective=obj, **kwargs)
     else:
         xgbo = xgb.XGBClassifier(objective=obj, **kwargs)
         y = OrdinalEncoder().fit_transform(pd.DataFrame(y))
+
+    # Grid Search Optimization
     model = GridSearchCV(estimator=xgbo, param_grid=params, cv=3)
     model.fit(data,y)
 
@@ -1583,12 +1605,15 @@ def XGB_model(df, y, regres=False, obj="multi:softprob", return_cv=True, iter_nu
     "Fitting XGBoost models and rturning the models and their cross-validation scores."
     results = {}
 
+    # Fit XGBoost model section
+    # Preparing model and target
     if regres:
         fitted_model = xgb.XGBRegressor(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
     else:
         fitted_model = xgb.XGBClassifier(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
         y = OrdinalEncoder().fit_transform(pd.DataFrame(y))
 
+    # Fit model
     fitted_model = fitted_model.fit(df, y)
     results['model'] = fitted_model
 
@@ -1598,11 +1623,15 @@ def XGB_model(df, y, regres=False, obj="multi:softprob", return_cv=True, iter_nu
 
     if not return_cv:
         return(fitted_model)
+
+    # Evaluate XGBoost model through cross-validation section (includes feature importance retrieval)
     if cv is None:
         cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
 
     store_res = {m:[] for m in metrics}
 
+    # Go through the iterations specified and evaluate the model through cross-validation
+    # Manually fit the model to train folds and extract feature importance information
     for _ in range(iter_num):
 
         if regres:
@@ -1610,13 +1639,14 @@ def XGB_model(df, y, regres=False, obj="multi:softprob", return_cv=True, iter_nu
         else:
             xgboost = xgb.XGBClassifier(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
 
+        # Evaluate model performance
         cv_res = sklearn.model_selection.cross_validate(xgboost, df, y, cv=cv, scoring=metrics)
-
         for i in metrics:
             store_res[i].extend(cv_res['test_'+i])
 
+        # Split the data into folds and extract feature importance for each
         for train_index, test_index in cv.split(df, y):
-            # Random Forest setup and fit
+            # XGBoost setup and fit
             if regres:
                 xgboost = xgb.XGBRegressor(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
             else:
@@ -1686,7 +1716,6 @@ def permutation_XGB(df, labels, regres=False, obj="multi:softprob", iter_num=100
             xgboost = xgb.XGBClassifier(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
             labels = OrdinalEncoder().fit_transform(pd.DataFrame(labels))
 
-        rf = skensemble.RandomForestClassifier(n_estimators=n_estimators)
         cv_res = sklearn.model_selection.cross_validate(xgboost, temp, labels, cv=cv, scoring=metric)
 
         # Shuffle dataset columns - 1 permutation of the columns (leads to permutation of labels)
@@ -1701,22 +1730,22 @@ def permutation_XGB(df, labels, regres=False, obj="multi:softprob", iter_num=100
     return CV, Perm[1:], pvalue
 
 def XGB_ROC_cv(treated_data, target, pos_label, obj, n_estimators=200, n_iter=1, cv=None, n_fold=5, **kwargs):
-    """Fits and extracts Random Forest model data and calculates metrics to plot a ROC curve."""
-    
+    """Fits and extracts XGBoost model data and calculates metrics to plot a ROC curve."""
+
     # Run classifier with cross-validation and plot ROC curves
     tprs = []
     aucs = []
     mean_fpr = np.linspace(0, 1, 100)
-    
+
     if cv is None:
         cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
-    
-    # Number of times Random Forest cross-validation is made
+
+    # Number of times XGBoost cross-validation is made
     # with `n_fold` randomly generated folds.
-    for itr in range(n_iter):
-        # Fit and evaluate a Random Forest model for each fold in cross validation
+    for _ in range(n_iter):
+        # Fit and evaluate a XGBoost model for each fold in cross validation
         for train_index, test_index in cv.split(treated_data, target):
-            # Random Forest setup and fit
+            # XGBoost setup and fit
             xgboost = xgb.XGBClassifier(n_estimators=n_estimators, objective=obj, enable_categorical=True, **kwargs)
             X_train, X_test = treated_data.iloc[train_index, :], treated_data.iloc[test_index, :]
             y_train, y_test = [target[i] for i in train_index], [target[i] for i in test_index]
@@ -1732,7 +1761,7 @@ def XGB_ROC_cv(treated_data, target, pos_label, obj, n_estimators=200, n_iter=1,
             #interp_tpr[0] = 0.0
             tprs.append(interp_tpr)
             aucs.append(roc_auc_score(y_test, scores))
-    
+
     # Mean of every fold of the cross-validation
     mean_tpr = np.mean(tprs, axis=0)
     #mean_tpr[-1] = 1.0
@@ -1756,6 +1785,7 @@ def XGB_ROC_cv(treated_data, target, pos_label, obj, n_estimators=200, n_iter=1,
 
 # Compute Fold Changes
 def computeFC(data, labels, control_class, test_class):
+    "Computes Fold-change of features between test and control class."
     # NOTE: labels must be given explicitly, now
 
     unique_labels = pd.unique(np.array(labels))
@@ -1779,12 +1809,13 @@ def computeFC(data, labels, control_class, test_class):
 
 # Compute p-values between two classes
 def compute_pvalues_2groups(data, labels, control_class, test_class, equal_var=True, useMW=False):
+    "Computes p-values based on t-test or Mann-Whitney tests between test and control class."
     unique_labels = pd.unique(np.array(labels))
     if len(unique_labels) != 2:
         raise ValueError('The number of groups in the data is not two')
     locs0 = [i for i, lbl in enumerate(labels) if lbl == test_class]
     locs1 = [i for i, lbl in enumerate(labels) if lbl == control_class]
-    
+
     pvalues = []
     for i, col in enumerate(data.columns):
         v0, v1 = data.iloc[locs0, i], data.iloc[locs1, i]
@@ -1801,8 +1832,8 @@ def compute_pvalues_2groups(data, labels, control_class, test_class, equal_var=T
 
 def p_adjust_bh(p):
     """Benjamini-Hochberg p-value correction for multiple hypothesis testing.
-    
-       From answer in StOvf 
+
+       From answer in StOvf
        https://stackoverflow.com/questions/7450957/how-to-implement-rs-p-adjust-in-python"""
 
     p = np.asfarray(p)
@@ -1815,6 +1846,7 @@ def p_adjust_bh(p):
 def compute_FC_pvalues_2groups(normalized, processed,
                                labels, control_class, test_class,
                                equal_var=True, useMW=False):
+    "Computes feature Fold-change and p-values (univariate tests) between test and control class."
     FC = computeFC(normalized, labels, control_class, test_class)
     pvalues = compute_pvalues_2groups(processed, labels,
                                       control_class, test_class,
@@ -1847,12 +1879,12 @@ def element_composition(formula, elements=None):
 def create_element_counts(data, formula_subset='Formula', compute_ratios=True, 
                           series=('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP')):
     """Create DataFrame from element counts and concat to original DataFrame.
-    
+
        Optionally, the ratios of H/C and O/C and element composition series are also computed"""
 
     # safe guard: remove empty formulae
     formulae = data[formula_subset]
-    
+
     # For SmartFormula
     if type(formula_subset) == str:
         # safe guard: remove empty formulae
@@ -1865,12 +1897,12 @@ def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
 
         # concat to data
         result = pd.concat([data, ecounts], axis=1)
-    
+
     # For meta_cols_formula
     else:
         # safe guard: remove empty formulae
         formulae = data[formula_subset]
-        
+
         # count elements
         forms_list = []
         idxs_list = []
@@ -1890,20 +1922,19 @@ def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
 
         result = pd.DataFrame(ecounts_list).fillna(0).astype(int)
         result['idxs'] = idxs_list
-    
+
     # compute ratios for VK plots
     if compute_ratios:
         result['H/C'] = result['H'] / result['C']
         result['O/C'] = result['O'] / result['C']
 
     # compute series from compositions
-    
     sorted_series = [''.join(sorted(list(s))) for s in series]
     result_series = []
-   
+
     for composition in ecounts_list:
         nonzero = ''.join(sorted([k for k, c in composition.items() if c > 0]))
-        
+
         if nonzero in sorted_series:
             result_series.append(series[sorted_series.index(nonzero)])
         else:
@@ -1918,10 +1949,10 @@ def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
 
 def calc_kmd(data, rounding='up', neutral_mass_col='Neutral Mass'):
     """Calculates Kendrick Mass Nominal Mass and Kendrick Mass Defect to plot Kendrick Mass Defect Plots.
-       
+
        rounding: str (default: 'up') - 'up' or 'nearest', determines what nominal mass to consider, if rounding Kendrick mass
         up or to the nearest integer.
-        
+
        returns: the Nominal Kendrick Mass and the Kendrick Mass Defect for the mass data given."""
 
     # Calculating Exact Kendrick Mass
@@ -1937,14 +1968,14 @@ def calc_kmd(data, rounding='up', neutral_mass_col='Neutral Mass'):
             s = np.round(i) # Rounding 
             nominal.append(s) # Nominal Kendrick Mass
             fraction.append(s-i)
-        
+
         elif rounding == 'up':
             frac, whole = np.modf(i)
             s = whole + 1 # Rounding up
             nominal.append(s) # Nominal Kendrick Mass
             fraction.append(s-i) # Kendrick Mass Defect
-        
+
         else:
             raise ValueError("Rounding method not accepted. Available methods are: 'nearest' or 'up'.")
-    
+
     return nominal, fraction
