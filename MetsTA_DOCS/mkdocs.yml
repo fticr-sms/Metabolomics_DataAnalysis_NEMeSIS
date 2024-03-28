@@ -1,0 +1,30 @@
+site_name: MetsTA
+site_url: https://MetsTA.com/
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - attr_list
+  - md_in_html
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Get started with GUI: GUI_docs.md
+  - Get started with jupyter: jupyter_docs.md
+  - License: license.md
+  - Release Notes: release_notes.md
+
+theme:
+  name: material
+  logo: img/favicon.ico
+  favicon: img/favicon.ico
+  features:
+    - content.code.copy
+    
