@@ -1854,6 +1854,27 @@ def compute_FC_pvalues_2groups(normalized, processed,
     FC = FC.reindex(pvalues.index)
     return pd.concat([pvalues, FC], axis=1)
 
+def compute_pvalues_multiple_groups(data, groups, useKW=False):
+    "Computes ANOVA and Kruskal-Wallis test p-values."
+    
+    pvalues = []
+
+    for col in data.columns:
+        col_data = data[col]
+        samples = []
+        for g in groups:
+            samples.append(col_data.loc[groups[g]])
+        if not useKW:
+            tx = stats.f_oneway(*samples)
+        else:
+            tx = stats.kruskal(*samples)
+        pvalues.append(tx.pvalue)
+
+    pvalues = pd.Series(pvalues, index=data.columns, name='p-value').sort_values()
+    adjusted = p_adjust_bh(pvalues.values) # TODO: optionally use other methods
+    adjusted = pd.Series(adjusted, index=pvalues.index, name='FDR adjusted p-value')
+    return pd.concat([pvalues, adjusted], axis=1)
+
 
 ### Step 8 Functions
 ### Functions for Van Krevelen Diagrams, Kendrick Mass Defect Plots and Chemical Composition Series
