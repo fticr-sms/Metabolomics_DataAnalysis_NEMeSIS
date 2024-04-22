@@ -12,6 +12,7 @@ import sklearn.model_selection
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.decomposition import PCA
+from fractions import Fraction
 
 import xgboost as xgb
 
@@ -62,7 +63,7 @@ def characterize_data(dataset, name='dataset', target=None):
                 'feature value median': median_feature_value,
                 '# classes': n_classes,
                 'samples / class': Samp_Class,
-                } 
+                }
     else:
         return {'Dataset': name,
                 '# samples': n_samples,
@@ -76,17 +77,24 @@ def characterize_data(dataset, name='dataset', target=None):
 ### Step 1.2 Functions
 ### Functions related to metabolite annotations
 
-def metabolite_annotation(annotated_data, dbs, ppm_margin, adduct_cols=[]):
+def metabolite_annotation(annotated_data, dbs, ppm_margin, mass_val_col, adducts_to_consider={}, only_select_min_ppm=False):
     # Go through the selected databases
     for d in dbs:
+
+        # Calculating adduct masses in annotation databases
+        for adduct in adducts_to_consider:
+            dbs[d]['DB'][adduct] = dbs[d]['DB'][dbs[d]['Mass_col']] + adducts_to_consider[adduct]
+
         print('Annotating with',d, end=' ')
         matched_ids_col = 'Matched '+d+' IDs'
         matched_names_col = 'Matched '+d+' names'
         matched_formulas_col = 'Matched '+d+' formulas'
+        matched_add_col = 'Matched '+d+' adducts'
         match_count_col = d+' match count'
         annotated_data[matched_ids_col] = ""
         annotated_data[matched_names_col] = ""
         annotated_data[matched_formulas_col] = ""
+        annotated_data[matched_add_col] = ""
         annotated_data[match_count_col] = ""
 
         # And for each metabolic feature
@@ -95,17 +103,26 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, adduct_cols=[]):
             matched_ids = []
             matched_names = []
             matched_formulas = []
-            mass_values = dbs[d]['DB'][dbs[d]['Mass_col']]
+            matched_adds = []
 
-            # Calculate ppm deviation and select compounds within the margin
-            ppm_dev = abs((mass_values-annotated_data['Neutral Mass'][a])/annotated_data[
-                'Neutral Mass'][a])*10**6
-            ppm_dev = ppm_dev[ppm_dev<ppm_margin] # ppm_margin used here
-            # If adduct columns were selected, search for the masses in these columns as well and add them
-            for ad_col in adduct_cols:
-                ppm_dev_ad = abs((mass_values-annotated_data[ad_col][a])/annotated_data[ad_col][a])*10**6
-                ppm_dev_ad = ppm_dev_ad[ppm_dev_ad<ppm_margin]
+            ppm_dev = pd.DataFrame()
+
+            # Go through every adduct column in the database
+            for ad_col in adducts_to_consider:
+                mass_values = dbs[d]['DB'][ad_col]
+                # Calculate ppm deviation and select compounds within the margin
+                ppm_dev_ad = abs((mass_values-annotated_data[mass_val_col][a])/annotated_data[mass_val_col][a])*10**6
+                ppm_dev_ad = ppm_dev_ad[ppm_dev_ad<ppm_margin] # ppm_margin used here
+                # Join candidates to previous candidates
                 ppm_dev = pd.concat((ppm_dev, ppm_dev_ad))
+                matched_adds.extend([ad_col,] * len(ppm_dev_ad))
+
+            # Reduce candidates to those which have the minimum ppm deviation
+            if only_select_min_ppm:
+                if len(ppm_dev) > 0:
+                    min_ppm_dev = ppm_dev.min().values[0]
+                    matched_adds = list(np.array(matched_adds)[ppm_dev[0].values == min_ppm_dev])
+                    ppm_dev = ppm_dev[ppm_dev[0].values == min_ppm_dev]
 
             for i in ppm_dev.index:
                 matched_ids.append(i)
@@ -117,11 +134,13 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, adduct_cols=[]):
                 annotated_data.at[a, matched_ids_col] = matched_ids
                 annotated_data.at[a, matched_names_col] = matched_names
                 annotated_data.at[a, matched_formulas_col] = matched_formulas
+                annotated_data.at[a, matched_add_col] = matched_adds
                 annotated_data.at[a, match_count_col] = len(matched_ids)
             else:
                 annotated_data.at[a, matched_ids_col] = np.nan
                 annotated_data.at[a, matched_names_col] = np.nan
                 annotated_data.at[a, matched_formulas_col] = np.nan
+                annotated_data.at[a, matched_add_col] = np.nan
                 annotated_data.at[a, match_count_col] = np.nan
         print(f'-> Annotated {annotated_data[matched_ids_col].notnull().sum()} compounds')
         print('---------------')
@@ -220,18 +239,18 @@ def calculate_monoisotopic_mass(formula):
 
     composition = element_composition(formula) # Transform string formulas into dict format
 
-    mass = 0
+    mass = Fraction(0)
 
     for e in composition:
-        mass = mass + chemdict[e]*composition[e]
+        mass = mass + Fraction(chemdict[e])*Fraction(composition[e])
 
-    return mass
+    return float(mass)
 
 
 ### Step 1.3 Functions
 ### Function related to merge duplicate (or more) annotations
 
-def duplicate_disambiguator(annotated_data, sample_cols, mcid, mz_col=True, verbose=True):
+def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, multiple_adds=True, verbose=False):
     """Attempts to remove duplicate (or more) annotations of peaks by merging them when possible.
 
        See explanation of procedure in explanation of Step 1.3.
@@ -252,231 +271,241 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mz_col=True, verb
     n_dropped_peaks = 0
     n_total_peaks = len(annotated_data.index)
     #merge_number = 0
+    old_n_merged_peaks = -1
+    n_loops = 1
 
-    # For the different databases used
-    for col in mcid:
-        new_idxs = {} # To save the idx where the merged peaks will be
-        lost_idxs = [] # To save the idxs which will have to be removed
-        # Adjust names if necessary
-        col_id = col
-        if col not in  ['Name', 'Formula']:
-            col = 'Matched '+col+' IDs'
-        # See repeating annotations
-        repeating_names = annotated_data[col].value_counts()[annotated_data[col].value_counts()>1].index
+    # Make iterations while the difference between the new current problems and the old_problems is not 0
+    # That is when they stop being resolved
+    while n_merged_peaks - old_n_merged_peaks > 0:
+        old_n_merged_peaks = n_merged_peaks
+        merge_problems = {}
+        n_problems = 0
+        # For the different databases used
+        for col in mcid:
+            new_idxs = {} # To save the idx where the merged peaks will be
+            lost_idxs = [] # To save the idxs which will have to be removed
+            # Adjust names if necessary
+            col_id = col
+            if col not in  ['Name', 'Formula']:
+                col = 'Matched '+col+' IDs'
+            # See repeating annotations
+            repeating_names = annotated_data[col].value_counts()[annotated_data[col].value_counts()>1].index
 
-        for name in repeating_names: # For each repeating annotation
-            # Grab the part of the dataframe with the repeats
-            if col == 'Name':
-                subset_df = annotated_data[annotated_data[col] == name]
-            else:
-                subset_df = annotated_data.loc[[i for i in annotated_data[col].index if annotated_data.loc[i, col] == name]]
+            for name in repeating_names: # For each repeating annotation
+                # Grab the part of the dataframe with the repeats
+                if col == 'Name':
+                    subset_df = annotated_data[annotated_data[col] == name]
+                else:
+                    subset_df = annotated_data.loc[[i for i in annotated_data[col].index if annotated_data.loc[i, col] == name]]
 
-            # See if merging is possible and storing meta data
-            merge=True
-            saving_annotations = {} # To store the annotations to keep in the merged line
-            for col_alt in mcid: # All other databases
-                col_alt_id = col_alt
-                if col_alt not in ['Name', 'Formula']:
-                    col_alt = 'Matched '+col_alt+' IDs'
-                if col_alt != col:
-                    a = []
-                    # See if there are annotations in the other databases
-                    subset_notnull = subset_df[col_alt][subset_df[col_alt].notnull()]
-                    if len(subset_notnull) < 2:
-                        if len(subset_notnull) == 1: # If there is only one, save it
-                            saving_annotations[col_alt_id] = subset_notnull.value_counts().index[0]
-                        continue
-                        # If there is not, nothing to save
-                    else:
-                        n_annotations = len(subset_notnull.value_counts()) 
-                        # If there is more than one but they are all the same, save it
-                        if n_annotations == 1:
-                            saving_annotations[col_alt_id] = subset_notnull.value_counts().index[0]
-                            #print(subset_notnull.value_counts().index)
+                # See if merging is possible and storing meta data
+                merge=True
+                saving_annotations = {} # To store the annotations to keep in the merged line
+                for col_alt in mcid: # All other databases
+                    col_alt_id = col_alt
+                    if col_alt not in ['Name', 'Formula']:
+                        col_alt = 'Matched '+col_alt+' IDs'
+                    if col_alt != col:
+                        a = []
+                        # See if there are annotations in the other databases
+                        subset_notnull = subset_df[col_alt][subset_df[col_alt].notnull()]
+                        if len(subset_notnull) < 2:
+                            if len(subset_notnull) == 1: # If there is only one, save it
+                                saving_annotations[col_alt_id] = subset_notnull.value_counts().index[0]
                             continue
-                        # If there are multiple different annotations, PROBLEM
-                        # Merging will not happen
+                            # If there is not, nothing to save
                         else:
-                            #if len(subset_df[col_alt]) > n_annotations:
-                            merge_problems[merging_situations['Problems']] = {'DB': col_id, 'Annotation': name,
-                                                                              'Nº of peaks':len(subset_df), 'Reason': col_alt_id}
-                            merging_situations['Problems'] = merging_situations['Problems'] + 1
-                            print(f'Problem Merging. Database: {col_id}, Annotation: {name}', end='')
-                            print(f', Nº of peaks: {len(subset_df)}. Reason: {col_alt_id} annotation.')
-                            print('----------')
-                            merge=False
-
-            # Starting the merging process if possible
-            if merge:
-                n_masses = subset_df['Neutral Mass'] # Get the neutral masses and m/z masses if they exist
-                if mz_col:
-                    mz_masses = subset_df['m/z']
-                # Get the idxs positions of the repeated annotations in the dataframe
-                idxs = [annotated_data.index.get_loc(subset_df.index[i]) for i in range(len(subset_df))]
-
-                min_idx = min(idxs) # Grab the minimum that will become the merged peak
-
-                idxs.remove(min_idx)
-                lost_idxs.extend(idxs) # Add the other to lost_idxs that will be removed when all this is over
-
-                overwrite = False #
-
-                new_line = subset_df[sample_cols].max() # Get the intensity values for the new merged line
-                # For each annotation, see if the highest intensity values all come from one line
-                # Probably a better way to do this
-                for i in range(len(subset_df)):
-                    if new_line.notnull().sum() - (new_line == subset_df[sample_cols].iloc[i]).sum() == 0:
-                        # If yes, then situation 1: Overwrite is the correct option here
-                        overwrite = True
-
-                        # The new id (bucket label) will be the same as in the line with all the higher intensities
-                        # Store it
-                        keep_id = subset_df.index[i]
-                        new_idxs[annotated_data.index[min_idx]] = keep_id
-
-                        # The new line will be identical to that line in terms of intensity
-                        temp_full_new_line = subset_df.iloc[i].copy()
-
-                        # Filling the meta data of the new line with the data stored in saving annotations
-                        for key in saving_annotations:
-                            if key in ['Name', 'Formula']:
-                                temp_full_new_line.loc[key] = saving_annotations[key]
-
+                            n_annotations = len(subset_notnull.value_counts())
+                            # If there is more than one but they are all the same, save it
+                            if n_annotations == 1:
+                                saving_annotations[col_alt_id] = subset_notnull.value_counts().index[0]
+                                #print(subset_notnull.value_counts().index)
+                                continue
+                            # If there are multiple different annotations, PROBLEM
+                            # Merging will not happen
                             else:
-                                # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
-                                temp = annotated_data.loc[[
-                                    i for i in annotated_data.index if annotated_data.loc[i,
-                                                 'Matched '+key+' IDs'] == saving_annotations[key]]]
+                                prob_idx = tuple(subset_df.index)
+                                if prob_idx not in merge_problems.keys():
+                                    merge_problems[prob_idx] = {'Nº of peaks':len(subset_df),
+                                                                'Annotation': name,
+                                                                'Col Id.': col_id,
+                                                                'Poss. Reason': col_alt_id}
+                                    n_problems += 1
+                                merge=False
 
-                                rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
-                                            key+' match count']
-                                temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                # Starting the merging process if possible
+                if merge:
+                    n_masses = subset_df[mass_col] # Get the masses to match
 
-                        merging_situations['Overwrite'] = merging_situations['Overwrite'] + 1
-                        mergings_performed[col_id] = mergings_performed[col_id] + 1
-                        merge_description[keep_id] = {'DB': col_id, 'Repeating annotation': name, 
-                                'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index), 'Situation': 'Overwrite'}
+                    # Get the idxs positions of the repeated annotations in the dataframe
+                    idxs = [annotated_data.index.get_loc(subset_df.index[i]) for i in range(len(subset_df))]
 
-                        # Putting the merged line in the DataFrame
-                        annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
+                    min_idx = min(idxs) # Grab the minimum that will become the merged peak
 
-                        if verbose:
-                            if col_id in ['Name', 'Formula']:
-                                print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                                print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by MetaboScape ', end='')
-                                print(f'{col_id}: {name}.')
-                                print('----------')
-                            else:
-                                print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                                print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by {col_id}: {name}.')
-                                print('----------')
+                    idxs.remove(min_idx)
+                    lost_idxs.extend(idxs) # Add the other to lost_idxs that will be removed when all this is over
+
+                    overwrite = False #
+
+                    new_line = subset_df[sample_cols].max() # Get the intensity values for the new merged line
+                    # For each annotation, see if the highest intensity values all come from one line
+                    # Probably a better way to do this
+                    for i in range(len(subset_df)):
+                        if new_line.notnull().sum() - (new_line == subset_df[sample_cols].iloc[i]).sum() == 0:
+                            # If yes, then situation 1: Overwrite is the correct option here
+                            overwrite = True
+
+                            # The new id (bucket label) will be the same as in the line with all the higher intensities
+                            # Store it
+                            keep_id = subset_df.index[i]
+                            new_idxs[annotated_data.index[min_idx]] = keep_id
+
+                            # The new line will be identical to that line in terms of intensity
+                            temp_full_new_line = subset_df.iloc[i].copy()
+
+                            # Filling the meta data of the new line with the data stored in saving annotations
+                            for key in saving_annotations:
+                                if key in ['Name', 'Formula']:
+                                    temp_full_new_line.loc[key] = saving_annotations[key]
+
+                                else:
+                                    # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
+                                    temp = annotated_data.loc[[
+                                        i for i in annotated_data.index if annotated_data.loc[i,
+                                                    'Matched '+key+' IDs'] == saving_annotations[key]]]
+
+                                    rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
+                                                key+' match count']
+                                    temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+
+                            merging_situations['Overwrite'] = merging_situations['Overwrite'] + 1
+                            mergings_performed[col_id] = mergings_performed[col_id] + 1
+                            merge_description[keep_id] = {'DB': col_id, 'Repeating annotation': name,
+                                    'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index), 'Situation': 'Overwrite'}
+
+                            # Putting the merged line in the DataFrame
+                            annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
+
+                            if verbose:
+                                if col_id in ['Name', 'Formula']:
+                                    print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
+                                    print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by MetaboScape ', end='')
+                                    print(f'{col_id}: {name}.')
+                                    print('----------')
+                                else:
+                                    print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
+                                    print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by {col_id}: {name}.')
+                                    print('----------')
+                            continue
+
+                    # If Situation 1, we end here
+                    if overwrite:
                         continue
 
-                # If Situation 1, we end here
-                if overwrite:
-                    continue
+                    # If not Situation 1
+                    temp_full_new_line = annotated_data.iloc[min_idx].copy()
+                    # The new line will have the higher intensities for each sample
+                    temp_full_new_line.loc[sample_cols] = new_line
 
-                # If not Situation 1
-                temp_full_new_line = annotated_data.iloc[min_idx].copy()
-                # The new line will have the higher intensities for each sample
-                temp_full_new_line.loc[sample_cols] = new_line
+                    # Filling the meta data of the new line with the data stored in saving annotations
+                    for key in saving_annotations:
+                        if key in ['Name', 'Formula']:
+                            temp_full_new_line.loc[key] = saving_annotations[key]
 
-                # Filling the meta data of the new line with the data stored in saving annotations
-                for key in saving_annotations:
-                    if key in ['Name', 'Formula']:
-                        temp_full_new_line.loc[key] = saving_annotations[key]
+                        else:
+                            # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
+                            temp = annotated_data.loc[[
+                                i for i in annotated_data.index if annotated_data.loc[i,
+                                            'Matched '+key+' IDs'] == saving_annotations[key]]]
+                            rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
+                                        key+' match count']
+                            temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+
+                    # All that's left is the bucket label, Neutral Mass and m/z
+                    if multiple_adds:
+                        # See if the distance between the maximum and minimum mass is low aka they come from the same adduct
+                        # If yes, Situation 2: bucket label, Neutral Mass and m/z peak will be the weighted averages of all the
+                        # possible peaks
+                        if max(n_masses) - min(n_masses) < 0.5:
+                            # Get the new bucket label
+                            new_bucket = np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1))
+                            new_idxs[annotated_data.index[min_idx]] = new_bucket
+                            # Get the Neutral Mass
+                            temp_full_new_line[mass_col] = new_bucket
+
+                            # Storing info
+                            situation = 'merging'
+                            merging_situations['Merge same adducts'] = merging_situations['Merge same adducts'] + 1
+                            mergings_performed[col_id] = mergings_performed[col_id] + 1
+                            merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': name,
+                                    'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
+                                    'Situation': 'Merging same adducts'}
+
+                        else:
+                            # Get the new bucket label
+                            argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
+                            new_bucket = str(subset_df.iloc[argmax_idx].name)
+                            new_idxs[annotated_data.index[min_idx]] = new_bucket
+                            temp_full_new_line[mass_col] = subset_df.iloc[argmax_idx][mass_col]
+
+                            # Storing info
+                            situation = 'merging different adducts'
+                            merging_situations['Merge different adducts'] = merging_situations['Merge different adducts'] + 1
+                            mergings_performed[col_id] = mergings_performed[col_id] + 1
+                            merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': name,
+                                    'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
+                                    'Situation': 'Merging different adducts'}
+
 
                     else:
-                        # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
-                        temp = annotated_data.loc[[
-                            i for i in annotated_data.index if annotated_data.loc[i,
-                                         'Matched '+key+' IDs'] == saving_annotations[key]]]
-                        rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
-                                    key+' match count']
-                        temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
-
-                # All that's left is the bucket label, Neutral Mass and m/z
-                if mz_col:
-                    # If an mz_col existss see if the distance between the maximum and minimum mass is low
-                    # If yes, Situation 2: bucket label, Neutral Mass and m/z peak will be the weighted averages of all the 
-                    # possible peaks
-                    if max(mz_masses) - min(mz_masses) < 0.5:
                         # Get the new bucket label
-                        new_bucket = str(np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1))) + ' Da'
+                        new_bucket = np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1))
                         new_idxs[annotated_data.index[min_idx]] = new_bucket
-                        # Get the Neutral Mass
-                        temp_full_new_line['Neutral Mass'] = np.average(n_masses, weights=subset_df.loc[:,sample_cols].mean(axis=1))
-                        # New m/z
-                        temp_full_new_line['m/z'] = np.average(mz_masses, weights=subset_df.loc[:,sample_cols].mean(axis=1))
+                        temp_full_new_line[mass_col] = np.average(n_masses, weights=subset_df.loc[:,sample_cols].mean(axis=1))
 
                         # Storing info
                         situation = 'merging'
                         merging_situations['Merge same adducts'] = merging_situations['Merge same adducts'] + 1
                         mergings_performed[col_id] = mergings_performed[col_id] + 1
                         merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': name, 
-                                'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index), 
-                                'Situation': 'Merging same adducts'}
+                                    'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
+                                    'Situation': 'Merging same adducts (no multiple ad.)'}
 
-                    else:
-                        # Get the new bucket label
-                        argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
-                        new_bucket = str(subset_df.iloc[argmax_idx].name)
-                        new_idxs[annotated_data.index[min_idx]] = new_bucket
-                        # Get the Neutral Mass
-                        temp_full_new_line['Neutral Mass'] = subset_df.iloc[argmax_idx]['Neutral Mass']
+                    # Putting the merged line in the DataFrame
+                    annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
 
-                        # Storing info
-                        situation = 'merging different adducts'
-                        merging_situations['Merge different adducts'] = merging_situations['Merge different adducts'] + 1
-                        mergings_performed[col_id] = mergings_performed[col_id] + 1
-                        merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': name, 
-                                'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index), 
-                                'Situation': 'Merging different adducts'}
+                    if verbose:
+                        if col_id in ['Name', 'Formula']:
+                            print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
+                            print(f'({new_bucket}) by {situation} due to repeating annotations by MetaboScape ', end='')
+                            print(f'{col_id}: {name}.')
+                            print('----------')
+                        else:
+                            print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
+                            print(f'({new_bucket}) by {situation} due to repeating annotations by {col_id}: {name}.')
+                            print('----------')
 
+            # Removing lost idxs peaks
+            #print(len(lost_idxs), len(set(lost_idxs)))
+            named_idxs = []
+            for idx in lost_idxs:
+                named_idxs.append(annotated_data.index[idx])
+            for idx in named_idxs:
+                annotated_data = annotated_data.drop(index=idx)
+                n_dropped_peaks +=1
 
-                else:
-                    # Get the new bucket label
-                    new_bucket = str(np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1))) + ' Da'
-                    new_idxs[annotated_data.index[min_idx]] = new_bucket
-                    # Get the Neutral Mass
-                    temp_full_new_line['Neutral Mass'] = np.average(n_masses, weights=subset_df.loc[:,sample_cols].mean(axis=1))
+            # Assigning the new bucket labels
+            for old_idx, new_idx in new_idxs.items():
+                annotated_data = annotated_data.rename(index= {old_idx : new_idx})
+                n_merged_peaks += 1
+        print(f'Finished Loop Nº {n_loops}. Performed {n_merged_peaks - old_n_merged_peaks} merges.')
+        n_loops += 1
 
-                    # Storing info
-                    situation = 'merging'
-                    merging_situations['Merge same adducts'] = merging_situations['Merge same adducts'] + 1
-                    mergings_performed[col_id] = mergings_performed[col_id] + 1
-                    merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': name, 
-                                'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
-                                'Situation': 'Merging same adducts (no m/z col)'}
+    merging_situations['Problems'] = n_problems
+    print('-----------')
+    print(f'Nº of Max. Problems in Merging found (True value might be lower): {n_problems}')
 
-                # Putting the merged line in the DataFrame
-                annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
-
-                if verbose:
-                    if col_id in ['Name', 'Formula']:
-                        print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                        print(f'({new_bucket}) by {situation} due to repeating annotations by MetaboScape ', end='')
-                        print(f'{col_id}: {name}.')
-                        print('----------')
-                    else:
-                        print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                        print(f'({new_bucket}) by {situation} due to repeating annotations by {col_id}: {name}.')
-                        print('----------')
-
-        # Removing lost idxs peaks
-        #print(len(lost_idxs), len(set(lost_idxs)))
-        named_idxs = []
-        for idx in lost_idxs:
-            named_idxs.append(annotated_data.index[idx])
-        for idx in named_idxs:
-            annotated_data = annotated_data.drop(index=idx)
-            n_dropped_peaks +=1
-
-        # Assigning the new bucket labels
-        for old_idx, new_idx in new_idxs.items():
-            annotated_data = annotated_data.rename(index= {old_idx : new_idx})
-            n_merged_peaks += 1
-
+    print('-----------')
     print('Nº of Mergings:            ', n_merged_peaks)
     print('Nº of Peaks merged:        ', n_merged_peaks + n_dropped_peaks)
     print('Nº of Peaks dropped:       ', n_dropped_peaks)
@@ -486,7 +515,7 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mz_col=True, verb
     return annotated_data, mergings_performed, merging_situations, merge_description, merge_problems
 
 
-def individually_merging(annotated_data, given_idxs, annotation, db, sample_cols, mcid, mz_col=True):
+def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid, multiple_adds=True):
     """Attempts to merge a set of peaks given in the DataFrame.
 
        This ignores if the Formula assigned between the peaks is different. If it is, it will become the Formula of the
@@ -502,71 +531,117 @@ def individually_merging(annotated_data, given_idxs, annotation, db, sample_cols
     # Grab the part of the dataframe you want to merge
     subset_df = annotated_data.loc[given_idxs]
 
-    # For the different databases used
-    col = db
-    new_idxs = {} # To save the idx where the merged peaks will be
-    lost_idxs = [] # To save the idxs which will have to be removed
-    # Adjust names if necessary
-    col_id = col
-    if col not in  ['Name', 'Formula']:
-        col = 'Matched '+col+' IDs'
+    # See if the idxs made contain something capable to search for merge
+    possible_merging = False
+    for col in mcid:
+        # Adjust names if necessary
+        col_id = col
+        if col not in  ['Name', 'Formula']:
+            col = 'Matched '+col+' IDs'
+        if len(annotated_data.loc[given_idxs][col].value_counts()) == 1:
+            an = annotated_data.loc[given_idxs][col].value_counts().iloc[0]
+            if an == len(given_idxs):
+                annotation = an
+                possible_merging = True
+                break
 
-    # Grab the part of the dataframe you want to merge
-    subset_df = annotated_data.loc[given_idxs]
+    if possible_merging:
+        new_idxs = {} # To save the idx where the merged peaks will be
+        lost_idxs = [] # To save the idxs which will have to be removed
 
-    saving_annotations = {} # To store the annotations to keep in the merged line
-    for col_alt in mcid: # All other databases
-        col_alt_id = col_alt
-        if col_alt != 'Formula':
-            if col_alt not in ['Name', 'Formula']:
-                col_alt = 'Matched '+col_alt+' IDs'
-            if col_alt != col:
-                a = []
-                # See if there are annotations in the other databases
-                subset_notnull = subset_df[col_alt][subset_df[col_alt].notnull()]
-                n_annotations = len(subset_notnull.value_counts()) 
-                if n_annotations < 2:
-                    if n_annotations == 1: # If there is only one, save it
-                        saving_annotations[col_alt_id] = subset_notnull.value_counts().index[0]
-                    continue
-                    # If there is not, nothing to save
+        saving_annotations = {} # To store the annotations to keep in the merged line
+        for col_alt in mcid: # All other databases
+            col_alt_id = col_alt
+            if col_alt != 'Formula':
+                if col_alt not in ['Name', 'Formula']:
+                    col_alt = 'Matched '+col_alt+' IDs'
+                if col_alt != col:
+                    a = []
+                    # See if there are annotations in the other databases
+                    subset_notnull = subset_df[col_alt][subset_df[col_alt].notnull()]
+                    n_annotations = len(subset_notnull.value_counts())
+                    if n_annotations < 2:
+                        if n_annotations == 1: # If there is only one, save it
+                            saving_annotations[col_alt_id] = subset_notnull.value_counts().index[0]
+                        continue
+                        # If there is not, nothing to save
+                    else:
+                        # If there are multiple different annotations, PROBLEM
+                        # Merging will not happen
+                        print(f'Problem Merging. Database: {col_id}, Annotation: {annotation}', end='')
+                        print(f', Nº of peaks: {len(subset_df)}. Reason: {col_alt_id} annotation.')
+                        print('Peaks must not contain different annotations for a database other than the "Formula".')
+                        return
+
+        n_masses = subset_df[mass_col] # Get the mas values
+
+        # Get the idxs positions of the repeated annotations in the dataframe
+        idxs = [annotated_data.index.get_loc(subset_df.index[i]) for i in range(len(subset_df))]
+
+        min_idx = min(idxs) # Grab the minimum that will become the merged peak
+
+        idxs.remove(min_idx)
+        lost_idxs.extend(idxs) # Add the other to lost_idxs that will be removed when all this is over
+
+        overwrite = False #
+
+        new_line = subset_df[sample_cols].max() # Get the intensity values for the new merged line
+        # For each annotation, see if the highest intensity values all come from one line
+        # Probably a better way to do this
+        for i in range(len(subset_df)):
+            if new_line.notnull().sum() - (new_line == subset_df[sample_cols].iloc[i]).sum() == 0:
+                # If yes, then situation 1: Overwrite is the correct option here
+                overwrite = True
+
+                # The new id (bucket label) will be the same as in the line with all the higher intensities
+                # Store it
+                keep_id = subset_df.index[i]
+                new_idxs[annotated_data.index[min_idx]] = keep_id
+
+                # The new line will be identical to that line in terms of intensity
+                # Formula becomes the same as in the peak with the highest intensity for all the samples
+                temp_full_new_line = subset_df.iloc[i].copy()
+
+                # Filling the meta data of the new line with the data stored in saving annotations
+                for key in saving_annotations:
+                    if key in ['Name', 'Formula']:
+                        temp_full_new_line.loc[key] = saving_annotations[key]
+
+                    else:
+                        # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
+                        temp = annotated_data.loc[[
+                            i for i in annotated_data.index if annotated_data.loc[i,
+                                        'Matched '+key+' IDs'] == saving_annotations[key]]]
+
+                        rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
+                                    key+' match count']
+                        temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+
+                merge_description[keep_id] = {'DB': col_id, 'Repeating annotation': annotation,
+                        'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
+                                            'Situation': 'Individual - Overwrite'}
+
+                # Putting the merged line in the DataFrame
+                annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
+
+                if col_id in ['Name', 'Formula']:
+                    print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
+                    print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by MetaboScape ', end='')
+                    print(f'{col_id}: {annotation}.')
+                    print('----------')
                 else:
-                    # If there are multiple different annotations, PROBLEM
-                    # Merging will not happen
-                    print(f'Problem Merging. Database: {col_id}, Annotation: {annotation}', end='')
-                    print(f', Nº of peaks: {len(subset_df)}. Reason: {col_alt_id} annotation.')
-                    print('Peaks must not contain different annotations for a database other than the "Formula".')
-                    return
+                    print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
+                    print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by {col_id}: {annotation}.')
+                    print('----------')
+                continue
 
-    n_masses = subset_df['Neutral Mass'] # Get the neutral masses and m/z masses if they exist
-    if mz_col:
-        mz_masses = subset_df['m/z']
-    # Get the idxs positions of the repeated annotations in the dataframe
-    idxs = [annotated_data.index.get_loc(subset_df.index[i]) for i in range(len(subset_df))]
+        # If not Situation 1
+        if not overwrite:
 
-    min_idx = min(idxs) # Grab the minimum that will become the merged peak
-
-    idxs.remove(min_idx)
-    lost_idxs.extend(idxs) # Add the other to lost_idxs that will be removed when all this is over
-
-    overwrite = False #
-
-    new_line = subset_df[sample_cols].max() # Get the intensity values for the new merged line
-    # For each annotation, see if the highest intensity values all come from one line
-    # Probably a better way to do this
-    for i in range(len(subset_df)):
-        if new_line.notnull().sum() - (new_line == subset_df[sample_cols].iloc[i]).sum() == 0:
-            # If yes, then situation 1: Overwrite is the correct option here
-            overwrite = True
-
-            # The new id (bucket label) will be the same as in the line with all the higher intensities
-            # Store it
-            keep_id = subset_df.index[i]
-            new_idxs[annotated_data.index[min_idx]] = keep_id
-
-            # The new line will be identical to that line in terms of intensity
-            # Formula becomes the same as in the peak with the highest intensity for all the samples
-            temp_full_new_line = subset_df.iloc[i].copy()
+            # If not Situation 1
+            temp_full_new_line = annotated_data.iloc[min_idx].copy()
+            # The new line will have the higher intensities for each sample
+            temp_full_new_line.loc[sample_cols] = new_line
 
             # Filling the meta data of the new line with the data stored in saving annotations
             for key in saving_annotations:
@@ -577,131 +652,87 @@ def individually_merging(annotated_data, given_idxs, annotation, db, sample_cols
                     # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
                     temp = annotated_data.loc[[
                         i for i in annotated_data.index if annotated_data.loc[i,
-                                     'Matched '+key+' IDs'] == saving_annotations[key]]]
-
+                                    'Matched '+key+' IDs'] == saving_annotations[key]]]
                     rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
                                 key+' match count']
                     temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
 
-            merge_description[keep_id] = {'DB': col_id, 'Repeating annotation': annotation, 
-                    'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index), 
-                                          'Situation': 'Individual - Overwrite'}
+            # Formula becomes the one from the peak with the highest average intensity across the samples
+            if 'Formula' in annotated_data.columns:
+                argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
+                temp_full_new_line['Formula'] = subset_df.iloc[argmax_idx]['Formula']
+
+            # All that's left is the bucket label, Neutral Mass and m/z
+            if multiple_adds:
+                # If there are multiple adducts being used, see if the distance between the maximum and minimum mass is low
+                # If yes, Situation 2: bucket label, Neutral Mass or m/z peak will be the weighted averages of all the
+                # possible peaks
+                if max(n_masses) - min(n_masses) < 0.5:
+                    # Get the new bucket label
+                    new_bucket = np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1))
+                    new_idxs[annotated_data.index[min_idx]] = new_bucket
+                    temp_full_new_line[mass_col] = new_bucket
+
+                    # Storing info
+                    situation = 'merging'
+                    merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': annotation,
+                            'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
+                            'Situation': 'Individual - Merging same adducts'}
+
+                else:
+                    # Get the new bucket label
+                    argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
+                    new_bucket = subset_df.iloc[argmax_idx].name
+                    new_idxs[annotated_data.index[min_idx]] = new_bucket
+                    temp_full_new_line[mass_col] = subset_df.iloc[argmax_idx][mass_col]
+
+                    # Storing info
+                    situation = 'merging different adducts'
+                    merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': annotation,
+                            'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
+                            'Situation': 'Individual - Merging different adducts'}
+
+
+            else:
+                # Get the new bucket label
+                new_bucket = np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1))
+                new_idxs[annotated_data.index[min_idx]] = new_bucket
+                temp_full_new_line[mass_col] = new_bucket
+
+                # Storing info
+                situation = 'merging'
+                merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': annotation, 
+                            'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
+                            'Situation': 'Individual - Merging same adducts (no multiple ad.)'}
 
             # Putting the merged line in the DataFrame
             annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
 
             if col_id in ['Name', 'Formula']:
                 print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by MetaboScape ', end='')
+                print(f'({new_bucket}) by {situation} due to repeating annotations by MetaboScape ', end='')
                 print(f'{col_id}: {annotation}.')
                 print('----------')
             else:
                 print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by {col_id}: {annotation}.')
+                print(f'({new_bucket}) by {situation} due to repeating annotations by {col_id}: {annotation}.')
                 print('----------')
-            continue
 
-    # If not Situation 1
-    if not overwrite:
+        # Removing lost idxs peaks
+        named_idxs = []
+        for idx in lost_idxs:
+            named_idxs.append(annotated_data.index[idx])
+        for idx in named_idxs:
+            annotated_data = annotated_data.drop(index=idx)
 
-        # If not Situation 1
-        temp_full_new_line = annotated_data.iloc[min_idx].copy()
-        # The new line will have the higher intensities for each sample
-        temp_full_new_line.loc[sample_cols] = new_line
+        # Assigning the new bucket labels
+        for old_idx, new_idx in new_idxs.items():
+            annotated_data = annotated_data.rename(index= {old_idx : new_idx})
 
-        # Filling the meta data of the new line with the data stored in saving annotations
-        for key in saving_annotations:
-            if key in ['Name', 'Formula']:
-                temp_full_new_line.loc[key] = saving_annotations[key]
+        return annotated_data, merge_description
 
-            else:
-                # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
-                temp = annotated_data.loc[[
-                    i for i in annotated_data.index if annotated_data.loc[i,
-                                 'Matched '+key+' IDs'] == saving_annotations[key]]]
-                rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
-                            key+' match count']
-                temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
-
-        # Formula becomes the one from the peak with the highest average intensity across the samples
-        if 'Formula' in annotated_data.columns:
-            argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
-            temp_full_new_line['Formula'] = subset_df.iloc[argmax_idx]['Formula']
-
-        # All that's left is the bucket label, Neutral Mass and m/z
-        if mz_col:
-            # If an mz_col existss see if the distance between the maximum and minimum mass is low
-            # If yes, Situation 2: bucket label, Neutral Mass and m/z peak will be the weighted averages of all the 
-            # possible peaks
-            if max(mz_masses) - min(mz_masses) < 0.5:
-                # Get the new bucket label
-                new_bucket = str(np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1))) + ' Da'
-                new_idxs[annotated_data.index[min_idx]] = new_bucket
-                # Get the Neutral Mass
-                temp_full_new_line['Neutral Mass'] = np.average(n_masses, weights=subset_df.loc[:,sample_cols].mean(axis=1))
-                # New m/z
-                temp_full_new_line['m/z'] = np.average(mz_masses, weights=subset_df.loc[:,sample_cols].mean(axis=1))
-
-                # Storing info
-                situation = 'merging'
-                merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': annotation, 
-                        'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index), 
-                        'Situation': 'Individual - Merging same adducts'}
-
-            else:
-                # Get the new bucket label
-                argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
-                new_bucket = str(subset_df.iloc[argmax_idx].name)
-                new_idxs[annotated_data.index[min_idx]] = new_bucket
-                # Get the Neutral Mass
-                temp_full_new_line['Neutral Mass'] = subset_df.iloc[argmax_idx]['Neutral Mass']
-
-                # Storing info
-                situation = 'merging different adducts'
-                merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': annotation, 
-                        'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index), 
-                        'Situation': 'Individual - Merging different adducts'}
-
-
-        else:
-            # Get the new bucket label
-            new_bucket = str(np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1))) + ' Da'
-            new_idxs[annotated_data.index[min_idx]] = new_bucket
-            # Get the Neutral Mass
-            temp_full_new_line['Neutral Mass'] = np.average(n_masses, weights=subset_df.loc[:,sample_cols].mean(axis=1))
-
-            # Storing info
-            situation = 'merging'
-            merge_description[new_bucket] = {'DB': col_id, 'Repeating annotation': annotation, 
-                        'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
-                        'Situation': 'Individual - Merging same adducts (no m/z col)'}
-
-        # Putting the merged line in the DataFrame
-        annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
-
-        if col_id in ['Name', 'Formula']:
-            print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-            print(f'({new_bucket}) by {situation} due to repeating annotations by MetaboScape ', end='')
-            print(f'{col_id}: {annotation}.')
-            print('----------')
-        else:
-            print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-            print(f'({new_bucket}) by {situation} due to repeating annotations by {col_id}: {annotation}.')
-            print('----------')
-
-    # Removing lost idxs peaks
-    #print(len(lost_idxs), len(set(lost_idxs)))
-    named_idxs = []
-    for idx in lost_idxs:
-        named_idxs.append(annotated_data.index[idx])
-    for idx in named_idxs:
-        annotated_data = annotated_data.drop(index=idx)
-
-    # Assigning the new bucket labels
-    for old_idx, new_idx in new_idxs.items():
-        annotated_data = annotated_data.rename(index= {old_idx : new_idx})
-
-    return annotated_data, merge_description
+    else:
+        print(f'Merging was not possible since no identical annotation for peaks {given_idxs} was found.')
 
 
 ### Step 2 Functions
