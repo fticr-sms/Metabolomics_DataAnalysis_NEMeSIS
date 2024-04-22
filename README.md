@@ -127,6 +127,19 @@ However, in the future, these databases will have corresponding python files tha
 - Small bugfix in index hyperlinks when using Visual Studio Code (did not jump to subsections).
 - Example data in De-duplication section is now skipped if the example dataset is not loaded.
 
+#### V2.5 - Introducing adducts to data annotation and expansion of univariate analysis (22/04/2024).
+
+- Type of index in the dataset can be chosen if they are positive/negative m/z masses or neutral masses, creating respectively a 'Probable m/z' or a 'Neutral Mass' column.
+- Added way to introduce which adduct to consider for data annotation.
+- Data Annotation logic slightly changed to account for adducts and calculate adduct masses on the databases chosen and match them to the dataset masses. Added arg for possiblity to only select the candidates with the lowest ppm deviation to a peak
+- Minor improvements and changes to accomodate new data annotation in `duplicate_disambiguator` and `individually_merging` functions.
+- Minor change in supervised analysis related function with the arg `regres` or `regression`.
+- XGBoost will now be skipped by default for binary classifications.
+- In 2-Class Univariate Analysis, change to calculate the minimum number of samples to filter the subset of data by the `total_samples` method when using a more than 2-Class dataset.
+- Added multi-class univariate statisical analysis (ANOVA and Kruskal-Wallis test).
+- Add 'index' as a search possibility in the compound finder and minor bugfix where previously annotated columns would not be searched when using 'Name' or 'Formula' options.
+- Improve to some descriptions and minor bugfixes.
+
 #### In Future Patches:
 
 - Add sMDiN analysis to notebooks.
