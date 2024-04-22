@@ -250,7 +250,7 @@ def calculate_monoisotopic_mass(formula):
 ### Step 1.3 Functions
 ### Function related to merge duplicate (or more) annotations
 
-def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, multiple_adds=True, verbose=False):
+def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an_form_cols, multiple_adds=True, verbose=False):
     """Attempts to remove duplicate (or more) annotations of peaks by merging them when possible.
 
        See explanation of procedure in explanation of Step 1.3.
@@ -286,14 +286,14 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, multipl
             lost_idxs = [] # To save the idxs which will have to be removed
             # Adjust names if necessary
             col_id = col
-            if col not in  ['Name', 'Formula']:
+            if col not in prev_an_form_cols:
                 col = 'Matched '+col+' IDs'
             # See repeating annotations
             repeating_names = annotated_data[col].value_counts()[annotated_data[col].value_counts()>1].index
 
             for name in repeating_names: # For each repeating annotation
                 # Grab the part of the dataframe with the repeats
-                if col == 'Name':
+                if col in prev_an_form_cols:
                     subset_df = annotated_data[annotated_data[col] == name]
                 else:
                     subset_df = annotated_data.loc[[i for i in annotated_data[col].index if annotated_data.loc[i, col] == name]]
@@ -303,7 +303,7 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, multipl
                 saving_annotations = {} # To store the annotations to keep in the merged line
                 for col_alt in mcid: # All other databases
                     col_alt_id = col_alt
-                    if col_alt not in ['Name', 'Formula']:
+                    if col_alt not in prev_an_form_cols:
                         col_alt = 'Matched '+col_alt+' IDs'
                     if col_alt != col:
                         a = []
@@ -365,7 +365,7 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, multipl
 
                             # Filling the meta data of the new line with the data stored in saving annotations
                             for key in saving_annotations:
-                                if key in ['Name', 'Formula']:
+                                if key in prev_an_form_cols:
                                     temp_full_new_line.loc[key] = saving_annotations[key]
 
                                 else:
@@ -387,10 +387,10 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, multipl
                             annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
 
                             if verbose:
-                                if col_id in ['Name', 'Formula']:
+                                if col_id in prev_an_form_cols:
                                     print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                                    print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by MetaboScape ', end='')
-                                    print(f'{col_id}: {name}.')
+                                    print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by previous ', end='')
+                                    print(f'Annotation/Formula {col_id}: {name}.')
                                     print('----------')
                                 else:
                                     print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
@@ -409,7 +409,7 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, multipl
 
                     # Filling the meta data of the new line with the data stored in saving annotations
                     for key in saving_annotations:
-                        if key in ['Name', 'Formula']:
+                        if key in prev_an_form_cols:
                             temp_full_new_line.loc[key] = saving_annotations[key]
 
                         else:
@@ -475,10 +475,10 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, multipl
                     annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
 
                     if verbose:
-                        if col_id in ['Name', 'Formula']:
+                        if col_id in prev_an_form_cols:
                             print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                            print(f'({new_bucket}) by {situation} due to repeating annotations by MetaboScape ', end='')
-                            print(f'{col_id}: {name}.')
+                            print(f'({new_bucket}) by {situation} due to repeating annotations by previous ', end='')
+                            print(f'Annotation/Formula {col_id}: {name}.')
                             print('----------')
                         else:
                             print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
@@ -515,7 +515,8 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, multipl
     return annotated_data, mergings_performed, merging_situations, merge_description, merge_problems
 
 
-def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid, multiple_adds=True):
+def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid, prev_annotations_cols=[],
+                         prev_formula_cols=[], multiple_adds=True):
     """Attempts to merge a set of peaks given in the DataFrame.
 
        This ignores if the Formula assigned between the peaks is different. If it is, it will become the Formula of the
@@ -531,12 +532,14 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
     # Grab the part of the dataframe you want to merge
     subset_df = annotated_data.loc[given_idxs]
 
+    prev_an_form_cols = prev_annotations_cols + prev_formula_cols
+
     # See if the idxs made contain something capable to search for merge
     possible_merging = False
     for col in mcid:
         # Adjust names if necessary
         col_id = col
-        if col not in  ['Name', 'Formula']:
+        if col not in prev_an_form_cols:
             col = 'Matched '+col+' IDs'
         if len(annotated_data.loc[given_idxs][col].value_counts()) == 1:
             an = annotated_data.loc[given_idxs][col].value_counts().iloc[0]
@@ -552,8 +555,8 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
         saving_annotations = {} # To store the annotations to keep in the merged line
         for col_alt in mcid: # All other databases
             col_alt_id = col_alt
-            if col_alt != 'Formula':
-                if col_alt not in ['Name', 'Formula']:
+            if col_alt not in prev_formula_cols:
+                if col_alt not in prev_an_form_cols:
                     col_alt = 'Matched '+col_alt+' IDs'
                 if col_alt != col:
                     a = []
@@ -570,7 +573,7 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
                         # Merging will not happen
                         print(f'Problem Merging. Database: {col_id}, Annotation: {annotation}', end='')
                         print(f', Nº of peaks: {len(subset_df)}. Reason: {col_alt_id} annotation.')
-                        print('Peaks must not contain different annotations for a database other than the "Formula".')
+                        print('Peaks must not contain different annotations for a database other than the "Formula" columns.')
                         return
 
         n_masses = subset_df[mass_col] # Get the mas values
@@ -604,7 +607,7 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
 
                 # Filling the meta data of the new line with the data stored in saving annotations
                 for key in saving_annotations:
-                    if key in ['Name', 'Formula']:
+                    if key in prev_an_form_cols:
                         temp_full_new_line.loc[key] = saving_annotations[key]
 
                     else:
@@ -624,10 +627,10 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
                 # Putting the merged line in the DataFrame
                 annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
 
-                if col_id in ['Name', 'Formula']:
+                if col_id in prev_an_form_cols:
                     print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                    print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by MetaboScape ', end='')
-                    print(f'{col_id}: {annotation}.')
+                    print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by previous ', end='')
+                    print(f'Annotation/Formula {col_id}: {annotation}.')
                     print('----------')
                 else:
                     print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
@@ -645,7 +648,7 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
 
             # Filling the meta data of the new line with the data stored in saving annotations
             for key in saving_annotations:
-                if key in ['Name', 'Formula']:
+                if key in prev_an_form_cols:
                     temp_full_new_line.loc[key] = saving_annotations[key]
 
                 else:
@@ -657,10 +660,11 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
                                 key+' match count']
                     temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
 
-            # Formula becomes the one from the peak with the highest average intensity across the samples
-            if 'Formula' in annotated_data.columns:
-                argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
-                temp_full_new_line['Formula'] = subset_df.iloc[argmax_idx]['Formula']
+            # Formula annotations becomes the ones from the peak with the highest average intensity across the samples
+            for form in prev_formula_cols:
+                if form in annotated_data.columns:
+                    argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
+                    temp_full_new_line[form] = subset_df.iloc[argmax_idx][form]
 
             # All that's left is the bucket label, Neutral Mass and m/z
             if multiple_adds:
@@ -708,10 +712,10 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
             # Putting the merged line in the DataFrame
             annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
 
-            if col_id in ['Name', 'Formula']:
+            if col_id in prev_an_form_cols:
                 print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
-                print(f'({new_bucket}) by {situation} due to repeating annotations by MetaboScape ', end='')
-                print(f'{col_id}: {annotation}.')
+                print(f'({new_bucket}) by {situation} due to repeating annotations by previous ', end='')
+                print(f'Annotations/Formula {col_id}: {annotation}.')
                 print('----------')
             else:
                 print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
