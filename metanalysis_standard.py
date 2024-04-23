@@ -83,7 +83,7 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, mass_val_col, adducts
 
         # Calculating adduct masses in annotation databases
         for adduct in adducts_to_consider:
-            dbs[d]['DB'][adduct] = dbs[d]['DB'][dbs[d]['Mass_col']] + adducts_to_consider[adduct]
+            dbs[d]['DB'][adduct] = (dbs[d]['DB'][dbs[d]['Mass_col']] + Fraction(adducts_to_consider[adduct])).astype(float)
 
         print('Annotating with',d, end=' ')
         matched_ids_col = 'Matched '+d+' IDs'
@@ -244,7 +244,7 @@ def calculate_monoisotopic_mass(formula):
     for e in composition:
         mass = mass + Fraction(chemdict[e])*Fraction(composition[e])
 
-    return float(mass)
+    return mass
 
 
 ### Step 1.3 Functions
