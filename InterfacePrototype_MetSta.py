@@ -14,6 +14,7 @@ import sklearn.model_selection
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from upsetplot import from_contents
+from fractions import Fraction
 import pickle
 import json
 
@@ -72,7 +73,7 @@ class DataReading:
 class DataMetadata:
     def __init__(self):
         self.content = pn.Column("# Section 1.1: Selecting Metadata columns and defining your target",
-                                 "Metadata columns are split into 4 categories: Formula, Annotated (compound name), Neutral Mass and Other columns. Sample columns are every column which was not selected in any metadata column.",
+                                 "Metadata columns are split into 4 categories: Formula, Annotated (compound name), Neutral or m/z Mass and Other columns. Sample columns are every column which was not selected in any metadata column.",
                                 page1_1)
 
     def view(self):
@@ -91,12 +92,11 @@ class DataFiltering:
 class DataAnnotation:
     def __init__(self):
         self.content = pn.Column("# Section 2: Data Annotation", 
-    """Perform Annotations based on available databases. Must provide the database filename and the name of the columns with the **ID**, the **Name** and **Formula** of the metabolites. **Cannot perform annotation without a selected Neutral Mass column.**
+    """Perform Annotations based on available databases. Must provide the database filename and the name of the columns with the **ID**, the **Name** and **Formula** of the metabolites. **Cannot perform annotation without a selected Neutral Mass or m/z column.**
     You can annotate with multiple databases. However, each database is annotated individually.
     Annotation works by assigning to a m/z peak / feature all metabolites of a database that are within the provided error margin.
-    **Currently, no adduct search is done to perform annotations (MetaboScape Data's Bucket Label should already take adducts into account).**
     Annotation from two different databases might annotate different metabolites for the same m/z peak / feature.
-    Thus, each database annotation will generate **3 columns** added to the metadata: one with the **IDs** of the metabolites annotated, another with their **formula** and another with their **name**.""",
+    Thus, each database annotation will generate **4 columns** added to the metadata: one with the **IDs** of the metabolites annotated, another with their **formula**, another with their **name** and another with the corresponding **adduct**.""",
                                 page2)
 
     def view(self):
@@ -407,6 +407,19 @@ def _confirm_button_filename(event):
     RepGen.type_of_mass_values_in_file = type_of_mass_values.value
     RepGen.neutral_mass_column = file.neutral_mass_column_inserted
 
+    # Adjusting adduct search parameters
+    if RepGen.type_of_mass_values_in_file == 'm/z (Positive)':
+        adducts_to_search_widget.value = f'''[M+H]+ : {metsta.chemdict['H'] - electron_mass}
+[M+Na]+ : {metsta.chemdict['Na'] - electron_mass}
+[M+K]+ : {metsta.chemdict['K'] - electron_mass}'''
+
+    elif RepGen.type_of_mass_values_in_file == 'm/z (Negative)':
+        adducts_to_search_widget.value = f'''[M-H]- : {- metsta.chemdict['H'] + electron_mass}
+[M+Cl]- : {metsta.chemdict['Cl'] + electron_mass}'''
+
+    else:
+        adducts_to_search_widget.value = f'''M : 0'''
+
     # Enabling button for next step
     section1page[2] = pn.widgets.DataFrame(file.read_df, disabled=True, sortable=False, reorderable=False)
     confirm_button_step1.disabled = False
@@ -431,6 +444,9 @@ def _load_example_df_button(event):
     RepGen.target_included_in_file = False
     RepGen.type_of_mass_values_in_file = 'Neutral'
     RepGen.neutral_mass_column = file.neutral_mass_column_inserted
+
+    # Adjusting adduct search parameter
+    adducts_to_search_widget.value = f'''M : 0'''
 
     # Enabling button for next step
     section1page[2] = pn.widgets.DataFrame(file.read_df, disabled=True, sortable=False, reorderable=False)
@@ -481,11 +497,11 @@ def _confirm_param_file_button(event):
     # Load parameters into the interface
     try:
         report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
-                    annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, DB_dict,
-                    PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params, n_components_compute, HCA_params,
-                    PLSDA_store, RF_store, UnivarA_Store, dataviz_store, PCA_params_binsim, n_components_compute_binsim,
-                    HCA_params_binsim, PLSDA_store_binsim,  RF_store_binsim, params_pre_treat_loaded_in.value,
-                    params_analysis_loaded_in.value)
+                    annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, RepGen,
+                    adducts_to_search_widget, DB_dict, PreTreatment_Method, checkbox_com_exc, com_exc_compounds,
+                    PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store,
+                    PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim,
+                    RF_store_binsim, params_pre_treat_loaded_in.value, params_analysis_loaded_in.value)
 
         # Adjust necessary widgets
         if 'BinSim Analysis' in params_to_load.value.keys():
@@ -567,7 +583,7 @@ checkbox_annotation = pn.widgets.CheckBoxGroup(
 
 # Select only one instead of multiple - RadioBox Widget
 radiobox_neutral_mass = pn.widgets.RadioBoxGroup(
-    name='Neutral Mass', value='Neutral Mass', options=['None'] + list(file.read_df.columns),
+    name='Neutral Mass or m/z column for annotation', value='Neutral Mass', options=['None'] + list(file.read_df.columns),
     inline=False, disabled=False)
 
 checkbox_others = pn.widgets.CheckBoxGroup(
@@ -580,9 +596,9 @@ checkbox_samples = pn.widgets.CheckBoxGroup(
 
 # Arranging the checkboxes
 checkbox_arrangement = pn.Column(
-    pn.Row('#### Select Formula columns:                ', '#### Select Annotations columns:            ', 
-           '#### Select Neutral Mass column:            ', '#### Select Other NON-SAMPLE columns:       ',
-           '#### After confirming, check sample columns:'),
+    pn.Row('#### Select Formula columns:                         ', '#### Select Annotations columns:                     ',
+           '#### Select Neutral Mass / m/z column for annotation:', '#### Select Other NON-SAMPLE columns:                ',
+           '#### After confirming, check sample columns:         '),
     pn.Row(pn.Column(checkbox_formula, scroll=True, height=400), pn.Column(checkbox_annotation, scroll=True, height=400),
           pn.Column(radiobox_neutral_mass, scroll=True, height=400), pn.Column(checkbox_others, scroll=True, height=400),
           pn.Column(checkbox_samples, scroll=True, height=400)))
@@ -1041,6 +1057,18 @@ annotation_Da_deviation = pn.widgets.FloatInput(name='Maximum Absolute Dalton De
                                                 page_step_multiplier=10)
 tooltip_annotation = pn.widgets.TooltipIcon(
     value="Choose the maximum allowed deviation (in PPM or Da) for annotating a metabolite.")
+
+electron_mass = 0.000548579909065
+adducts_to_search_widget = pn.widgets.TextAreaInput(
+    name='Adducts to Consider (must follow the formatting shown in the example)',
+    rows=4,
+    value=f'''[M+H]+ : {metsta.chemdict['H'] - electron_mass}
+[M+Na]+ : {metsta.chemdict['Na'] - electron_mass}
+[M+K]+ : {metsta.chemdict['K'] - electron_mass}'''
+    )
+adducts_to_search_tooltip = pn.widgets.TooltipIcon(
+    value="At least 1 adduct must be here to perform annotation. Example - Adduct name : Mass Difference to Neutral Mass")
+
 confirm_button_annotation_perform = pn.widgets.Button(name='Perform Annotation',
                                                      button_type='success', disabled=False)
 
@@ -1056,6 +1084,7 @@ def _annotation_margin_method(method):
 # Organizing section of parameters for annotation
 annotation_param_selection = pn.Column(annotation_margin_method_radio, 
                                        pn.Row(annotation_ppm_deviation, tooltip_annotation),
+                                       pn.Row(adducts_to_search_widget, adducts_to_search_tooltip),
                                        confirm_button_annotation_perform)
 
 # Make the annotation part of the layout appear and disable button to confirm databases
@@ -1066,6 +1095,7 @@ def _confirm_button_databases_read(event):
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index) # Setup the annotation df
 
     page2.append(annotation_param_selection)
+    adducts_to_search_widget.disabled = False
 confirm_button_databases_read.on_click(_confirm_button_databases_read)
 
 # Widgets for annotation part
@@ -1084,14 +1114,21 @@ def metabolite_annotation():
         # Get the correct database
         db_to_use = str(i+1)
 
+        # Calculating adduct masses in annotation databases
+        for adduct in RepGen.adducts_to_consider.keys():
+            DB_dict[db_to_use].db.value[adduct] = (DB_dict[
+                db_to_use].db.value['Mass'] + RepGen.adducts_to_consider[adduct]).astype(float)
+
         # Prepare columns
         matched_ids_col = 'Matched '+DB_dict[db_to_use].abv+' IDs'
         matched_names_col = 'Matched '+DB_dict[db_to_use].abv+' names'
         matched_formulas_col = 'Matched '+DB_dict[db_to_use].abv+' formulas'
+        matched_add_col = 'Matched '+DB_dict[db_to_use].abv+' adducts'
         match_count_col = DB_dict[db_to_use].abv+' match count'
         annotated_df.value[matched_ids_col] = ''
         annotated_df.value[matched_names_col] = ""
         annotated_df.value[matched_formulas_col] = ""
+        annotated_df.value[matched_add_col] = ""
         annotated_df.value[match_count_col] = ""
 
         # Update the page layout correctly, whether it is a repeat annotation or new one
@@ -1108,23 +1145,43 @@ def metabolite_annotation():
             matched_ids = []
             matched_names = []
             matched_formulas = []
+            matched_adds = []
+
+            candidates_for_annotation = pd.DataFrame()
 
             # See candidates for annotation to add
             # Option 1 - Based on maximum PPM Deviation
             if annotation_margin_method_radio.value == 'PPM Deviation':
                 ppm_margin = annotation_ppm_deviation.value
 
-                candidates_for_annotation = abs((DB_dict[db_to_use].db.value['Mass']-filtered_df.value[
-                    radiobox_neutral_mass.value].iloc[a])/filtered_df.value[radiobox_neutral_mass.value].iloc[a])*10**6
-                candidates_for_annotation = candidates_for_annotation[candidates_for_annotation<ppm_margin]
+                # Through every selected adduct
+                for ad_col in RepGen.adducts_to_consider.keys():
+                    # Calculate ppm deviation and select compounds within the margin
+                    data_masses = filtered_df.value[radiobox_neutral_mass.value].iloc[a]
+                    candidates_for_annotation_ad = abs((DB_dict[db_to_use].db.value[ad_col]-data_masses
+                                                        )/data_masses)*10**6
+                    candidates_for_annotation_ad = candidates_for_annotation_ad[
+                        candidates_for_annotation_ad<ppm_margin]
+
+                    # Join candidates to previous candidates
+                    candidates_for_annotation = pd.concat((candidates_for_annotation, candidates_for_annotation_ad))
+                    matched_adds.extend([ad_col,] * len(candidates_for_annotation_ad))
 
             # Option 2 - Based on maximum Dalton Deviation
             elif annotation_margin_method_radio.value == 'Absolute Dalton Deviation':
                 Da_margin = annotation_Da_deviation.value
 
-                candidates_for_annotation = abs(
-                    DB_dict[db_to_use].db.value['Mass']-filtered_df.value[radiobox_neutral_mass.value][a])
-                candidates_for_annotation = candidates_for_annotation[candidates_for_annotation<Da_margin]
+                # Through every selected adduct
+                for ad_col in RepGen.adducts_to_consider.keys():
+                    # Calculate Da deviation and select compounds within the margin
+                    data_masses = filtered_df.value[radiobox_neutral_mass.value].iloc[a]
+                    candidates_for_annotation_ad = abs(DB_dict[db_to_use].db.value[ad_col]-data_masses)
+                    candidates_for_annotation_ad = candidates_for_annotation_ad[
+                        candidates_for_annotation_ad<Da_margin]
+
+                    # Join candidates to previous candidates
+                    candidates_for_annotation = pd.concat((candidates_for_annotation, candidates_for_annotation_ad))
+                    matched_adds.extend([ad_col,] * len(candidates_for_annotation_ad))
 
             # Store candidates
             for m in candidates_for_annotation.index:
@@ -1137,11 +1194,13 @@ def metabolite_annotation():
                 annotated_df.value.at[annotated_df.value.index[a], matched_ids_col] = matched_ids
                 annotated_df.value.at[annotated_df.value.index[a], matched_names_col] = matched_names
                 annotated_df.value.at[annotated_df.value.index[a], matched_formulas_col] = matched_formulas
+                annotated_df.value.at[annotated_df.value.index[a], matched_add_col] = matched_adds
                 annotated_df.value.at[annotated_df.value.index[a], match_count_col] = len(matched_ids)
             else:
                 annotated_df.value.at[annotated_df.value.index[a], matched_ids_col] = np.nan
                 annotated_df.value.at[annotated_df.value.index[a], matched_names_col] = np.nan
                 annotated_df.value.at[annotated_df.value.index[a], matched_formulas_col] = np.nan
+                annotated_df.value.at[annotated_df.value.index[a], matched_add_col] = np.nan
                 annotated_df.value.at[annotated_df.value.index[a], match_count_col] = np.nan
 
         verbose_annotated_compounds[
@@ -1156,6 +1215,13 @@ def _press_confirm_annotation_perform(event):
     page2.append(performing_annotation_arrangement)
     confirm_button_annotation_perform.disabled=True
 
+    # Define and update the adducts to consider for annotation
+    RepGen.adducts_to_consider = {}
+    dif_ads = adducts_to_search_widget.value.split('\n')
+    for ad in dif_ads:
+        ad_name, ad_val = ad.split(' : ')
+        RepGen.adducts_to_consider[ad_name] = Fraction(ad_val)
+
     # Perform metabolite annotation
     metabolite_annotation()
 
@@ -1163,6 +1229,9 @@ def _press_confirm_annotation_perform(event):
     RepGen.annotation_margin_method = annotation_margin_method_radio.value
     RepGen.annotation_margin_ppm_deviation = annotation_ppm_deviation.value
     RepGen.annotation_margin_Da_deviation = annotation_Da_deviation.value
+
+    # Disable possibility to change adducts
+    adducts_to_search_widget.disabled = True
 
     # Update the information for annotation de-duplication
     data_ann_deduplicator.update_columns_with_annotations(annotated_df.value, checkbox_annotation, checkbox_formula)
@@ -1288,13 +1357,13 @@ class AnnDeDuplication_Storage(param.Parameterized):
             pn.state.notifications.info('Multiple Annotation Report could not be compiled.')
 
 
-    def perform_deduplication(self, ann_df, sample_cols, neutral_mass_col):
+    def perform_deduplication(self, ann_df, sample_cols, neutral_mass_col, multiple_adds):
         "Performs Multiple Annotation peak merging, updates layout and returns results."
 
         # Performing deduplication
         # TODO: See deduplication function better
         annotated_data, mergings_performed, merging_situations, merge_description, mp = iaf.duplicate_disambiguator(
-            self, ann_df, sample_cols, neutral_mass_col, mz_col=False)
+            self, ann_df, sample_cols, neutral_mass_col, multiple_adds=multiple_adds)
         merge_df = pd.DataFrame(merge_description).T
         if len(merge_df) == 0:
             n_m_peaks = 0
@@ -1418,8 +1487,9 @@ def _perform_deduplication_button(event):
     # Perform Metabolic Feature Merging
     DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
     iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
+    multiple_adds = True if len(RepGen.adducts_to_consider) > 1 else False
     data_ann_deduplicator.perform_deduplication(DataFrame_Store.original_df, target_list.sample_cols,
-                                            radiobox_neutral_mass.value)
+                                            radiobox_neutral_mass.value, multiple_adds)
 
     # Selecting merge problems to show
     if data_ann_deduplicator.problem_condition == 'Scenario 1 of Situation 4 like cases are not merged and are not shown.':
@@ -1550,11 +1620,12 @@ def _confirm_mergeproblems_to_merge_button(event):
     for key in data_ann_deduplicator.mcid:
         if key.startswith('Matched') and key.endswith(' IDs'):
             ann_cols.extend([key, 'Matched '+ key[8:-4] +' names', 'Matched '+ key[8:-4] +' formulas',
-                                                key[8:-4] +' match count'])
+                            'Matched '+ key[8:-4] +' adducts', key[8:-4] +' match count'])
     ann_cols.extend(checkbox_formula.value)
     merge_prob_description = pd.DataFrame(columns=data_ann_deduplicator.merge_description.columns)
     not_merged_desc = ['##### Metabolic Features not merged (from problem cases)']
     initial_len = len(data_ann_deduplicator.annotated_df)
+    multiple_adds = True if len(RepGen.adducts_to_consider) > 1 else False
 
     # Informs De-Duplication was performed and merge problems were looked at for the report
     RepGen.deduplication_performed = 'Annotation De-Duplication was performed and merge problems were individually observed/decided - Temp'
@@ -1568,7 +1639,7 @@ def _confirm_mergeproblems_to_merge_button(event):
                 # If we can merge them
                 df, m_d = iaf.individually_merging(data_ann_deduplicator, idxs_to_merge,
                              target_list.sample_cols,
-                             ann_cols, radiobox_neutral_mass.value, mz_col=False)
+                             ann_cols, radiobox_neutral_mass.value, multiple_adds=multiple_adds)
 
                 # Adjust everything
                 data_ann_deduplicator.annotated_df = df
@@ -1688,10 +1759,13 @@ class PreTreatment(param.Parameterized):
     # Function to confirm Pre-Treatment Selection and Updating DataFrames
     def _confirm_button_press(self, event):
         "Perform pre-treatment and update page layout."
-        treat, proc, uni, meta, bin = iaf.performing_pretreatment(self, DataFrame_Store.original_df,
+        DataFrame_Store.original_df.index = DataFrame_Store.original_df.index.astype(str)
+        treat, proc, uni, meta, bin_d = iaf.performing_pretreatment(self, DataFrame_Store.original_df,
                                                                    target_list.target, target_list.sample_cols)
+        #treat.columns, proc.index, uni.columns = treat.columns.astype(str), proc.index.astype(str), uni.columns.astype(str)
+        #meta.index, bin_d.columns = meta.columns.astype(str), bin_d.index.astype(str)
         DataFrame_Store.treated_df, DataFrame_Store.processed_df, DataFrame_Store.univariate_df = treat, proc, uni
-        DataFrame_Store.metadata_df, DataFrame_Store.binsim_df = meta, bin
+        DataFrame_Store.metadata_df, DataFrame_Store.binsim_df = meta, bin_d
 
         # Locking in pre-treatment parameters chosen
         UnivarA_Store.locking_pretreatment_params(self)
@@ -2075,11 +2149,11 @@ def _confirm_button_next_step_5(event):
             try:
                 if params_loaded_in.value:
                     report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
-                                annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, DB_dict,
-                                PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params, n_components_compute, HCA_params,
-                                PLSDA_store, RF_store, UnivarA_Store, dataviz_store, PCA_params_binsim, n_components_compute_binsim,
-                                HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, False,
-                                params_analysis_loaded_in.value)
+                                annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, RepGen,
+                                adducts_to_search_widget, DB_dict, PreTreatment_Method, checkbox_com_exc, com_exc_compounds,
+                                PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store,
+                                PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
+                                False, params_analysis_loaded_in.value)
 
                     # Adjust necessary widgets
                     if 'BinSim Analysis' in params_to_load.value.keys():
@@ -2164,10 +2238,10 @@ def _save_parameters_pretreat_button(event):
     try:
         # Trying to save parameters
         filename = params_filename.value
-        report_generation.save_parameters(filename, UnivarA_Store, n_databases, annotation_margin_method_radio,
-                        annotation_ppm_deviation, annotation_Da_deviation, DB_dict, checkbox_com_exc, com_exc_compounds,
-                        PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PCA_params_binsim, HCA_params_binsim,
-                        PLSDA_store_binsim, RF_store_binsim, include_data_analysis=False)
+        report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget,
+                        DB_dict, checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store,
+                        dataviz_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
+                        include_data_analysis=False)
 
         pn.state.notifications.success(f'Pre-Treatment Parameters successfully saved in {filename}.json')
 
@@ -4749,7 +4823,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
             figures_list = []
             filenames = []
 
-            # Kendrick Mass Defect Plots cannot be computed without a neutral mass column
+            # Kendrick Mass Defect Plots cannot be computed without a mass column
             if radiobox_neutral_mass.value == 'None':
                 kmd_plots.clear()
                 self.KendrickMD_plot = ['Pane for Chemical Composition Series']
@@ -4761,7 +4835,7 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
                 fig, f = iaf._plot_KMD_plot_individual(com_exc_compounds.group_dfs[g], # Filtered DF for specific class
                                                     self, # Parameters to use for VK
                                                     g, # Current class
-                                                    radiobox_neutral_mass.value) # Neutral Mass Column
+                                                    radiobox_neutral_mass.value) # Mass Column
 
                 figures_list.append(fig)
                 filenames.append(f)
@@ -5768,12 +5842,12 @@ class CompoundFinder(param.Parameterized):
         self.formula_to_idxs = iaf.build_annotation_to_idx_dict(metadata_df, formula_cols)
         self.bucket_to_idxs = {str(idx): [idx] for idx in metadata_df.index}
 
-        # If there is a neutral mass column
+        # If there is a mass column
         if radiobox_neutral_mass.value != 'None':
             self.neutral_mass_to_idxs = {
                 str(metadata_df.loc[idx, radiobox_neutral_mass.value]): [idx] for idx in metadata_df.index}
             self.controls.widgets['id_type'].options = ['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula',
-                                                       'Metabolite Neutral Mass']
+                                                       'Metabolite Neutral or m/z Mass']
 
         # If there isn't remove it as an option
         else:
@@ -5795,7 +5869,7 @@ class CompoundFinder(param.Parameterized):
             finder = processed_df.loc[self.formula_to_idxs[self.id_comp]].copy()
         elif self.id_type == 'Metabolite Name':
             finder = processed_df.loc[self.name_to_idxs[self.id_comp]].copy()
-        elif self.id_type == 'Metabolite Neutral Mass':
+        elif self.id_type == 'Metabolite Neutral or m/z Mass':
             finder = processed_df.loc[self.neutral_mass_to_idxs[self.id_comp]].copy()
         else:
             pn.state.notifications('Type of identifier provided not recognized.')
@@ -5856,7 +5930,8 @@ class CompoundFinder(param.Parameterized):
         self.class_boxplot = ['To plot a boxplot with class avg. intensities']
         self.id_type = 'Metabolite Bucket Label'
         self.controls.widgets['id_type'].value = 'Metabolite Bucket Label'
-        self.controls.widgets['id_type'].options = ['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula', 'Metabolite Neutral Mass']
+        self.controls.widgets['id_type'].options = ['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula',
+                                                    'Metabolite Neutral or m/z Mass']
         self.id_comp = self.param['id_comp'].default
         self.controls.widgets['id_comp'].options = ['']
         self.controls.widgets['id_comp'].placeholder = ''
@@ -5934,7 +6009,7 @@ class CompoundFinder(param.Parameterized):
         widgets = {
             'id_type': pn.widgets.RadioButtonGroup(name='Choose which type of identifier you want to use for your compound',
                     value='Metabolite Bucket Label',
-                    options=['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula', 'Metabolite Neutral Mass'],
+                    options=['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula', 'Metabolite Neutral or m/z Mass'],
                     button_type='success', description='Choose which type of identifier you want to use for your compound.'),
             'id_comp': pn.widgets.AutocompleteInput(name="Type the compound identifier you want to see",
                     value = '', options=[''], search_strategy='includes', case_sensitive=False,
@@ -6002,6 +6077,7 @@ class ReportGeneration(param.Parameterized):
     annotation_margin_method = param.String('')
     annotation_margin_ppm_deviation = param.Number()
     annotation_margin_Da_deviation = param.Number()
+    adducts_to_consider = param.Dict()
 
     # Related to Annotation De-Duplication
     deduplication_performed = param.String('Annotation De-Duplication was not performed')
@@ -6107,19 +6183,18 @@ save_parameters_analysis_button = pn.widgets.Button(
 def _save_parameters_analysis_button(event):
     "Saves parameters related to the data pre-treatment, pre-processing and data analysis."
 
-    #try:
+    try:
         # Trying to save parameters
-    filename = params_filename.value
-    report_generation.save_parameters(filename, UnivarA_Store, n_databases, annotation_margin_method_radio,
-                    annotation_ppm_deviation, annotation_Da_deviation, DB_dict, checkbox_com_exc, com_exc_compounds,
-                    PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PCA_params_binsim, HCA_params_binsim,
-                    PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True)
+        filename = params_filename.value
+        report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, checkbox_com_exc,
+                        com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PCA_params_binsim,
+                        HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True)
 
-    pn.state.notifications.success(f'Parameters successfully saved in {filename}.json')
+        pn.state.notifications.success(f'Parameters successfully saved in {filename}.json')
 
     # If the params could not be saved
-    #except:
-    #    pn.state.notifications.error('Parameters could not be saved.')
+    except:
+        pn.state.notifications.error('Parameters could not be saved.')
 
 save_parameters_analysis_button.on_click(_save_parameters_analysis_button)
 

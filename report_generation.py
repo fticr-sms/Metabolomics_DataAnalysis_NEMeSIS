@@ -54,17 +54,20 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     p1.add_run('. This dataset had a total of ')
 
     dataset_cols = len(file.read_df.columns)
-    # If a neutral mass column was added to the dataset
+    # If a neutral mass or m/z column column was added to the dataset
     if RepGen.neutral_mass_column:
-        nm_string = f' Furthermore, a "Neutral Mass" column was added to the data '
+        nm_string = f' Furthermore, '
         if RepGen.type_of_mass_values_in_file == 'Neutral':
+            nm_string = nm_string + '"Neutral Mass" column was added to the data '
             nm_string = nm_string + 'by directly interpreting the first column mass values given as floats (numbers).'
         elif RepGen.type_of_mass_values_in_file == 'm/z (Positive)':
+            nm_string = nm_string + '"Probable m/z" column was added to the data '
             nm_string = nm_string + 'by interpreting the first column mass values given as floats (numbers) representing'
-            nm_string = nm_string + ' m/z values obtained in positive ionization mode and subtracting one proton mass from them.'
+            nm_string = nm_string + ' m/z values obtained in positive ionization mode.'
         elif RepGen.type_of_mass_values_in_file == 'm/z (Negative)':
+            nm_string = nm_string + '"Probable m/z" column was added to the data '
             nm_string = nm_string + 'by interpreting the first column mass values given as floats (numbers) representing'
-            nm_string = nm_string + ' m/z values obtained in negative ionization mode  and subtracting one H- mass from them.'
+            nm_string = nm_string + ' m/z values obtained in negative ionization mode.'
         dataset_cols = dataset_cols - 1
     else:
         nm_string = ''
@@ -79,10 +82,10 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
         dataset_size = len(file.read_df)
         p1.add_run(f'{dataset_size} rows by {dataset_cols} columns including metadata.')
 
-    # Neutral mass section
+    # Neutral / m/z mass section
     p1.add_run(nm_string)
 
-    # 2nd paragraph - Metdata Columns
+    # 2nd paragraph - Metadata Columns
     # Putting metaadata columns in string format
     ann_cols = ', '.join(checkbox_annotation.value)
     form_cols = ', '.join(checkbox_formula.value)
@@ -95,12 +98,12 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     p2.add_run(f'{form_cols}').italic = True
     p2.add_run(f') was/were selected as columns with formula annotations; ')
 
-    # Neutral Mass and Other Metadata columns section
+    # Neutral/m/z Mass and Other Metadata columns section
     if radiobox_neutral_mass.value != 'None':
         p2.add_run(f'{radiobox_neutral_mass.value}').italic = True
-        p2.add_run(f' was selected as the column representing neutral mass values; and {len(checkbox_others.value)} (')
+        p2.add_run(f' was selected as the column representing mass (neutral or m/z) values; and {len(checkbox_others.value)} (')
     else:
-        p2.add_run(f'no column was selected to represent neutral mass values; and {len(checkbox_others.value)} (')
+        p2.add_run(f'no column was selected to represent mass values (neutral or m/z); and {len(checkbox_others.value)} (')
     p2.add_run(f'{other_cols}').italic = True
     p2.add_run(f') was/were selected as metadata columns with other information (which were not used).')
 
@@ -235,13 +238,29 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
         if RepGen.annotation_margin_method == 'PPM Deviation':
             ann_pg.add_run(f' Database matching was performed using a maximum of {RepGen.annotation_margin_ppm_deviation} ppm')
             ann_pg.add_run(f' (parts per million) deviation of the theoretical compound mass (based on formula) to the ')
-            ann_pg.add_run(f'experimental mass in the Neutral Mass Column ({radiobox_neutral_mass.value}) chosen.')
+            ann_pg.add_run(f'experimental mass in the Mass Column ({radiobox_neutral_mass.value}) chosen.')
 
         # Database Annotation based on flat Da deviation
         else:
             ann_pg.add_run(f' Database matching was performed using a maximum of {RepGen.annotation_margin_ppm_deviation} Da')
             ann_pg.add_run(f' deviation of the theoretical compound mass (based on formula) to the ')
-            ann_pg.add_run(f'experimental mass in the Neutral Mass Column ({radiobox_neutral_mass.value}) chosen.')
+            ann_pg.add_run(f'experimental mass in the Mass Column ({radiobox_neutral_mass.value}) chosen.')
+
+    # Adducts considered to be searched
+    n_adducts = len(RepGen.adducts_to_consider)
+    if n_adducts != 0:
+        ann_pg.add_run(f' Matching was performed against the databases considering {n_adducts} possible adducts. These were: ')
+        a = 0
+        for ad, mass_shift in RepGen.adducts_to_consider.items():
+            ann_pg.add_run(f'{ad} (mass shift of {float(mass_shift)})')
+            if a == n_adducts - 1:
+                ann_pg.add_run(f'.')
+            elif a == n_adducts - 2:
+                ann_pg.add_run(f' and ')
+            else:
+                ann_pg.add_run(f', ')
+            a += 1
+
 
     # Information on Databases used
     for db in range(n_databases.value):
@@ -1008,16 +1027,16 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
             # In case analysis was not performed
             if type(dataviz_store.KendrickMD_plot[0]) == str:
-                document.add_paragraph(('Kendrick Mass Defect Plots were not computed or no column with feature Neutral Mass was'
+                document.add_paragraph(('Kendrick Mass Defect Plots were not computed or no column with feature Mass was'
                                         ' provided/found. Thus, this section will be skipped.'))
 
             else:
                 # Description of the Kendrick Mass Defect Plots
-                kmd_pg = document.add_paragraph('Kendrick Mass Defect Plots were computed considering the Neutral Mass column: ')
+                kmd_pg = document.add_paragraph('Kendrick Mass Defect Plots were computed considering the Mass column: ')
                 kmd_pg.add_run(radiobox_neutral_mass.value).bold = True
-                kmd_pg.add_run('. Neutral Masses were rounded ')
+                kmd_pg.add_run('. Masses were rounded ')
 
-                # See how the neutral masses were rounded
+                # See how the masses were rounded
                 if dataviz_store.kmd_mass_rounding == 'Up':
                     kmd_pg.add_run('Up').bold = True
                     kmd_pg.add_run(' to the next integer (thus, all Mass Defects will vary between 0 and 1).')
@@ -1560,14 +1579,16 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
 
 # Saving Parameters function
-def save_parameters(filename, UnivarA_Store, n_databases, annotation_margin_method_radio, annotation_ppm_deviation,
-                   annotation_Da_deviation, DB_dict, checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params,
-                   PLSDA_store, RF_store, dataviz_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim,
-                   RF_store_binsim, include_data_analysis=True):
+def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, checkbox_com_exc,
+                    com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PCA_params_binsim,
+                    HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True):
     "Creates a json file containing relevant parameters used in current dataset analysis."
 
     # Dict with parameters to be saved
     params_to_be_saved = {}
+
+    # Saving Data Reading Related Parameters (just to check for the adducts later on)
+    params_to_be_saved['Data Reading'] = {'type_of_mass_values_in_file': RepGen.type_of_mass_values_in_file}
 
     # Saving Data Filtering Related Parameters
     params_to_be_saved['Data Filtering'] = {'filt_method': UnivarA_Store.filt_method,
@@ -1577,9 +1598,10 @@ def save_parameters(filename, UnivarA_Store, n_databases, annotation_margin_meth
     # Saving Data Annotation Related Parameters
     # Main Parameters
     params_to_be_saved['Data Annotation'] = {'n_databases': n_databases.value,
-                                            'annotation_margin_method': annotation_margin_method_radio.value,
-                                            'annotation_ppm_deviation': annotation_ppm_deviation.value,
-                                            'annotation_Da_deviation': annotation_Da_deviation.value}
+                                            'annotation_margin_method': RepGen.annotation_margin_method,
+                                            'annotation_ppm_deviation': RepGen.annotation_margin_ppm_deviation,
+                                            'annotation_Da_deviation': RepGen.annotation_margin_Da_deviation,
+                                            'adducts_to_be_searched': adducts_to_search_widget.value}
     # Database Specific Parameters
     for d in range(n_databases.value):
         params_to_be_saved['Data Annotation'][d] = {'file': DB_dict[str(d+1)].file,
@@ -1843,10 +1865,11 @@ def save_parameters(filename, UnivarA_Store, n_databases, annotation_margin_meth
 
 # Loading parameters from saved json files.
 def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_databases, annotation_margin_method_radio,
-                         annotation_ppm_deviation, annotation_Da_deviation, DB_dict, PreTreatment_Method, checkbox_com_exc,
-                         com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store,
-                         UnivarA_Store, dataviz_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
-                         PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in, params_analysis_loaded_in):
+                         annotation_ppm_deviation, annotation_Da_deviation, RepGen, adducts_to_search_widget, DB_dict,
+                         PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params, n_components_compute,
+                         HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store, PCA_params_binsim,
+                         n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
+                         params_pre_treat_loaded_in, params_analysis_loaded_in):
     "Load in Previously Saved Parameters for Data Analysis."
 
     # Data Pre-Processing and Pre-Treatment Related Parameters
@@ -1862,9 +1885,12 @@ def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_datab
         annotation_margin_method_radio.value = params_to_load['Data Annotation']['annotation_margin_method']
         annotation_ppm_deviation.value = params_to_load['Data Annotation']['annotation_ppm_deviation']
         annotation_Da_deviation.value = params_to_load['Data Annotation']['annotation_Da_deviation']
+        if params_to_load['Data Reading']['type_of_mass_values_in_file'] == RepGen.type_of_mass_values_in_file:
+            adducts_to_search_widget.value = params_to_load['Data Annotation']['adducts_to_be_searched']
         # Database Specific Parameters
         for d in params_to_load['Data Annotation'].keys():
-            if d not in ['n_databases', 'annotation_margin_method', 'annotation_ppm_deviation', 'annotation_Da_deviation']:
+            if d not in ['n_databases', 'annotation_margin_method', 'annotation_ppm_deviation', 'annotation_Da_deviation',
+                         'adducts_to_be_searched']:
                 DB_dict[str(int(d)+1)].content[0][1].value = params_to_load['Data Annotation'][d]["file"]
                 DB_dict[str(int(d)+1)].content[1][1].value = params_to_load['Data Annotation'][d]["abv"]
                 DB_dict[str(int(d)+1)].content[2][1].value = params_to_load['Data Annotation'][d]["IDcol"]
