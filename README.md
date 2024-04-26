@@ -134,6 +134,7 @@ However, in the future, these databases will have corresponding python files tha
 - Data Annotation logic slightly changed to account for adducts and calculate adduct masses on the databases chosen and match them to the dataset masses. Added arg for possiblity to only select the candidates with the lowest ppm deviation to a peak
 - Minor improvements and changes to accomodate new data annotation in `duplicate_disambiguator` and `individually_merging` functions.
 - Minor change in supervised analysis related function with the arg `regres` or `regression`.
+- Added explanation for maximum number of components to choose in PLS-DA.
 - XGBoost will now be skipped by default for binary classifications.
 - In 2-Class Univariate Analysis, change to calculate the minimum number of samples to filter the subset of data by the `total_samples` method when using a more than 2-Class dataset.
 - Added multi-class univariate statisical analysis (ANOVA and Kruskal-Wallis test).
@@ -143,9 +144,7 @@ However, in the future, these databases will have corresponding python files tha
 #### In Future Patches:
 
 - Add sMDiN analysis to notebooks.
-- Grant possiblity of extracting more dataframes.
 - Add Formula Assignment to software.
-- Add Kruskal-Wallis and ANOVA analysis to Univariate Analysis section.
 
 
 # Graphical Interface Version Patch Notes
@@ -168,6 +167,16 @@ However, in the future, these databases will have corresponding python files tha
 - PCA now is not computed automatically when going into the data analysis section of the software.
 - Bugfix in Univariate Analysis and change in how it is made (data filtering section within it). Now if data filtering used is 'total_samples', the filtering is performed by the percentage of samples allowed used with the full dataset rounded up. E.g. if the minimum nº of samples a feature must appear in a 15-sample dataset is 4, then by performing univariate analysis between 2 classes on a 6-sample subset, the minimum nº of samples allowed is (4/15) * 6 = 1.6 rounded up, that is, it has to appear in at least 2 of that 6 sample-subset (and 4 samples of the original 15).
 - Multiple minor changes and improvements.
+
+#### Version Alpha.3 (26/04/2024)
+
+- Added possibility to interpret mass values in data index as Neutral, Positive m/z or Negative m/z (in Data Reading).
+- Added possibility to define which adducts to search for Data Annotation when comparing data masses to the databases selected.
+- Mass calculations (of compounds based on formula and adducts) are now made with fractions instead of floats.
+- Bugfix and improvement in PLS-DA components. Now maximum number of components based on number of samples available (and folds in cross-validation) is controlled.
+- Updated the rest of the graphical interface and report generation based on the changes in Data Reading and adducts in Data Annotation.
+- Minor bugfixes and improvements throughout software.
+
 
 ### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
 

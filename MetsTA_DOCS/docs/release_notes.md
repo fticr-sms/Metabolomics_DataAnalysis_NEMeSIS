@@ -3,6 +3,20 @@ This page includes the release notes for both jupyter notebook and graphical int
 
 ## Jupyter Notebook Version Release Notes
 
+**V2.5 - Introducing adducts to data annotation and expansion of univariate analysis (22/04/2024).**
+
+- Type of index in the dataset can be chosen if they are positive/negative m/z masses or neutral masses, creating respectively a 'Probable m/z' or a 'Neutral Mass' column.
+- Added way to introduce which adduct to consider for data annotation.
+- Data Annotation logic slightly changed to account for adducts and calculate adduct masses on the databases chosen and match them to the dataset masses. Added arg for possiblity to only select the candidates with the lowest ppm deviation to a peak
+- Minor improvements and changes to accomodate new data annotation in `duplicate_disambiguator` and `individually_merging` functions.
+- Minor change in supervised analysis related function with the arg `regres` or `regression`.
+- Added explanation for maximum number of components to choose in PLS-DA.
+- XGBoost will now be skipped by default for binary classifications.
+- In 2-Class Univariate Analysis, change to calculate the minimum number of samples to filter the subset of data by the `total_samples` method when using a more than 2-Class dataset.
+- Added multi-class univariate statisical analysis (ANOVA and Kruskal-Wallis test).
+- Add 'index' as a search possibility in the compound finder and minor bugfix where previously annotated columns would not be searched when using 'Name' or 'Formula' options.
+- Improve to some descriptions and minor bugfixes.
+
 **V2.4 - XGBoost, Regressions and KEGG colouring (02/02/2024)**
 
 - Added regression Random Forest analysis and PLS.
@@ -101,6 +115,15 @@ This page includes the release notes for both jupyter notebook and graphical int
 
 ## Graphical Interface Version Release Notes
 
+#### Version Alpha.3 (26/04/2024)
+
+- Added possibility to interpret mass values in data index as Neutral, Positive m/z or Negative m/z (in Data Reading).
+- Added possibility to define which adducts to search for Data Annotation when comparing data masses to the databases selected.
+- Mass calculations (of compounds based on formula and adducts) are now made with fractions instead of floats.
+- Bugfix and improvement in PLS-DA components. Now maximum number of components based on number of samples available (and folds in cross-validation) is controlled.
+- Updated the rest of the graphical interface and report generation based on the changes in Data Reading and adducts in Data Annotation.
+- Minor bugfixes and improvements throughout software.
+
 **Version Alpha.2 (20/02/2024)**
 
 - Added BinSim Analysis Page to the interface software (also included in report generation).
@@ -124,6 +147,4 @@ This page includes the release notes for both jupyter notebook and graphical int
 ## Projected Features In Future Patches
 
 - Add sMDiN analysis to notebooks.
-- Grant possiblity of extracting more dataframes.
 - Add Formula Assignment.
-- Add Kruskal-Wallis and ANOVA analysis to Univariate Analysis section.

@@ -29,7 +29,7 @@ The first section of the data analysis pipeline is data reading, that is, the da
 
 This formatting is exemplified in the figure below with the addition that files can either be `.csv` or `.xlsx` files. Metabolic Features should be represented in the rows, while samples and metadata should be represented in columns. 
 
-The first column in your data must correspond to the identifier of your metabolic features, more specifically, to a mass value if possible - black box  - and they should be unique (non-repeating). The name of the column will be overwritten to be `Bucket label`. If the columns are mass values capable of being intepreted as floats (numbers), then a `Neutral Mass` column in your data will be added. This column is later necessary to perform `Data Annotation` (but nothing else). You have 3 possibilities to choose from: `Neutral` where the masses in your index are taken as the neutral masses, `m/z (Positive)` or `m/z (Negative)` where the masses are assumed to be _m/z_ values obtained in positive or negative (respectively) ionization mode and are either subtracted the mass of a proton (1.0072764519889346 Da) or the mass of H<sup>-</sup> (1.0083736118070654 Da). No adduct search is currently implemented in the software.
+The first column in your data must correspond to the identifier of your metabolic features, more specifically, to a mass value if possible - black box - and they should be unique (non-repeating). The name of the column will be overwritten to be `Bucket label`. If the columns are mass values capable of being intepreted as floats (numbers), then a `Mass` column in your data will be added. This column is later necessary to perform `Data Annotation` (but nothing else). You have 3 possibilities to choose from: `Neutral` where the masses in your index are taken as the neutral masses creating a `Neutral Mass` column, `m/z (Positive)` or `m/z (Negative)` where the masses are assumed to be _m/z_ values obtained in positive or negative (respectively) ionization mode creating a `Probable m/z` column.
 
 !!! danger
 
@@ -55,7 +55,7 @@ All these sections are mandatory and are progressed and unlocked one by one in a
 
 #### Metadata Selection
 
-Here, you will be asked to select which columns of your data are metadata (non-sample columns). If this metadata includes formula assignment or metabolite compound annotation columns, you can select them in their corresponding spots so they can be used downstream as that. Furthermore, you can select a column that contains the neutral mass values of your metabolic features, whether it is the Neutral Mass column created in the previous section or another prepared previously that will be used for `Data Annotation` (if `None` is chosen, `Data Annotation` cannot be performed). Other metadata will not be used in the analysis.
+Here, you will be asked to select which columns of your data are metadata (non-sample columns). If this metadata includes formula assignment or metabolite compound annotation columns, you can select them in their corresponding spots so they can be used downstream as that. Furthermore, you can select a column that contains the mass values of your metabolic features, whether it is the `Neutral Mass` or `Probable m/z` columns created in the previous section or another prepared previously that will be used for `Data Annotation` (if `None` is chosen, `Data Annotation` cannot be performed). Other metadata will not be used in the analysis.
 
 After selecting it, either a target will try to be inferred from the name of your samples or it will be taken from your data (if it was present). In either case, you can edit your target to your needs, before confirming it and moving to the next section.
 
@@ -67,7 +67,7 @@ Data Filtering is used to _clean_ the dataset of features that appear in very fe
 
 #### Data Annotation
 
-Next up, we have Data Annotation. This step is only possible if you have a Neutral Mass column as selected in the earlier section (either created in the software based on mass values provided or previously obtained) that represents the neutral masses of the metabolites detected as numbers. 
+Next up, we have Data Annotation. This step is only possible if you have a Mass column as selected in the earlier section (either created in the software based on mass values provided or previously obtained) that represents the masses of the metabolites detected as numbers. 
 
 You can skip this step by annotation with _0_ databases. Or you can select 1 to 5 databases to perform independent annotations. A database must have a compound ID column, a compound name column and a compound formula column (that is used to calculate the compound theoretical mass used for annotation). To use a database, it should be on the directory where MetsTA is located and you must provide a series of informations such as the file name and the column identifier of the ID, name and formula of the compounds. You will also be asked for an abbreviated name of the database to use (for example, HMDB for Human Metabolome Database).
 
@@ -75,6 +75,8 @@ After loading your desired databases, you can choose a maximum threshold of devi
 { .annotate }
 
 1. A usual value for extreme-resolution data could be a ppm deviation between 0.5 and 1 ppm.
+
+Finally, you can decide which adducts to search by inputting the adduct name and consequent mass shift they cause on a neutral mass. This should be inputted in the following format "Adduct_Name : Mass_Shift_to_neutral_mass". As an example: "[M+H]+ : 1.007276451988935". The software automatically provides an example of common adducts to search based on if `Positive (m/z)` ([M+H]+, [M+Na]+, [M+K]+), `Negative (m/z)` ([M-H]-, [M+Cl]-) or `Neutral` ([M]) were chosen in Step 1.
 
 With these parameters selected, you can perform the annotation. The annotation is made by comparing the dataset's masses with the databases. Every compound in the database that fall within the error margin threshold chosen to a given metabolite feature is annotated to that feature. Thus, very often features have multiple annotations associated (for example, every isomer in a database will be annotated if one is). This annotation is based on the fact that the mass value of a feature is not enough to differentiate and choose between different isomers. The results of the annotation of our data based on an individual database is the creation of 3 metadata columns: for each metabolic feature, one has a list of compound IDs annotated, another of compound names and another of compound formulas (1). This is made independently for each database selected, that is, every single database selected will generate 3 new columns with their own annotations (2).
 { .annotate }
