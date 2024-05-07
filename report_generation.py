@@ -266,7 +266,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     for db in range(n_databases.value):
         key = str(db + 1)
         db_info = DB_dict[key]
-        document.add_paragraph(f"{db_info.abv}: Database read from '{db_info.file}' using {db_info.IDcol} column as IDs. It had {len(db_info.db.value)} metabolites.",
+        document.add_paragraph(f"{db_info.abv}: Database read from '{db_info.file}' using {db_info.IDcol} column as IDs. It had {len(db_info.db_len)} metabolites.",
                             style='List Bullet')
 
     # Information on the annotations made with each Database used

@@ -283,9 +283,6 @@ main_area = OpeningPage().content
 class DataFrame_Storage(param.Parameterized):
     "Class to contain all the more relevant DataFrames for statistical analysis."
 
-    # Read DataFrame
-    read_df = param.DataFrame()
-
     # Starting DataFrame (after annotation)
     original_df = param.DataFrame()
 
@@ -542,14 +539,12 @@ def _confirm_step1(event):
     confirm_button_target.disabled=True
     confirm_button_next_step_1_1.disabled=True
 
-    DataFrame_Store.read_df = file.read_df # Update DataFrame store
-
     # Update all the options for the Data Metadata Step - CheckBox and RadioBox Widgets
-    checkbox_formula.options = list(DataFrame_Store.read_df.columns)
-    checkbox_annotation.options = list(DataFrame_Store.read_df.columns)
-    radiobox_neutral_mass.options = ['None'] + list(DataFrame_Store.read_df.columns)
-    checkbox_others.options = list(DataFrame_Store.read_df.columns)
-    checkbox_samples.options = list(DataFrame_Store.read_df.columns)
+    checkbox_formula.options = list(file.read_df.columns)
+    checkbox_annotation.options = list(file.read_df.columns)
+    radiobox_neutral_mass.options = ['None'] + list(file.read_df.columns)
+    checkbox_others.options = list(file.read_df.columns)
+    checkbox_samples.options = list(file.read_df.columns)
 
     # Update the Main page
     main_area.clear()
@@ -611,7 +606,7 @@ def _update_confirm_column_selection(event):
     "Get sample columns based on metadata columns selected, makes target editable wile providing an educated guess about it."
     # Deduce sample columns
     sample_cols = []
-    cols = list(DataFrame_Store.read_df.columns)
+    cols = list(file.read_df.columns)
     for col in cols:
         if col not in checkbox_formula.value:
             if col not in checkbox_annotation.value:
@@ -806,7 +801,7 @@ def _confirm_button_initial_filtering(event):
         f_meth = 'class_samples'
     else:
         f_meth = None
-    filtered_df.value, characteristics_df.value = iaf.initial_filtering(DataFrame_Store.read_df,
+    filtered_df.value, characteristics_df.value = iaf.initial_filtering(file.read_df,
                                     sample_cols, target=target, filt_method=f_meth, filt_kw=filt_kw.value)
 
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
@@ -938,6 +933,7 @@ class DatabaseSection():
                 db.value = iaf.read_database(filename, abv, ID_col, name_col, formula_col)
                 confirm_button_db.param.clicks = 0
                 self.db = db
+                self.db_len = len(db)
 
                 # Description of the database and indication of successful database reading
                 if len(self.content) == 6:
@@ -964,7 +960,7 @@ class DatabaseSection():
         self.IDcol = db_IDcol_input.value
         self.annotation = db_annotation_input.value
         self.formula = db_formula_input.value
-        #self.mass = db_mass_input.value
+        self.db_len = 0
         self.db = db
         self.read = pn.widgets.Switch(name='Switch', value=False) # Important for verification later
                 
@@ -1205,6 +1201,8 @@ def metabolite_annotation():
 
         verbose_annotated_compounds[
             i+1].value = f'Annotated {annotated_df.value[matched_ids_col].notnull().sum()} compounds.'
+        # Erasing DB to alleviate memory usage
+        DB_dict[db_to_use].db.value = pd.DataFrame()
 
 # Perform annotation, update page layout
 def _press_confirm_annotation_perform(event):
@@ -3395,7 +3393,7 @@ class PLSDA_Storage(param.Parameterized):
 
         # Update the layout
         self.current_pages_associated[1][0][1][1] = pn.pane.DataFrame(self.n_results)
-        self.current_pages_associated[1][3] = pn.pane.DataFrame(self.feat_impor, height=600)
+        self.current_pages_associated[1][3] = pn.pane.DataFrame(self.feat_impor.iloc[:2000], height=600)
         self.current_pages_associated[3].value = False
         self.current_pages_associated[3].disabled = False
         self.current_pages_associated[4].disabled = False
@@ -3778,15 +3776,16 @@ def _layout_plsda_feat_import_dataframe(plsda_feat_imp_show_annots_only):
     "Update the layout based on if we are showing all metabolites or only annotated ones."
     # Select DataFrame
     if plsda_feat_imp_show_annots_only:
-        df_to_show = PLSDA_store.feat_impor[PLSDA_store.feat_impor['Has Match?']]
+        f_imp = PLSDA_store.feat_impor.iloc[:2000]
+        df_to_show = f_imp[f_imp['Has Match?']]
     else:
-        df_to_show = PLSDA_store.feat_impor
+        df_to_show = PLSDA_store.feat_impor.iloc[:2000]
 
     # Update the layout
     pls_results_section[3] = pn.pane.DataFrame(df_to_show, height=600)
 
 # Widget to save dataframe with features ordered by importance
-save_plsda_feat_imp_button = pn.widgets.Button(name='Save PLS-DA Feature Importance table obtained as .xlsx (in current folder)',
+save_plsda_feat_imp_button = pn.widgets.Button(name='Save PLS-DA Feature Importance (full) table obtained as .xlsx (in current folder)',
                                                 button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -3831,7 +3830,7 @@ pls_proj_page[0,1:3] = 'To plot a PLS'
 # Layout of the full results section (Partial, more is added when fitting PLS-DA model)
 pls_results_section = pn.Column(pn.Row(PLSDA_store.controls,
                                        pn.Column('### Model Performance Metrics', PLSDA_store.n_results)),
-                                '### Feature Importance Table',
+                                '### Feature Importance Table (Shown here only the Top 2000 Features)',
                                 plsda_feat_imp_show_annots_only,
                                pn.pane.DataFrame(PLSDA_store.feat_impor),
                                save_plsda_feat_imp_button,)
@@ -4025,7 +4024,7 @@ class RF_Storage(param.Parameterized):
 
         # Update the layout
         self.current_pages_associated[1][0][1][1] = pn.pane.DataFrame(self.n_results)
-        self.current_pages_associated[1][3] = pn.pane.DataFrame(self.feat_impor, height=600)
+        self.current_pages_associated[1][3] = pn.pane.DataFrame(self.feat_impor.iloc[:2000], height=600)
         self.current_pages_associated[2].value = False
         self.current_pages_associated[2].disabled = False
         self.current_pages_associated[3].disabled = False
@@ -4256,15 +4255,16 @@ def _layout_rf_feat_import_dataframe(rf_feat_imp_show_annots_only):
     "Update the layout based on if we are showing all metabolites or only annotated ones."
     # Select DataFrame
     if rf_feat_imp_show_annots_only:
-        df_to_show = RF_store.feat_impor[RF_store.feat_impor['Has Match?']]
+        f_imp = RF_store.feat_impor.iloc[:2000]
+        df_to_show = f_imp[f_imp['Has Match?']]
     else:
-        df_to_show = RF_store.feat_impor
+        df_to_show = RF_store.feat_impor.iloc[:2000]
 
     # Update the layout
     rf_results_section[3] = pn.pane.DataFrame(df_to_show, height=600)
 
 # Widget to save dataframe with features ordered by importance
-save_rf_feat_imp_button = pn.widgets.Button(name='Save Random Forest Feature Importance table obtained as .xlsx (in current folder)',
+save_rf_feat_imp_button = pn.widgets.Button(name='Save Random Forest Feature Importance (full) table obtained as .xlsx (in current folder)',
                                                 button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -4290,7 +4290,7 @@ save_rf_feat_imp_button.on_click(_save_rf_feat_imp_button)
 # Layout of the full results section (Partial, more is added when fitting RF model)
 rf_results_section = pn.Column(pn.Row(RF_store.controls,
                                        pn.Column('### Model Performance Metrics', RF_store.n_results)),
-                                '### Feature Importance Table',
+                                '### Feature Importance Table (Shown here only the Top 2000 Features)',
                                 rf_feat_imp_show_annots_only,
                                pn.pane.DataFrame(RF_store.feat_impor),
                                save_rf_feat_imp_button,)
@@ -4560,7 +4560,7 @@ def _layout_df_dataframe(univar_results_show_annots_only):
         layout_df[2] = pn.pane.DataFrame(df_to_show, height=600)
 
 # Widget to save dataframe of univariate analysis performed in .csv format
-save_univariate_results_button = pn.widgets.Button(name='Save univariate analysis results as .csv (in current folder)',
+save_univariate_results_button = pn.widgets.Button(name='Save (full) univariate analysis results as .csv (in current folder)',
                                                 button_type='warning', icon=iaf.download_icon)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -4654,12 +4654,12 @@ def _updating_univariate_analysis_page_layout():
     n_sig_met = UnivarA_Store.univariate_results.shape[0]
     n_sig_annotated = UnivarA_Store.univariate_results[UnivarA_Store.univariate_results['Has Match?']].shape[0]
     if len(layout_df) == 1:
-        layout_df.append(f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated.')
-        layout_df.append(pn.pane.DataFrame(UnivarA_Store.univariate_results, height=600))
+        layout_df.append(f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated. Results for the Top 2000 Features shown below.')
+        layout_df.append(pn.pane.DataFrame(UnivarA_Store.univariate_results.iloc[:2000], height=600))
         layout_df.append(save_univariate_results_button) # Button does not change - only needs to be added once
     else:
-        layout_df[1] = f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated.'
-        layout_df[2] = pn.pane.DataFrame(UnivarA_Store.univariate_results, height=600)
+        layout_df[1] = f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated. Results for the Top 2000 Features shown below.'
+        layout_df[2] = pn.pane.DataFrame(UnivarA_Store.univariate_results.iloc[:2000], height=600)
 
 
     # Update the Volcano plot section of the layout
@@ -5619,9 +5619,10 @@ def _layout_plsda_feat_import_dataframe_binsim(plsda_feat_imp_show_annots_only_b
     "Update the layout based on if we are showing all metabolites or only annotated ones."
     # Select DataFrame
     if plsda_feat_imp_show_annots_only_binsim:
-        df_to_show = PLSDA_store_binsim.feat_impor[PLSDA_store_binsim.feat_impor['Has Match?']]
+        f_imp = PLSDA_store_binsim.feat_impor.iloc[:2000]
+        df_to_show = f_imp[f_imp['Has Match?']]
     else:
-        df_to_show = PLSDA_store_binsim.feat_impor
+        df_to_show = PLSDA_store_binsim.feat_impor.iloc[:2000]
 
     # Update the layout
     pls_results_section_binsim[3] = pn.pane.DataFrame(df_to_show, height=600)
@@ -5629,7 +5630,7 @@ def _layout_plsda_feat_import_dataframe_binsim(plsda_feat_imp_show_annots_only_b
 
 # Widget to save dataframe with features ordered by importance
 save_plsda_feat_imp_binsim_button = pn.widgets.Button(
-    name='Save PLS-DA Feature Importance table (BinSim version) obtained as .xlsx (in current folder)',
+    name='Save PLS-DA Feature Importance (full) table (BinSim version) obtained as .xlsx (in current folder)',
     button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -5662,7 +5663,7 @@ pls_proj_page_binsim[0,1:3] = 'To plot a PLS'
 # Layout of the full results section (Partial, more is added when fitting PLS-DA model)
 pls_results_section_binsim = pn.Column(pn.Row(PLSDA_store_binsim.controls,
                                        pn.Column('### Model Performance Metrics', PLSDA_store_binsim.n_results)),
-                                '### Feature Importance Table',
+                                '### Feature Importance Table (Shown here only the Top 2000 Features)',
                                 plsda_feat_imp_show_annots_only_binsim,
                                pn.pane.DataFrame(PLSDA_store_binsim.feat_impor),
                                save_plsda_feat_imp_binsim_button,)
@@ -5734,9 +5735,10 @@ def _layout_rf_feat_import_dataframe_binsim(rf_feat_imp_show_annots_only_binsim)
     "Update the layout based on if we are showing all metabolites or only annotated ones."
     # Select DataFrame
     if rf_feat_imp_show_annots_only_binsim:
-        df_to_show = RF_store_binsim.feat_impor[RF_store_binsim.feat_impor['Has Match?']]
+        f_imp = RF_store_binsim.feat_impor.iloc[:2000]
+        df_to_show = f_imp[f_imp['Has Match?']]
     else:
-        df_to_show = RF_store_binsim.feat_impor
+        df_to_show = RF_store_binsim.feat_impor.iloc[:2000]
 
     # Update the layout
     rf_results_section_binsim[3] = pn.pane.DataFrame(df_to_show, height=600)
@@ -5744,7 +5746,7 @@ def _layout_rf_feat_import_dataframe_binsim(rf_feat_imp_show_annots_only_binsim)
 
 # Widget to save dataframe with features ordered by importance
 save_rf_feat_imp_binsim_button = pn.widgets.Button(
-    name='Save Random Forest Feature Importance table (BinSim version) obtained as .xlsx (in current folder)',
+    name='Save Random Forest Feature Importance (full) table (BinSim version) obtained as .xlsx (in current folder)',
     button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -5771,7 +5773,7 @@ save_rf_feat_imp_binsim_button.on_click(_save_rf_feat_imp_binsim_button)
 # Layout of the full results section (Partial, more is added when fitting RF model)
 rf_results_section_binsim = pn.Column(pn.Row(RF_store_binsim.controls,
                                        pn.Column('### Model Performance Metrics', RF_store_binsim.n_results)),
-                                '### Feature Importance Table',
+                                '### Feature Importance Table (Shown here only the Top 2000 Features)',
                                 rf_feat_imp_show_annots_only_binsim,
                                pn.pane.DataFrame(RF_store_binsim.feat_impor),
                                save_rf_feat_imp_binsim_button,)
