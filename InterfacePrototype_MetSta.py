@@ -395,7 +395,8 @@ def _confirm_button_filename(event):
     "Reads the file given."
 
     # Read the file, updating widgets and parameters
-    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file(filename.filename, target_included_in_file.value,
+    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file(filename.filename, filename.value,
+                                                                                      target_included_in_file.value,
                                                                                       type_of_mass_values.value)
 
     # Parameters to store for Report Generation
@@ -433,7 +434,7 @@ def _load_example_df_button(event):
     "Reads the example file ofthe software."
 
     # Read the file, updating widgets and parameters
-    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file('5yeasts_notnorm.csv', False,
+    file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file('5yeasts_notnorm.csv', '', False,
                                                                                       type_of_mass_values.value)
 
     # Parameters to store for Report Generation
@@ -538,6 +539,9 @@ def _confirm_step1(event):
     filename.disabled = True
     confirm_button_target.disabled=True
     confirm_button_next_step_1_1.disabled=True
+
+    # Emptying the filename file
+    filename.value = ''
 
     # Update all the options for the Data Metadata Step - CheckBox and RadioBox Widgets
     checkbox_formula.options = list(file.read_df.columns)

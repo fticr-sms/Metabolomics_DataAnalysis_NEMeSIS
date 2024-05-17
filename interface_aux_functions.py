@@ -18,6 +18,7 @@ import panel as pn
 import math
 import upsetplot
 import venn
+from io import BytesIO
 
 import holoviews as hv
 import plotly.express as px
@@ -79,7 +80,7 @@ hourglass_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tab
 
 
 # Function related to File data reading
-def read_file(filename, target_in_file, type_of_mass_values):
+def read_file(filename, file_bytes, target_in_file, type_of_mass_values):
     "Function to read the file given."
 
     # Samples names frequently have 00000.
@@ -97,13 +98,16 @@ def read_file(filename, target_in_file, type_of_mass_values):
     elif filename.endswith('.csv'):
 
         if target_in_file: # If you have the target in the file
-            file = pd.read_csv(filename, header=[0,1])
+            file = pd.read_csv(BytesIO(file_bytes), header=[0,1])
             colnames = [renamer(i) for i in file.columns.get_level_values(0)]
             target_file = dict(zip(colnames, file.columns.get_level_values(1).astype(str)))
             file.columns = colnames
 
         else: # If you do not have the target in the file
-            file = pd.read_csv(filename)
+            if filename == '5yeasts_notnorm.csv':
+                file = pd.read_csv('5yeasts_notnorm.csv')
+            else:
+                file = pd.read_csv(BytesIO(file_bytes))
             file.columns = [renamer(i) for i in file.columns]
             target_file = {}
 
@@ -111,13 +115,13 @@ def read_file(filename, target_in_file, type_of_mass_values):
     elif filename.endswith('.xlsx') or filename.endswith('.xls'):
 
         if target_in_file: # If you have the target in the file
-            file = pd.read_excel(filename, header=[0,1])
+            file = pd.read_excel(BytesIO(file_bytes), header=[0,1])
             colnames = [renamer(i) for i in file.columns.get_level_values(0)]
             target_file = dict(zip(colnames, file.columns.get_level_values(1).astype(str)))
             file.columns = colnames
 
         else: # If you do not have the target in the file
-            file = pd.read_excel(filename)
+            file = pd.read_excel(BytesIO(file_bytes))
             file.columns = [renamer(i) for i in file.columns]
             target_file = {}
 
