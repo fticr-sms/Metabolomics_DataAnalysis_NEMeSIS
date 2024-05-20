@@ -1,7 +1,4 @@
-#TODO: Make an output with the number of samples read after data reading - Priority 3
-#TODO: Make a sample bar plot? appear indicating the number of features in each sample - Priority 4
-#TODO: Make the description of the data alignment performed to be showned before the aligned dataset - Priority 2
-#TODO: Make the name of the aligned dataset to be saved editable - Priority 1
+#TODO: Make a sample bar plot? appear indicating the number of features in each sample
 
 ## Needed imports
 import pandas as pd
@@ -99,22 +96,37 @@ class DataAlignmentObject(param.Parameterized):
                           return_alignment_desc=True,
                           verbose=False)
 
+            n_groups = len(aligned)
+
             # Get only featuress that appeared in at least min_samples samples
-            desc = desc[desc['# features'] >= alignment_storage.min_samples]
+            desc = desc[desc['# features'] >= self.min_samples]
             aligned = aligned.iloc[desc.index]
 
             # Storing files
             self.aligned_df = aligned
             self.desc = desc
 
+            # Building the description
+            n_total_features = 0
+            for samp in self.samples:
+                n_total_features += len(samp)
+            desc_list = [f'A total of **{n_total_features} features** were extracted in **{len(self.samples)} samples**. Data Alignment was performed with PPM Deviation tolerance of {self.ppmtol}',
+                         f'**{n_groups}** total groupings were found. From these, **{n_groups-len(self.aligned_df)}** groups were discarded (appeared in less than **{self.min_samples} samples**).',
+                         f'The aligned dataset had the remaining **{len(self.aligned_df)} metabolic features**.',
+                         '']
+            summary_string = alignment_summary(self.desc, self.ppmtol).split('\n')
+            desc_list.extend(summary_string)
+            self.aligned_desc = '<br />'.join(desc_list)
+
             # Updating Layout
             alignment_page.pop(-1)
+            alignment_page.append(self.aligned_desc)
             if len(self.aligned_df) < 8000:
                 alignment_page.append(pn.pane.DataFrame(self.aligned_df, height=600))
             else:
                 alignment_page.append(pn.pane.DataFrame(self.aligned_df.iloc[:8000], height=600))
-            alignment_page.append(save_alignment_files_button)
-        
+            alignment_page.append(saving_df_widgets)
+
             pn.state.notifications.success(f'Data sucessfully aligned.')
 
         except:
@@ -170,6 +182,12 @@ def _update_confirm_button_filename(filename):
 def _confirm_button_filename(event):
     "Reads the samples in the provided file."
 
+    # Updating layout
+    while len(alignment_page)>1:
+        alignment_page.pop(-1)
+    while len(data_reading_section)>2:
+        data_reading_section.pop(-1)
+
     try:
         # Reading the file
         data = read_data_from_xcel(BytesIO(filename.value), header=[0])
@@ -183,6 +201,7 @@ def _confirm_button_filename(event):
 
         # Storing the samples
         alignment_storage.samples = full_data
+        data_reading_section.append(f'**{len(full_data)} samples** were read from {filename.filename}.')
 
         # Update the possible minimum number of samples and the layout
         alignment_storage.update_widgets(filename.filename)
@@ -198,6 +217,10 @@ def _confirm_button_filename(event):
 confirm_button_filename.on_click(_confirm_button_filename)
 
 
+# Widget to select name of the aligned dataset
+dataset_download_name = pn.widgets.TextAreaInput(name='Name to save the dataset as:',
+                                           placeholder='aligned_df', value='aligned_df', rows=1)
+
 # Button to save files
 save_alignment_files_button = pn.widgets.Button(name='Save Aligned Dataset and Alignment Description',
                                                 button_type='success', disabled=False)
@@ -207,13 +230,13 @@ def _save_alignment_files_button(event):
 
     try:
         # Saving the file
-        alignment_storage.aligned_df.to_csv('example.csv')
-        alignment_storage.desc.to_excel('example_desc.xlsx')
+        alignment_storage.aligned_df.to_csv(f'{dataset_download_name.value}.csv')
+        alignment_storage.desc.to_excel(f'{dataset_download_name.value}_desc.xlsx')
 
-        pn.state.notifications.success(f'Aligned dataset successfully saved in example.csv.')
+        pn.state.notifications.success(f'Aligned dataset successfully saved in {dataset_download_name.value}.csv.')
 
     except:
-        pn.state.notifications.error(f'Dataset could not be saved in example.csv.')
+        pn.state.notifications.error(f'Dataset could not be saved in {dataset_download_name.value}.csv.')
 
 # Function happens when you press the button        
 save_alignment_files_button.on_click(_save_alignment_files_button)
@@ -224,6 +247,9 @@ data_reading_section = pn.Column(filename, confirm_button_filename)
 
 # Section of the interface regarding 
 data_alignment_section = pn.Column(alignment_storage.controls)
+
+# Section to save the aligned dataset
+saving_df_widgets = pn.Column(dataset_download_name, save_alignment_files_button)
 
 alignment_page = pn.Column(data_reading_section)
 
