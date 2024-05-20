@@ -2270,13 +2270,9 @@ def plot_class_bar_plot(comp_finder, target_list, com_exc_compounds):
 def plot_class_boxplot(comp_finder, target_list, com_exc_compounds):
     "Plot the normalized intensity by sample bar plot."
 
-    # Defining x and y labels for horizontal and vertical barplots
-    if comp_finder.sample_bar_plot_type == 'Horizontal': # Horizontal bar plot
-        xlabel = 'Avg. Normalized Intensity'
-        ylabel = 'Classes'
-    else: # Vertical bar plot
-        xlabel = 'Classes'
-        ylabel = 'Avg. Normalized Intensity'
+    # Defining x and y labels
+    xlabel = 'Classes'
+    ylabel = 'Avg. Normalized Intensity'
 
     if comp_finder.class_boxplot_points == 'Only outliers':
         boxpoints = 'outliers'

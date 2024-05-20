@@ -28,6 +28,8 @@ import multianalysis as ma
 
 # The initial pages, especially the read file one does not have the nomenclature that I started using later on
 # for the different widgets as well as organization
+
+# Activating extensions
 pn.extension('plotly', 'floatpanel', 'katex', notifications=True)
 hv.extension('plotly')
 pn.config.sizing_mode="stretch_width"
@@ -378,7 +380,7 @@ type_of_mass_values = pn.widgets.RadioBoxGroup(name='Type of mass values in data
 
 confirm_button_filename = pn.widgets.Button(name='Read File', button_type='primary', disabled=True)
 tooltip_file = pn.widgets.TooltipIcon(
-    value="""Provided file must come from MetaboScape. Alternatively, the column with the _m/z_ peaks should be labelled 'Bucket label'.""")
+    value="""Provided file must follow the formatting mentioned above.""")
 confirm_button_step1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm - Next Step', button_type='success',
                                          disabled=True)
 
