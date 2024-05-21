@@ -1,4 +1,3 @@
-#TODO: Make a sample bar plot? appear indicating the number of features in each sample
 
 ## Needed imports
 import pandas as pd
@@ -7,7 +6,8 @@ import panel as pn
 import param
 import holoviews as hv
 from io import BytesIO
-from metabolinks import add_labels, read_data_from_xcel, align
+import plotly.express as px
+from metabolinks import read_data_from_xcel, align
 from metabolinks.peak_alignment import alignment_summary
 
 # Activating extensions
@@ -110,7 +110,7 @@ class DataAlignmentObject(param.Parameterized):
             n_total_features = 0
             for samp in self.samples:
                 n_total_features += len(samp)
-            desc_list = [f'A total of **{n_total_features} features** were extracted in **{len(self.samples)} samples**. Data Alignment was performed with PPM Deviation tolerance of {self.ppmtol}',
+            desc_list = [f'A total of **{n_total_features} features** were extracted in **{len(self.samples)} samples**. Data Alignment was performed with PPM Deviation tolerance of {self.ppmtol}.',
                          f'**{n_groups}** total groupings were found. From these, **{n_groups-len(self.aligned_df)}** groups were discarded (appeared in less than **{self.min_samples} samples**).',
                          f'The aligned dataset had the remaining **{len(self.aligned_df)} metabolic features**.',
                          '']
@@ -202,6 +202,17 @@ def _confirm_button_filename(event):
         # Storing the samples
         alignment_storage.samples = full_data
         data_reading_section.append(f'**{len(full_data)} samples** were read from {filename.filename}.')
+
+        # Plotting a bar plot
+        samp_bar_plot = px.bar(x=[len(i) for i in alignment_storage.samples],
+             y=[i.columns[0] for i in alignment_storage.samples], orientation='h',
+            title='Metabolic Features per Sample')
+        samp_bar_plot.update_layout(
+            xaxis_title="Number of Metabolic Features",
+            yaxis_title="Samples",
+            height=25*len(alignment_storage.samples))
+        data_reading_section.append(pn.pane.Plotly(samp_bar_plot, config={'toImageButtonOptions': {
+                   'filename': f'FeaturePerSamplePlot_{filename.filename}', 'scale':4}}))
 
         # Update the possible minimum number of samples and the layout
         alignment_storage.update_widgets(filename.filename)
