@@ -8,6 +8,7 @@ import seaborn as sns
 import holoviews as hv
 import plotly.express as px
 import plotly.graph_objects as go
+import scipy.stats as stats
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as hier
 import sklearn.model_selection
@@ -41,6 +42,7 @@ pd.DataFrame.iteritems = pd.DataFrame.items
 # TODO: Make a way to choose folder where all figures and tables downloaded go to
 # TODO: Updating packages made a series of future deprecation warnings appear - adapt code to them
 # TODO: Make PCA and projection plots save the current components names in the filename
+# TODO: Add Pathway ORA to report generation and parameter saving/loading
 
 
 # Define pages as classes
@@ -939,7 +941,7 @@ class DatabaseSection():
                 db.value = iaf.read_database(filename, abv, ID_col, name_col, formula_col)
                 confirm_button_db.param.clicks = 0
                 self.db = db
-                self.db_len = len(db)
+                self.db_len = len(db.value)
 
                 # Description of the database and indication of successful database reading
                 if len(self.content) == 6:
@@ -2099,6 +2101,9 @@ def _confirm_button_next_step_5(event):
                 path_matching_section.pop(-1)
             while len(hmdb_id_searching_section) > 3:
                 hmdb_id_searching_section.pop(-1)
+            pathora_store.reset()
+            while len(pathway_ora_page) > 3:
+                pathway_ora_page.pop(-1)
 
             # BinSim Analysis Page
             # PCA
@@ -2962,6 +2967,7 @@ def _compute_PCA_button(event):
                                        n_components=n_components_compute.value,
                                        whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
     PCA_params.pca_scores = principaldf
+    PCA_params.pca_scores['Sample'] = target_list.sample_cols
     PCA_params.explained_variance = var
     PCA_params.pca_loadings = pd.DataFrame(loadings)
     PCA_params.n_components = n_components_compute.value # This may catalyse the 'change in n_components' react function
@@ -3424,6 +3430,7 @@ class PLSDA_Storage(param.Parameterized):
         if self.binsim_flag:
             filename_string = filename_string + '_BinSim'
 
+        self.x_scores['Sample'] = target_list.sample_cols
         self.PLS_plot[0] = iaf._plot_PLS(self, target_list)
         self.current_pages_associated[2][0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
@@ -5343,7 +5350,7 @@ def _pathway_assignments_df(pathassign_show_matched_only):
         else:
             path_matching_section[5] = pn.pane.DataFrame(df_to_show, height=800)
 
-# Widget to save dataframe of univariate analysis performed in .csv format
+# Widget to save dataframe of pathway assignment in .csv format
 save_pathway_assignments_button = pn.widgets.Button(name='Save pathway matching DataFrame as .xlsx (in current folder)',
                                                 button_type='warning', icon=iaf.download_icon)
 
@@ -5421,8 +5428,317 @@ hmdb_id_searching_section = pn.Column('## HMDB ID Pathway Searching Section',
                                       confirm_hmdb_ids_to_search_button)
 
 
+
+# Class for the section of Pathway Over-Representation Analysis
+class PathwayORA_Storage(param.Parameterized):
+    "Class to contain parameters and relevant DataFrames to the Pathway Over-Representation Analysis."
+
+    # Parameters for ORAnalysis
+    min_metabolites_for_pathway = param.Number(default=3)
+    background_set = param.String('All HMDB metabolites in the pathway database')
+    min_pathway_data_ann_metabolites_found = param.Number(default=2)
+    static_text_type_of_ORA = param.String(default='')
+    type_of_ORA = param.String('All metabolites that appear in each class')
+    confirm_button_ORA = param.Boolean(default=False)
+
+    # Results of ORAnalysis
+    ora_dfs = param.Dict({})
+    spec_path_dfs = param.Dict({})
+
+    # Displaying Results
+    class_to_show = param.String('')
+    pathway_searcher = param.String('')
+    confirm_id_button = param.Boolean(default=False)
+
+    # For Figures
+    ora_fig = param.List(default=['To Plot a ORA Plot'])
+
+
+    def _perform_ORA_analysis(self, PathAssign_store, UnivarA_Store, DataFrame_Store):
+        "Performs Pathway Over-Representation Analysis."
+
+        # Check if annotation with HMDB was performed
+        if 'Matched HMDB IDs' not in DataFrame_Store.processed_df.columns:
+            pn.state.notifications.error(f"'Matched HMDB IDs' columns (annotation) not found. Cannot perform Pathway Over-Representation Analysis.")
+            return
+
+        # Setting up the background set and the available pathways
+        # Count the number of HMDB metabolites in the pathway databases.
+        pathways_counts = PathAssign_store.pathway_db.explode('Pathway ID')[
+            'Pathway ID'].reset_index().drop_duplicates().set_index('index')['Pathway ID'].value_counts()
+        pathways_counts = pathways_counts[pathways_counts >= self.min_metabolites_for_pathway]
+
+        # Keep only metabolites that belong to relevant pathways in the background set
+        keep_idxs = []
+        for i in PathAssign_store.pathway_db.index:
+            for path_id in PathAssign_store.pathway_db.loc[i, 'Pathway ID']:
+                if path_id in pathways_counts.index:
+                    keep_idxs.append(i)
+                    break
+        filtered_pathways_db = PathAssign_store.pathway_db.loc[keep_idxs]
+
+        if self.background_set == 'All HMDB metabolites in the pathway database':
+            total_metabolites_with_pathways = len(filtered_pathways_db) # Number of metabolites with at least 1 annotation
+        else:
+            # Get the counts of metabolites of each pathway
+            path_metabolites = PathAssign_store.pathway_assignments.dropna()
+            total_metabolites_with_pathways = len(path_metabolites)
+            filtered_pathways_db = path_metabolites
+
+            # Get the new background set counts
+            path_assign_hmdb_c = path_metabolites.explode(['Pathway Name', 'Pathway ID'])[
+                ['Pathway Name', 'Pathway ID']].reset_index().drop_duplicates().set_index('HMDB IDs')
+            path_assign_hmdb = path_assign_hmdb_c['Pathway ID'].value_counts()
+            # Only include pathways that were included in the database set
+            path_assign_hmdb = path_assign_hmdb.loc[[i for i in path_assign_hmdb.index if i in pathways_counts.index]]
+            pathways_counts = path_assign_hmdb
+
+
+        # Store Results
+        ora_dfs = {}
+        spec_path_dfs = {}
+
+        # Setting up the correct dfs
+        dfs_to_use = {}
+        if self.type_of_ORA == 'All metabolites that appear in each class':
+            if com_exc_compounds.groups_description == '':
+                iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store)
+            dfs_to_use = com_exc_compounds.group_dfs
+        elif self.type_of_ORA == 'Only the exclusive metabolites for each class':
+            if com_exc_compounds.com_exc_desc == '':
+                pn.state.notifications.error('Exclusive Compound Analysis was not performed/found to select metabolites from.')
+                return
+            else:
+                dfs_to_use = com_exc_compounds.exclusives_id
+        elif self.type_of_ORA == 'Only the significant metabolites of a 1v1 univariate analysis':
+            if len(UnivarA_Store.current_univ_params) > 0:
+                univ_parameters = UnivarA_Store.current_univ_params
+                u_df = UnivarA_Store.univariate_results
+                control_class = univ_parameters['Control Class']
+                test_class = univ_parameters['Test Class']
+                dfs_to_use = {control_class: u_df.loc[u_df['log2FC'] < 0],
+                              test_class: u_df.loc[u_df['log2FC'] > 0]}
+            else:
+                pn.state.notifications.error('No Univariate Analysis was performed to select significant metabolites from.')
+                return
+        else:
+            pn.state.notifications.error('Type of ORA selected not found.')
+            return
+
+        # Going through the dfs and performing over-representation analysis on each one
+        for cl, df in dfs_to_use.items():
+            spec_path_dfs[cl] = {}
+            # List of HMDB annotated features in the provided dataset
+            hmdb_list_c = df['Matched HMDB IDs'].dropna().explode()
+            hmdb_list = hmdb_list_c.drop_duplicates().values # Dropping duplicates
+
+            # Get the counts of metabolites of each pathway
+            path_metabolites = PathAssign_store.pathway_assignments.loc[hmdb_list].dropna()
+            path_assign_hmdb_c = path_metabolites.explode(['Pathway Name', 'Pathway ID'])[
+                ['Pathway Name', 'Pathway ID']].reset_index().drop_duplicates().set_index('HMDB IDs')
+            path_to_ID = path_assign_hmdb_c.set_index('Pathway ID')['Pathway Name']
+            path_to_ID = path_to_ID[~path_to_ID.index.duplicated(keep='first')]
+            path_assign_hmdb = path_assign_hmdb_c['Pathway ID'].value_counts()
+            # Only include pathways that were included in the background set
+            path_assign_hmdb = path_assign_hmdb.loc[[i for i in path_assign_hmdb.index if i in pathways_counts.index]]
+            # Exclude pathwways where less than the defined number of metabolites were found
+            path_assign_hmdb = path_assign_hmdb[path_assign_hmdb>=self.min_pathway_data_ann_metabolites_found]
+
+            # Number of metabolites with pathways
+            annotated_metabolites_w_path = len(path_metabolites)
+
+            # Preparing DF
+            over_representation_df = pd.DataFrame(columns=['Pathway Name',
+                'Nº of Met. in Dataset', 'Nº of Met. in Pathway', '% of Met. In Set', 'Probability'], dtype='object')
+
+            for pathway in path_assign_hmdb.index:
+                # Pathway Name
+                p_name = path_to_ID.loc[pathway]
+                # Metabolites related to the current pathway
+                total_met_in_path = pathways_counts.loc[pathway]
+                # Number of annotated metabolites related to the current pathway
+                ann_met_in_path = path_assign_hmdb.loc[pathway]
+
+                # Calculating probability to find ann_met_in_path or more metabolites in annotated_metabolites_w_path
+                prob = stats.hypergeom(M=total_metabolites_with_pathways,
+                                        n=total_met_in_path,
+                                        N=annotated_metabolites_w_path).sf(ann_met_in_path-1)
+
+                # Adding the line to the DF
+                over_representation_df.loc[pathway] = [p_name, ann_met_in_path, total_met_in_path,
+                                                       ann_met_in_path/total_met_in_path*100, prob]
+
+                # Getting the HMDB IDs of the compounds found in the pathway
+                spec_path_dfs[cl][pathway] = path_assign_hmdb_c[path_assign_hmdb_c['Pathway ID'] == pathway].index
+                # Getting the mass peaks that were annotated with those HMDB IDs
+                spec_path_dfs[cl][pathway] = hmdb_list_c.loc[
+                    [True if i in spec_path_dfs[cl][pathway] else False for i in hmdb_list_c.values]]
+                spec_path_dfs[cl][pathway] = DataFrame_Store.processed_df.loc[list(set(spec_path_dfs[cl][pathway].index))]
+
+            # Sorting DataFrame from least probable to more probable and adding adjusted probability
+            # with Benjamini-Hochberg multiple test correction
+            over_representation_df = over_representation_df.sort_values(by='Probability')
+            over_representation_df['Adjusted (BH) Probability'] = metsta.p_adjust_bh(over_representation_df['Probability'])
+
+            ora_dfs[cl] = over_representation_df
+
+        self.ora_dfs = ora_dfs
+        self.spec_path_dfs = spec_path_dfs
+
+        self.controls_results.widgets['class_to_show'].options = list(ora_dfs.keys())
+
+
+    # Update the df based on specifications chosen
+    @param.depends('class_to_show', watch=True)
+    def _update_ora_results_df(self):
+        "Update the DataFrame shown in Pathway ORA results based on inputs given."
+        # For Reset purposes
+        if self.class_to_show == '':
+            return
+
+        # Updating results
+        path_results[:, 1:4] = pn.pane.DataFrame(self.ora_dfs[self.class_to_show], height=400)
+        if len(pathway_ora_page) <= 3:
+            pathway_ora_page.append(path_results)
+        elif len(pathway_ora_page) <= 4:
+            pathway_ora_page[3] = path_results
+            pathway_ora_page.append(path_searcher_section)
+        else:
+            pathway_ora_page[3] = path_results
+            pathway_ora_page[4] = path_searcher_section
+        self.controls_searcher.widgets['pathway_searcher'].options = list(self.spec_path_dfs[self.class_to_show].keys())
+        self.controls_searcher.widgets['pathway_searcher'].placeholder = list(self.spec_path_dfs[self.class_to_show].keys())[0]
+
+
+    # Update the searched pathway df
+    def _confirm_id_button(self, event):
+        "Update the DataFrame shown in Pathway ORA search results based on inputs given."
+        df_to_show = self.spec_path_dfs[self.class_to_show][self.pathway_searcher]
+        if len(df_to_show) < 10:
+            path_searcher_section[1] = pn.pane.DataFrame(df_to_show)
+        else:
+            path_searcher_section[1] = pn.pane.DataFrame(df_to_show, height=400)
+        pathway_ora_page[4] = path_searcher_section
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name",]:
+                setattr(self, param, self.param[param].default)
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'min_metabolites_for_pathway': pn.widgets.IntInput(name='Minimum number of metabolites in a pathway to consider as a pathway (Database):',
+                                           value=3, step=1, start=1, description='This parameter regards the database of pathways (not the metabolites found).'),
+            'background_set': pn.widgets.Select(name="Background Set to use for Pathway Over-Representation Analysis:",
+                            value = 'All HMDB metabolites in the pathway database',
+                            options=['HMDB annotated metabolites in the dataset (with 1 or more associated pathways)',
+                                     'All HMDB metabolites in the pathway database'],
+                description="This background set is used as the full metabolite list universe. You can choose whether this 'universe' is your dataset or the database."),
+            'min_pathway_data_ann_metabolites_found': pn.widgets.IntInput(name='Minimum number of detected metabolites in a pathway to consider it possibly significant:',
+                                           value=2, step=1, start=1, description='This parameter regards the annotated metabolites in your dataset.'),
+            'static_text_type_of_ORA': pn.widgets.StaticText(name='For ORA analysis, consider', value=''),
+            'type_of_ORA': pn.widgets.RadioBoxGroup(name='Type of Pathway ORA',
+                        options=['All metabolites that appear in each class',
+                                 'Only the exclusive metabolites for each class',
+                                 'Only the significant metabolites of a 1v1 univariate analysis'],
+                       inline=False),
+            'confirm_button_ORA': pn.widgets.Button(name="Perform Over-Representation Analysis", button_type='primary'),
+        }
+
+        widgets2 = {
+            'class_to_show': pn.widgets.RadioBoxGroup(name='DataFrame to Show', options=[], inline=False),
+        }
+
+        widgets3 = {
+            'pathway_searcher': pn.widgets.AutocompleteInput(
+                name="Type the ID of the pathway to search for the metabolic features with identified metabolites from said pathway",
+                    value = '', options=[''], search_strategy='includes', case_sensitive=False,
+                    placeholder='WP3604'),
+            'confirm_id_button': pn.widgets.Button(
+                name="Search Metabolic Features with Annotated Compounds associated with chosen Pathway ID",
+                button_type='primary'),
+        }
+
+        self.controls = pn.Param(self, parameters=['min_metabolites_for_pathway',
+                                                   'background_set',
+                                                   'min_pathway_data_ann_metabolites_found',
+                                                   'static_text_type_of_ORA',
+                                                   'type_of_ORA',
+                                                  'confirm_button_ORA'],
+                                 widgets=widgets, name='Pathway Over-Representation Analysis Parameters')
+
+        self.controls_results = pn.Param(self, parameters=['class_to_show',],
+                                 widgets=widgets2, name='Choose Class to see OR Pathways Table')
+
+        self.controls_searcher = pn.Param(self, parameters=['pathway_searcher', 'confirm_id_button'],
+                                 widgets=widgets3, name='Searching for Metabolic Features from a Metabolic Pathway')
+
+
+# Initialize the Pathway ORA Class
+pathora_store = PathwayORA_Storage()
+
+
+def _confirm_button_ORA(event):
+    'Updating layout and performing Pathway ORAnalysis.'
+
+    # Update layout
+    while len(pathway_ora_page) > 3:
+        pathway_ora_page.pop(-1)
+
+    # Loading Widget while the PLS-DA optimization is being performed
+    pathway_ora_page.append(pn.indicators.LoadingSpinner(value=True, size=120,
+                                                        name='Performing Pathway Over-Representation Analysis...'))
+
+    # Performing ORA
+    pathora_store._perform_ORA_analysis(PathAssign_store, UnivarA_Store, DataFrame_Store)
+
+    # Update layout
+    while len(pathway_ora_page) > 3:
+        pathway_ora_page.pop(-1)
+
+    # Setting the results section
+    pathora_store.class_to_show = list(pathora_store.ora_dfs.keys())[0]
+    path_results[:, 1:4] = pn.pane.DataFrame(pathora_store.ora_dfs[pathora_store.class_to_show], height=400)
+
+    if len(pathway_ora_page) <= 3:
+        pathway_ora_page.append(path_results)
+    elif len(pathway_ora_page) <= 4:
+        pathway_ora_page[3] = path_results
+        pathway_ora_page.append(path_searcher_section)
+    else:
+        pathway_ora_page[3] = path_results
+        pathway_ora_page[4] = path_searcher_section
+
+# ORA Function happens when you press the corresponding button
+pathora_store.controls.widgets['confirm_button_ORA'].on_click(_confirm_button_ORA)
+
+# Calling the search metabolic feature function when the button is pressed
+pathora_store.controls_searcher.widgets['confirm_id_button'].on_click(pathora_store._confirm_id_button)
+
+
+# Part of the ORA page
+path_results = pn.GridSpec(mode='override')
+path_results[:,0] = pathora_store.controls_results
+
+# Part of the ORA page
+path_searcher_section = pn.Column(pathora_store.controls_searcher,
+                            pn.pane.DataFrame(height=400))
+
+# Pathway ORA page organization
+pathway_ora_page = pn.Column('# Pathway Over-Representation Analysis (based on HMDB IDs)',
+                            pn.pane.HTML(desc_str.pathway_ora_opening_string),
+                            pathora_store.controls)
+
+
+
 # Overall Page layout
-path_assign_page = pn.Column(path_matching_section, hmdb_id_searching_section)
+path_assign_page = pn.Column(path_matching_section, hmdb_id_searching_section, pathway_ora_page)
 
 
 
@@ -5462,6 +5778,7 @@ def _compute_PCA_binsim_button(event):
                                        n_components=n_components_compute_binsim.value,
                                        whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
     PCA_params_binsim.pca_scores = principaldf
+    PCA_params_binsim.pca_scores['Sample'] = target_list.sample_cols
     PCA_params_binsim.explained_variance = var
     PCA_params_binsim.pca_loadings = pd.DataFrame(loadings)
     PCA_params_binsim.n_components = n_components_compute_binsim.value # This may catalyse the 'change in n_components' react function
@@ -6364,6 +6681,9 @@ def Yes_Reset(event):
         path_matching_section.pop(-1)
     while len(hmdb_id_searching_section) > 3:
         hmdb_id_searching_section.pop(-1)
+    pathora_store.reset()
+    while len(pathway_ora_page) > 3:
+        pathway_ora_page.pop(-1)
 
     # Binary Simplification (BinSim) analysis page
     # PCA

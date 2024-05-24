@@ -1097,11 +1097,15 @@ def _plot_PCA(PCA_params, target_list):
         # Plot PCA
         PCA_plot = px.scatter(
             PCA_params.pca_scores, x=PCA_params.PCx, y=PCA_params.PCy, color=PCA_params.pca_scores['Label'],
-            color_discrete_map=target_list.color_classes,
+            color_discrete_map=target_list.color_classes, custom_data='Sample',
             title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained)*100:.2f}%''',
             labels={PCA_params.PCx: PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)',
                    PCA_params.PCy: PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)'})
-        PCA_plot.update_traces(marker={'size': PCA_params.dot_size})
+        PCA_plot.update_traces(marker={'size': PCA_params.dot_size},
+                               hovertemplate="<br>".join([
+                                "Sample: %{customdata[0]}",
+                                PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)' + ": %{x}",
+                                PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)' + ": %{y}"]))
 
         # Draw ellipses if ellipses wanted
         if PCA_params.ellipse_draw:
@@ -1113,7 +1117,10 @@ def _plot_PCA(PCA_params, target_list):
                     subset_points, q=PCA_params.confidence, nstd=PCA_params.confidence_std).array()
                 temp = pd.concat((pd.DataFrame(temp), pd.DataFrame([lbl,]*len(temp), columns=['label'])), axis=1)
                 ellipses_df = pd.concat((ellipses_df, temp))
-            ellipses = px.line(ellipses_df, x=0, y=1, color='label', color_discrete_map=target_list.color_classes)
+            ellipses_df.columns=['0', '1', 'Label']
+            ellipses = px.line(ellipses_df, x='0', y='1', color='Label', color_discrete_map=target_list.color_classes,
+                               hover_data={'0': False, '1': False})
+            #ellipses.update_layout(hov=False)
 
             # Final Plot joining the 2
             final_PCA_plot = go.Figure(data=PCA_plot.data + ellipses.data)
@@ -1133,13 +1140,18 @@ def _plot_PCA(PCA_params, target_list):
 
         final_PCA_plot = px.scatter_3d(
             PCA_params.pca_scores, x=PCA_params.PCx, y=PCA_params.PCy, z=PCA_params.PCz,
-            color=PCA_params.pca_scores['Label'],
+            color=PCA_params.pca_scores['Label'], custom_data='Sample',
             color_discrete_map=target_list.color_classes,
             title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained + PCz_var_explained)*100:.2f}%''',
             labels={PCA_params.PCx: PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)',
                    PCA_params.PCy: PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)',
                    PCA_params.PCz: PCA_params.PCz + f' ({PCz_var_explained*100:.2f}%)'})
-        final_PCA_plot.update_traces(marker={'size': PCA_params.dot_size})
+        final_PCA_plot.update_traces(marker={'size': PCA_params.dot_size},
+                                     hovertemplate="<br>".join([
+                                "Sample: %{customdata[0]}",
+                                PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)' + ": %{x}",
+                                PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)' + ": %{y}",
+                                PCA_params.PCz + f' ({PCz_var_explained*100:.2f}%)' + ": %{z}"]))
 
     return final_PCA_plot
 
@@ -1175,6 +1187,7 @@ def _scatter_PCA_plot(PCA_params, target_list):
         PCA_params.pca_scores,
         dimensions=columns,
         color="Label",
+        hover_data=['Sample',],
         color_discrete_map=target_list.color_classes,
         labels={PCA_params.pca_scores.columns[i]: PCA_params.pca_scores.columns[i] +f" ({var:.2f}%)"
             for i, var in enumerate(PCA_params.explained_variance * 100)},
@@ -1343,8 +1356,13 @@ def _plot_PLS(PLSDA_store, target_list):
         # Plot PLS
         PLS_plot = px.scatter(
             PLSDA_store.x_scores, x=PLSDA_store.LVx, y=PLSDA_store.LVy, color=PLSDA_store.x_scores['Label'],
+            custom_data='Sample',
             color_discrete_map=target_list.color_classes, title=f'''PLS Projection''')
-        PLS_plot.update_traces(marker={'size': PLSDA_store.dot_size})
+        PLS_plot.update_traces(marker={'size': PLSDA_store.dot_size},
+                               hovertemplate="<br>".join([
+                                "Sample: %{customdata[0]}",
+                                PLSDA_store.LVx + ": %{x}",
+                                PLSDA_store.LVy + ": %{y}"]))
 
         # Draw ellipses if ellipses wanted
         if PLSDA_store.ellipse_draw:
@@ -1356,7 +1374,9 @@ def _plot_PLS(PLSDA_store, target_list):
                     subset_points, q=PLSDA_store.confidence, nstd=PLSDA_store.confidence_std).array()
                 temp = pd.concat((pd.DataFrame(temp), pd.DataFrame([lbl,]*len(temp), columns=['label'])), axis=1)
                 ellipses_df = pd.concat((ellipses_df, temp))
-            ellipses = px.line(ellipses_df, x=0, y=1, color='label', color_discrete_map=target_list.color_classes)
+            ellipses_df.columns=['0', '1', 'Label']
+            ellipses = px.line(ellipses_df, x='0', y='1', color='Label', color_discrete_map=target_list.color_classes,
+                               hover_data={'0': False, '1': False})
 
             # Final Plot joining the 2
             final_PLS_plot = go.Figure(data=PLS_plot.data + ellipses.data)
@@ -1372,9 +1392,15 @@ def _plot_PLS(PLSDA_store, target_list):
     else:
         final_PLS_plot = px.scatter_3d(
             PLSDA_store.x_scores, x=PLSDA_store.LVx, y=PLSDA_store.LVy, z=PLSDA_store.LVz,
+            custom_data='Sample',
             color=PLSDA_store.x_scores['Label'], color_discrete_map=target_list.color_classes,
             title=f'''PLS Projection''')
-        final_PLS_plot.update_traces(marker={'size': PLSDA_store.dot_size})
+        final_PLS_plot.update_traces(marker={'size': PLSDA_store.dot_size},
+                                     hovertemplate="<br>".join([
+                                "Sample: %{customdata[0]}",
+                                PLSDA_store.LVx + ": %{x}",
+                                PLSDA_store.LVy + ": %{y}",
+                                PLSDA_store.LVz + ": %{z}"]))
 
     return final_PLS_plot
 

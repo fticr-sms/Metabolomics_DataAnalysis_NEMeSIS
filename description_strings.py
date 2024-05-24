@@ -447,18 +447,38 @@ they came from.
 
 # HMDB Pathway Assignment Page Description HTML in string format
 
-path_assign_opening_string = """This page allows you to assign or match known metabolic pathways to HMDB annotations only. This
-is made based on a file created from the <strong>RAMP database</strong> (<a href="https://rampdb.nih.gov/" target="_blank"
-rel="nofollow">https://rampdb.nih.gov/</a>) where 55872 HMDB compounds have at least 1 corresponding pathway. The pathways shown
-are aggregated from multiple sources: HMDB, Reactome, WikiPathways and KEGG; from where RAMP provides the information
-(<a href="https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287" target="_blank"
-rel="nofollow">https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287</a>).
+path_assign_opening_string = """This page allows you to assign or match known metabolic pathways to HMDB annotations only
+(abbreviation should be HMDB). This is made based on a file created from the <strong>RAMP database</strong> (<a
+href="https://rampdb.nih.gov/" target="_blank" rel="nofollow">https://rampdb.nih.gov/</a>) where 55872 HMDB compounds have at
+least 1 corresponding pathway. The pathways shown are aggregated from multiple sources: HMDB, Reactome, WikiPathways and KEGG;
+from where RAMP provides the information (<a href="https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287"
+target="_blank" rel="nofollow">https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287</a>).
 <br>
 Thus, for this, there must be a column with the <strong>HMDB identifiers</strong> (e.g. 'HMDB0000001') from which the assignment
 can be performed. The output gives the HMDB IDs and annotation names (if possible) as index in a DataFrame and the name and id of
 the pathways that they belong to according to this built file. Your identifiers should have 7 numbers after "HMDB".
 <br><br>
 <strong>If no HMDB identifiers are present, you will not be able to perform this data analysis step</strong>."""
+
+
+# HMDB Pathway Over-Representation Analysis Section Description HTML in string format
+
+pathway_ora_opening_string = """
+Pathway Over-Representation Analysis considers Feature Occurrence data and matched to the HMDB database specifically.
+We consider as a background set all the metabolites with HMDB identifiers with associated pathways in the <strong>RAMP
+database</strong> (<a href="https://rampdb.nih.gov/" target="_blank" rel="nofollow">https://rampdb.nih.gov/</a>) as the
+section before. Thus, it will include very general pathways such as 'Metabolism' or 'Biochemical pathways: part I' or
+'Transport of small molecules' that have a good chance of appearing as significant (even after multiple testing correction)
+by the sheer number of metabolites in these pathways and the large background set used. More attention is probably warranted
+on smaller pathways that have multiple annotated metabolites.
+<br>
+<br>
+A drawback of the approach is that each mass can have multiple annotations and those annotations could correspond to
+metabolites in the same pathway. Thus, it is possible that a good portion of detected metabolites in a pathway could
+correspond to a single metabolic feature, which would diminish the importance of that pathway. So, analysis of the
+relevant pathways should be performed. For each pathway (and each class), you may search for the corresponding
+relevant metabolic features associated.
+"""
 
 
 # Binary Simplification (BinSim) Analysis Page Description HTML in string format
