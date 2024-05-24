@@ -5450,6 +5450,9 @@ class PathwayORA_Storage(param.Parameterized):
     pathway_searcher = param.String('')
     confirm_id_button = param.Boolean(default=False)
 
+    # Current Parameters
+    curr_ora_parameters = param.Dict({})
+
     # For Figures
     ora_fig = param.List(default=['To Plot a ORA Plot'])
 
@@ -5549,7 +5552,8 @@ class PathwayORA_Storage(param.Parameterized):
 
             # Preparing DF
             over_representation_df = pd.DataFrame(columns=['Pathway Name',
-                'Nº of Met. in Dataset', 'Nº of Met. in Pathway', '% of Met. In Set', 'Probability'], dtype='object')
+                'Nº of Met. in Dataset', 'Nº of Met. in Pathway', '% of Met. In Set',
+                'Nº of Associated Metabolic Features','Probability'], dtype='object')
 
             for pathway in path_assign_hmdb.index:
                 # Pathway Name
@@ -5564,16 +5568,17 @@ class PathwayORA_Storage(param.Parameterized):
                                         n=total_met_in_path,
                                         N=annotated_metabolites_w_path).sf(ann_met_in_path-1)
 
-                # Adding the line to the DF
-                over_representation_df.loc[pathway] = [p_name, ann_met_in_path, total_met_in_path,
-                                                       ann_met_in_path/total_met_in_path*100, prob]
-
                 # Getting the HMDB IDs of the compounds found in the pathway
                 spec_path_dfs[cl][pathway] = path_assign_hmdb_c[path_assign_hmdb_c['Pathway ID'] == pathway].index
                 # Getting the mass peaks that were annotated with those HMDB IDs
                 spec_path_dfs[cl][pathway] = hmdb_list_c.loc[
                     [True if i in spec_path_dfs[cl][pathway] else False for i in hmdb_list_c.values]]
                 spec_path_dfs[cl][pathway] = DataFrame_Store.processed_df.loc[list(set(spec_path_dfs[cl][pathway].index))]
+
+                # Adding the line to the DF
+                over_representation_df.loc[pathway] = [p_name, ann_met_in_path, total_met_in_path,
+                                                       ann_met_in_path/total_met_in_path*100,
+                                                       len(spec_path_dfs[cl][pathway]), prob]
 
             # Sorting DataFrame from least probable to more probable and adding adjusted probability
             # with Benjamini-Hochberg multiple test correction
@@ -5584,6 +5589,12 @@ class PathwayORA_Storage(param.Parameterized):
 
         self.ora_dfs = ora_dfs
         self.spec_path_dfs = spec_path_dfs
+
+        # Saving paramters used
+        self.curr_ora_parameters = {'min_metabolites_for_pathway': self.min_metabolites_for_pathway,
+                                   'background_set': self.background_set,
+                                   'min_pathway_data_ann_metabolites_found': self.min_pathway_data_ann_metabolites_found,
+                                   'type_of_ORA': self.type_of_ORA}
 
         self.controls_results.widgets['class_to_show'].options = list(ora_dfs.keys())
 
@@ -5597,7 +5608,17 @@ class PathwayORA_Storage(param.Parameterized):
             return
 
         # Updating results
-        path_results[:, 1:4] = pn.pane.DataFrame(self.ora_dfs[self.class_to_show], height=400)
+        path_results[:2, 1:4] = pn.pane.DataFrame(self.ora_dfs[self.class_to_show], height=400)
+        # Getting the plot and its corresponding filename
+        self.ora_fig[0] = iaf._plot_pathwayORA_class(self)
+        filename = f'PathwayORAnalysis_{self.class_to_show}_MinMetPathDB'
+        filename = filename + f'{self.curr_ora_parameters["min_metabolites_for_pathway"]}_Background'
+        filename = filename + f'{self.curr_ora_parameters["background_set"]}_MinMetData'
+        filename = filename + f'{self.curr_ora_parameters["min_pathway_data_ann_metabolites_found"]}_MetConsidered'
+        filename = filename + f'{self.curr_ora_parameters["type_of_ORA"]}_Plot'
+        path_results[2:4,:] = pn.pane.Plotly(self.ora_fig[0], height=400,
+                                config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
+
         if len(pathway_ora_page) <= 3:
             pathway_ora_page.append(path_results)
         elif len(pathway_ora_page) <= 4:
@@ -5704,7 +5725,14 @@ def _confirm_button_ORA(event):
 
     # Setting the results section
     pathora_store.class_to_show = list(pathora_store.ora_dfs.keys())[0]
-    path_results[:, 1:4] = pn.pane.DataFrame(pathora_store.ora_dfs[pathora_store.class_to_show], height=400)
+    path_results[:2, 1:4] = pn.pane.DataFrame(pathora_store.ora_dfs[pathora_store.class_to_show], height=400)
+    filename = f'HMDB_IDs_PathwayORAnalysis_{pathora_store.class_to_show}_MinMetPathDB'
+    filename = filename + f'{pathora_store.curr_ora_parameters["min_metabolites_for_pathway"]}_Background'
+    filename = filename + f'{pathora_store.curr_ora_parameters["background_set"]}_MinMetData'
+    filename = filename + f'{pathora_store.curr_ora_parameters["min_pathway_data_ann_metabolites_found"]}_MetConsidered'
+    filename = filename + f'{pathora_store.curr_ora_parameters["type_of_ORA"]}_Plot'
+    path_results[2:4,:] = pn.pane.Plotly(pathora_store.ora_fig[0], height=400,
+                            config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
 
     if len(pathway_ora_page) <= 3:
         pathway_ora_page.append(path_results)
@@ -5722,9 +5750,35 @@ pathora_store.controls.widgets['confirm_button_ORA'].on_click(_confirm_button_OR
 pathora_store.controls_searcher.widgets['confirm_id_button'].on_click(pathora_store._confirm_id_button)
 
 
+# Widget to save results of pathway ORAnalysis in .xlsx format
+save_pathway_oranalysis_button = pn.widgets.Button(
+    name='Save Pathway ORA DFs', button_type='warning', icon=iaf.download_icon,
+    description='Over-Representation Analysis Result DataFrames are saved as a .xlsx file (in current folder)')
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_pathway_oranalysis_button(event):
+    "Save pathway over-representation analysis DataFrames."
+    # Building the datafile name
+    curr_params = pathora_store.curr_ora_parameters
+    filename = f'HMDB_IDs_PathwayORAnalysis_MinMetPathDB{curr_params["min_metabolites_for_pathway"]}_Background'
+    filename = filename + f'{curr_params["background_set"]}_MinMetData'
+    filename = filename + f'{curr_params["min_pathway_data_ann_metabolites_found"]}_MetConsidered'
+    filename = filename + f'{pathora_store.curr_ora_parameters["type_of_ORA"]}'
+
+    # Saving the file
+    with pd.ExcelWriter(filename+'.xlsx') as writer:
+        for cl, df in pathora_store.ora_dfs.items():
+            df.to_excel(writer, sheet_name=cl)
+    pn.state.notifications.success(f'{filename} successfully saved.')
+# Calling the function
+save_pathway_oranalysis_button.on_click(_save_pathway_oranalysis_button)
+
+
 # Part of the ORA page
 path_results = pn.GridSpec(mode='override')
-path_results[:,0] = pathora_store.controls_results
+path_results[0,0] = pathora_store.controls_results
+path_results[1,0] = save_pathway_oranalysis_button
+path_results[2:4,:] = pathora_store.ora_fig[0]
 
 # Part of the ORA page
 path_searcher_section = pn.Column(pathora_store.controls_searcher,

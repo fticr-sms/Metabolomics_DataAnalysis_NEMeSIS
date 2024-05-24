@@ -2079,6 +2079,28 @@ def _plot_KMD_plot_individual(filt_df, dataviz_store, group, neutral_mass_col):
 
 
 
+### Functions related to the Pathway Assignment, Matching and Over-Representation Analysis page of the graphical interface
+
+def _plot_pathwayORA_class(pathora_store):
+    "Plots pathway enrichment adjusted probability over the % of metabolites of the pathway found."
+
+    # Selecting and preparing the DataFrame
+    df_to_plot = pathora_store.ora_dfs[pathora_store.class_to_show].copy()
+    df_to_plot['- log10(Adjusted (BH) Probability)'] = -np.log10(df_to_plot['Adjusted (BH) Probability'])
+    df_to_plot['Pathway ID'] = df_to_plot.index
+
+    # Plot the figure
+    fig = px.scatter(df_to_plot, x='% of Met. In Set', y='- log10(Adjusted (BH) Probability)',
+          hover_data={'Pathway ID': True, 'Pathway Name': True,
+                      '- log10(Adjusted (BH) Probability)': False, 'Adjusted (BH) Probability': True,
+                     '% of Met. In Set':':.3f',
+                     'Nº of Met. in Dataset': True, 'Nº of Associated Metabolic Features': True},
+          title=pathora_store.class_to_show + ' - Pathway Over-Representation Analysis Plot')
+
+    return fig
+
+
+
 ### Functions related to the Compound Finder search tool page of the graphical interface
 
 def build_annotation_to_idx_dict(metadata_df, col_list):
