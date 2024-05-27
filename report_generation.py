@@ -13,7 +13,7 @@ import json
 def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
                      data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
-                     PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page):
+                     pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page):
     "Makes a read-only Word file with the metabolomics data analysis performed of selected statistical analysis."
 
     # Create Folder to put the report in
@@ -266,7 +266,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     for db in range(n_databases.value):
         key = str(db + 1)
         db_info = DB_dict[key]
-        document.add_paragraph(f"{db_info.abv}: Database read from '{db_info.file}' using {db_info.IDcol} column as IDs. It had {len(db_info.db_len)} metabolites.",
+        document.add_paragraph(f"{db_info.abv}: Database read from '{db_info.file}' using {db_info.IDcol} column as IDs. It had {db_info.db_len} metabolites.",
                             style='List Bullet')
 
     # Information on the annotations made with each Database used
@@ -1173,6 +1173,59 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
             path_pg2.add_run("only").bold = True
             path_pg2.add_run(f" showing the IDs considered HMDB-like found in the provided columns.")
 
+            # Description of the Pathway Over-Representation Analysis (If performed)
+            if len(pathora_store.curr_ora_parameters) > 0:
+                # Add heading
+                document.add_heading('HMDB Pathway Over-Representation Analysis (ORA)', level=3)
+                curr_ora_p = pathora_store.curr_ora_parameters
+
+                # Beginning
+                path_pg3 = document.add_paragraph('Using these pathway matches found, a pathway over-representation analysis was ')
+                path_pg3.add_run('performed on the data. From the pathway database, all pathways with at least ')
+
+                # Parameter Section
+                path_pg3.add_run(f'{curr_ora_p["min_metabolites_for_pathway"]} metabolites').bold = True
+                path_pg3.add_run(f' were considered for the background set. This set was comprised of ')
+                if curr_ora_p["background_set"] == 'All HMDB metabolites in the pathway database':
+                    path_pg3.add_run('all HMDB metabolites').bold = True
+                    path_pg3.add_run(f' stored in the pathways database. ')
+                    b_set = 'AllHMDBMets'
+                else:
+                    path_pg3.add_run('only the annotated HMDB metabolites').bold = True
+                    path_pg3.add_run(f' (with associated pathways) in the dataset analysed. ')
+                    b_set = 'OnlyAnnHMDBMets'
+                path_pg3.add_run(f'The relevant set of metabolites passed for each biological class to study over-representation were: ')
+                if curr_ora_p["type_of_ORA"] == 'All metabolites that appear in each class':
+                    path_pg3.add_run('all metabolites').bold = True
+                    path_pg3.add_run(' detected for the corresponding class. ')
+                    t_ora = 'AllClassMets'
+                elif curr_ora_p["type_of_ORA"] == 'Only the exclusive metabolites for each class':
+                    path_pg3.add_run('only the exclusive metabolites').bold = True
+                    path_pg3.add_run(' detected for the corresponding class. ')
+                    t_ora = 'ExclusiveClassMets'
+                else:
+                    path_pg3.add_run('the significant metabolites').bold = True
+                    path_pg3.add_run(' obtained from a Univariate Analysis performed earlier comparing the ')
+                    path_pg3.add_run(f'{list(pathora_store.ora_dfs.keys())[0]} and the {list(pathora_store.ora_dfs.keys())[1]} classes. ')
+                    t_ora = 'SignificantClassMets'
+                path_pg3.add_run(f'Pathways associated with these set of metabolites were only considered if there were at least ')
+                path_pg3.add_run(f'{curr_ora_p["min_pathway_data_ann_metabolites_found"]} metabolites').bold = True
+                path_pg3.add_run(f' associated with said pathway. ')
+
+                # Result Section
+                path_pg3.add_run(f'The results of the Pathway Over-Representation Analysis performed on these set of metabolites are ')
+                # Building the filename for the table
+                filename_string = f'/Report_HMDB_IDs_PathwayORAnalysis_MinMetPathDB{curr_ora_p["min_metabolites_for_pathway"]}_Background'
+                filename_string = filename_string + f'{b_set}_MinMetData'
+                filename_string = filename_string + f'{curr_ora_p["min_pathway_data_ann_metabolites_found"]}_MetConsidered{t_ora}'
+                path_pg3.add_run(f'saved as {filename_string[1:]}.xlsx.')
+
+                # Saving the file
+                with pd.ExcelWriter(folder+filename_string+'.xlsx') as writer:
+                    for cl, df in pathora_store.ora_dfs.items():
+                        df.to_excel(writer, sheet_name=cl)
+
+
         # End of section
         document.add_page_break()
 
@@ -1580,8 +1633,8 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
 # Saving Parameters function
 def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, checkbox_com_exc,
-                    com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PCA_params_binsim,
-                    HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True):
+                    com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, pathora_store,
+                    PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True):
     "Creates a json file containing relevant parameters used in current dataset analysis."
 
     # Dict with parameters to be saved
@@ -1761,6 +1814,19 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
                                                     'ccs_bar_plot_type': dataviz_store.ccs_bar_plot_type,}
 
 
+        # Saving Pathway Over-Representation Analysis Related Parameters
+        if len(pathora_store.curr_ora_parameters) > 0:
+            params_to_be_saved['Pathway Over-Representation Analysis'] = {'min_metabolites_for_pathway': pathora_store.curr_ora_parameters['min_metabolites_for_pathway'],
+                                                                    'background_set': pathora_store.curr_ora_parameters['background_set'],
+                                                                    'min_pathway_data_ann_metabolites_found': pathora_store.curr_ora_parameters['min_pathway_data_ann_metabolites_found'],
+                                                                    'type_of_ORA': pathora_store.curr_ora_parameters['type_of_ORA'],}
+        else:
+            params_to_be_saved['Pathway Over-Representation Analysis'] = {'min_metabolites_for_pathway': pathora_store.min_metabolites_for_pathway,
+                                                                    'background_set': pathora_store.background_set,
+                                                                    'min_pathway_data_ann_metabolites_found': pathora_store.min_pathway_data_ann_metabolites_found,
+                                                                    'type_of_ORA': pathora_store.type_of_ORA,}
+
+
         # Saving BinSim Analysis Related Parameters
         params_to_be_saved['BinSim Analysis'] = {}
 
@@ -1867,9 +1933,9 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
 def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_databases, annotation_margin_method_radio,
                          annotation_ppm_deviation, annotation_Da_deviation, RepGen, adducts_to_search_widget, DB_dict,
                          PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params, n_components_compute,
-                         HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store, PCA_params_binsim,
-                         n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
-                         params_pre_treat_loaded_in, params_analysis_loaded_in):
+                         HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store, pathora_store,
+                         PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim,
+                         RF_store_binsim, params_pre_treat_loaded_in, params_analysis_loaded_in):
     "Load in Previously Saved Parameters for Data Analysis."
 
     # Data Pre-Processing and Pre-Treatment Related Parameters
@@ -2043,6 +2109,13 @@ def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_datab
             # Chemical Composition Series Related
             dataviz_store.ccs_bar_plot_type = params_to_load['Data Visualization']['ccs_bar_plot_type']
             dataviz_store.compute_fig = True
+
+        # Loading Pathway Over-Representation Analysis Related Parameters:
+        if 'Pathway Over-Representation Analysis' in params_to_load.keys():
+            pathora_store.min_metabolites_for_pathway = params_to_load['Pathway Over-Representation Analysis']['min_metabolites_for_pathway']
+            pathora_store.background_set = params_to_load['Pathway Over-Representation Analysis']['background_set']
+            pathora_store.min_pathway_data_ann_metabolites_found = params_to_load['Pathway Over-Representation Analysis']['min_pathway_data_ann_metabolites_found']
+            pathora_store.type_of_ORA = params_to_load['Pathway Over-Representation Analysis']['type_of_ORA']
 
         # Loading BinSim Analysis Related Parameters
         if 'BinSim Analysis' in params_to_load.keys():

@@ -502,7 +502,7 @@ def _confirm_param_file_button(event):
                     annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, RepGen,
                     adducts_to_search_widget, DB_dict, PreTreatment_Method, checkbox_com_exc, com_exc_compounds,
                     PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store,
-                    PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim,
+                    pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim,
                     RF_store_binsim, params_pre_treat_loaded_in.value, params_analysis_loaded_in.value)
 
         # Adjust necessary widgets
@@ -2161,8 +2161,8 @@ def _confirm_button_next_step_5(event):
                                 annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, RepGen,
                                 adducts_to_search_widget, DB_dict, PreTreatment_Method, checkbox_com_exc, com_exc_compounds,
                                 PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store,
-                                PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
-                                False, params_analysis_loaded_in.value)
+                                pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim,
+                                RF_store_binsim, False, params_analysis_loaded_in.value)
 
                     # Adjust necessary widgets
                     if 'BinSim Analysis' in params_to_load.value.keys():
@@ -2249,8 +2249,8 @@ def _save_parameters_pretreat_button(event):
         filename = params_filename.value
         report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget,
                         DB_dict, checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store,
-                        dataviz_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
-                        include_data_analysis=False)
+                        dataviz_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim,
+                        RF_store_binsim, include_data_analysis=False)
 
         pn.state.notifications.success(f'Pre-Treatment Parameters successfully saved in {filename}.json')
 
@@ -5611,11 +5611,20 @@ class PathwayORA_Storage(param.Parameterized):
         path_results[:2, 1:4] = pn.pane.DataFrame(self.ora_dfs[self.class_to_show], height=400)
         # Getting the plot and its corresponding filename
         self.ora_fig[0] = iaf._plot_pathwayORA_class(self)
+        if self.curr_ora_parameters["background_set"] == 'All HMDB metabolites in the pathway database':
+            b_set = 'AllHMDBMets'
+        else:
+            b_set = 'OnlyAnnHMDBMets'
+        if self.curr_ora_parameters["type_of_ORA"] == 'All metabolites that appear in each class':
+            t_ora = 'AllClassMets'
+        elif self.curr_ora_parameters["type_of_ORA"] == 'Only the exclusive metabolites for each class':
+            t_ora = 'ExclusiveClassMets'
+        else:
+            t_ora = 'SignificantClassMets'
         filename = f'PathwayORAnalysis_{self.class_to_show}_MinMetPathDB'
-        filename = filename + f'{self.curr_ora_parameters["min_metabolites_for_pathway"]}_Background'
-        filename = filename + f'{self.curr_ora_parameters["background_set"]}_MinMetData'
-        filename = filename + f'{self.curr_ora_parameters["min_pathway_data_ann_metabolites_found"]}_MetConsidered'
-        filename = filename + f'{self.curr_ora_parameters["type_of_ORA"]}_Plot'
+        filename = filename + f'{self.curr_ora_parameters["min_metabolites_for_pathway"]}_Background{b_set}'
+        filename = filename + f'_MinMetData{self.curr_ora_parameters["min_pathway_data_ann_metabolites_found"]}'
+        filename = filename + f'_MetConsidered{t_ora}_Plot'
         path_results[2:4,:] = pn.pane.Plotly(self.ora_fig[0], height=400,
                                 config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
 
@@ -5760,10 +5769,18 @@ def _save_pathway_oranalysis_button(event):
     "Save pathway over-representation analysis DataFrames."
     # Building the datafile name
     curr_params = pathora_store.curr_ora_parameters
-    filename = f'HMDB_IDs_PathwayORAnalysis_MinMetPathDB{curr_params["min_metabolites_for_pathway"]}_Background'
-    filename = filename + f'{curr_params["background_set"]}_MinMetData'
-    filename = filename + f'{curr_params["min_pathway_data_ann_metabolites_found"]}_MetConsidered'
-    filename = filename + f'{pathora_store.curr_ora_parameters["type_of_ORA"]}'
+    if curr_params["background_set"] == 'All HMDB metabolites in the pathway database':
+        b_set = 'AllHMDBMets'
+    else:
+        b_set = 'OnlyAnnHMDBMets'
+    if curr_params["type_of_ORA"] == 'All metabolites that appear in each class':
+        t_ora = 'AllClassMets'
+    elif curr_params["type_of_ORA"] == 'Only the exclusive metabolites for each class':
+        t_ora = 'ExclusiveClassMets'
+    else:
+        t_ora = 'SignificantClassMets'
+    filename = f'HMDB_IDs_PathwayORAnalysis_MinMetPathDB{curr_params["min_metabolites_for_pathway"]}_Background{b_set}'
+    filename = filename + f'_MinMetData{curr_params["min_pathway_data_ann_metabolites_found"]}_MetConsidered{t_ora}'
 
     # Saving the file
     with pd.ExcelWriter(filename+'.xlsx') as writer:
@@ -6540,7 +6557,7 @@ def _report_generation_button(event):
         report_generation.ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                                         target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
                                         data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
-                                        PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page)
+                                        pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page)
     except:
         while len(rep_gen_page) > 6:
             rep_gen_page.pop(5)
@@ -6566,7 +6583,7 @@ def _save_parameters_analysis_button(event):
         # Trying to save parameters
         filename = params_filename.value
         report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, checkbox_com_exc,
-                        com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PCA_params_binsim,
+                        com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, pathora_store, PCA_params_binsim,
                         HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True)
 
         pn.state.notifications.success(f'Parameters successfully saved in {filename}.json')
