@@ -95,6 +95,8 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, mass_val_col, adducts
         annotated_data[matched_names_col] = ""
         annotated_data[matched_formulas_col] = ""
         annotated_data[matched_add_col] = ""
+        if d == 'HMDB':
+            annotated_data['Matched KEGG IDs'] = ""
         annotated_data[match_count_col] = ""
 
         # And for each metabolic feature
@@ -104,6 +106,9 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, mass_val_col, adducts
             matched_names = []
             matched_formulas = []
             matched_adds = []
+
+            if d == 'HMDB':
+                matched_keggs = []
 
             ppm_dev = pd.DataFrame()
 
@@ -128,6 +133,8 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, mass_val_col, adducts
                 matched_ids.append(i)
                 matched_names.append(dbs[d]['DB'][dbs[d]['Name_col']][i])
                 matched_formulas.append(dbs[d]['DB'][dbs[d]['Formula_col']][i])
+                if d == 'HMDB':
+                    matched_keggs.append(dbs[d]['DB']['kegg'][i])
 
             # Perform annotation (if any compound was found)
             if len(matched_ids) > 0:
@@ -135,12 +142,16 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, mass_val_col, adducts
                 annotated_data.at[a, matched_names_col] = matched_names
                 annotated_data.at[a, matched_formulas_col] = matched_formulas
                 annotated_data.at[a, matched_add_col] = matched_adds
+                if d == 'HMDB':
+                    annotated_data.at[a, 'Matched KEGG IDs'] = matched_keggs
                 annotated_data.at[a, match_count_col] = len(matched_ids)
             else:
                 annotated_data.at[a, matched_ids_col] = np.nan
                 annotated_data.at[a, matched_names_col] = np.nan
                 annotated_data.at[a, matched_formulas_col] = np.nan
                 annotated_data.at[a, matched_add_col] = np.nan
+                if d == 'HMDB':
+                    annotated_data.at[a, 'Matched KEGG IDs'] = np.nan
                 annotated_data.at[a, match_count_col] = np.nan
         print(f'-> Annotated {annotated_data[matched_ids_col].notnull().sum()} compounds')
         print('---------------')
