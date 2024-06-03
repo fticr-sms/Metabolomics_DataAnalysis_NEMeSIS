@@ -378,6 +378,11 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                             for key in saving_annotations:
                                 if key in prev_an_form_cols:
                                     temp_full_new_line.loc[key] = saving_annotations[key]
+                                    # Column is our Formula Assignment column
+                                    if key + ' Adduct' in annotated_data.columns:
+                                        temp = annotated_data.loc[[
+                                            i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
+                                        temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
 
                                 else:
                                     # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
@@ -386,7 +391,10 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                                                     'Matched '+key+' IDs'] == saving_annotations[key]]]
 
                                     rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
-                                                key+' match count']
+                                                'Matched '+key+' adducts', key+' match count']
+                                    if key == 'HMDB':
+                                        if 'Matched KEGG IDs' in annotated_data.columns:
+                                            rel_cols.append('Matched KEGG IDs')
                                     temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
 
                             merging_situations['Overwrite'] = merging_situations['Overwrite'] + 1
@@ -422,6 +430,11 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                     for key in saving_annotations:
                         if key in prev_an_form_cols:
                             temp_full_new_line.loc[key] = saving_annotations[key]
+                            # Column is our Formula Assignment column
+                            if key + ' Adduct' in annotated_data.columns:
+                                temp = annotated_data.loc[[
+                                    i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
+                                temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
 
                         else:
                             # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
@@ -429,7 +442,10 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                                 i for i in annotated_data.index if annotated_data.loc[i,
                                             'Matched '+key+' IDs'] == saving_annotations[key]]]
                             rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
-                                        key+' match count']
+                                        'Matched '+key+' adducts', key+' match count']
+                            if key == 'HMDB':
+                                if 'Matched KEGG IDs' in annotated_data.columns:
+                                    rel_cols.append('Matched KEGG IDs')
                             temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
 
                     # All that's left is the bucket label, Neutral Mass and m/z
@@ -620,6 +636,11 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
                 for key in saving_annotations:
                     if key in prev_an_form_cols:
                         temp_full_new_line.loc[key] = saving_annotations[key]
+                        # Column is our Formula Assignment column
+                        if key + ' Adduct' in annotated_data.columns:
+                            temp = annotated_data.loc[[
+                                i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
+                            temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
 
                     else:
                         # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
@@ -628,7 +649,10 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
                                         'Matched '+key+' IDs'] == saving_annotations[key]]]
 
                         rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
-                                    key+' match count']
+                                    'Matched '+key+' adducts', key+' match count']
+                        if key == 'HMDB':
+                            if 'Matched KEGG IDs' in annotated_data.columns:
+                                rel_cols.append('Matched KEGG IDs')
                         temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
 
                 merge_description[keep_id] = {'DB': col_id, 'Repeating annotation': annotation,
@@ -661,6 +685,11 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
             for key in saving_annotations:
                 if key in prev_an_form_cols:
                     temp_full_new_line.loc[key] = saving_annotations[key]
+                    # Column is our Formula Assignment column
+                    if key + ' Adduct' in annotated_data.columns:
+                        temp = annotated_data.loc[[
+                            i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
+                        temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
 
                 else:
                     # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
@@ -668,7 +697,10 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
                         i for i in annotated_data.index if annotated_data.loc[i,
                                     'Matched '+key+' IDs'] == saving_annotations[key]]]
                     rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
-                                key+' match count']
+                                'Matched '+key+' adducts', key+' match count']
+                    if key == 'HMDB':
+                            if 'Matched KEGG IDs' in annotated_data.columns:
+                                rel_cols.append('Matched KEGG IDs')
                     temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
 
             # Formula annotations becomes the ones from the peak with the highest average intensity across the samples
