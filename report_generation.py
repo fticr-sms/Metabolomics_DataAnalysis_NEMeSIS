@@ -12,8 +12,8 @@ import json
 
 def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                     data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
-                     pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page):
+                     FormAssign_store, data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store,
+                     PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page):
     "Makes a read-only Word file with the metabolomics data analysis performed of selected statistical analysis."
 
     # Create Folder to put the report in
@@ -111,7 +111,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     class_str = ', '.join(target_list.classes)
 
     # Text on the target
-    p3 = document.add_paragraph(f'From the {dataset_cols} columns, the remaining {len(target_list.sample_cols)} were samples.')
+    p3 = document.add_paragraph(f'From the {dataset_cols} columns, the remaining {len(target_list.sample_cols)} were samples. ')
     p3.add_run(f'These samples belonged to {len(target_list.classes)} classes: ')
     p3.add_run(f'{class_str}').bold = True
     p3.add_run(f'. It had an average of {(len(target_list.sample_cols)/len(target_list.classes)):.2f} samples per class. ')
@@ -229,38 +229,43 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
 
     # Chapter of section
-    document.add_heading('Data Annotation and De-Duplication', level=2)
+    document.add_heading('Data Annotation, Formula Assignment and De-Duplication', level=2)
 
-    ann_pg = document.add_paragraph(f'Data Annotation in this software was made using {n_databases.value} database(s).')
+    if n_databases.value != 0 or len(FormAssign_store.current_parameters) > 0:
+        ann_form_pg = document.add_paragraph('')
 
-    if n_databases.value != 0:
         # Database Annotation based on PPM Deviation
         if RepGen.annotation_margin_method == 'PPM Deviation':
-            ann_pg.add_run(f' Database matching was performed using a maximum of {RepGen.annotation_margin_ppm_deviation} ppm')
-            ann_pg.add_run(f' (parts per million) deviation of the theoretical compound mass (based on formula) to the ')
-            ann_pg.add_run(f'experimental mass in the Mass Column ({radiobox_neutral_mass.value}) chosen.')
+            ann_form_pg.add_run(f'Annotation/Formula matching was performed using a maximum of {RepGen.annotation_margin_ppm_deviation} ppm')
+            ann_form_pg.add_run(f' (parts per million) deviation of the theoretical compound mass (based on formula) to the ')
+            ann_form_pg.add_run(f'experimental mass in the Mass Column ({radiobox_neutral_mass.value}) chosen.')
 
         # Database Annotation based on flat Da deviation
         else:
-            ann_pg.add_run(f' Database matching was performed using a maximum of {RepGen.annotation_margin_ppm_deviation} Da')
-            ann_pg.add_run(f' deviation of the theoretical compound mass (based on formula) to the ')
-            ann_pg.add_run(f'experimental mass in the Mass Column ({radiobox_neutral_mass.value}) chosen.')
+            ann_form_pg.add_run(f'Annotation/Formula matching was performed using a maximum of {RepGen.annotation_margin_ppm_deviation} Da')
+            ann_form_pg.add_run(f' deviation of the theoretical compound mass (based on formula) to the ')
+            ann_form_pg.add_run(f'experimental mass in the Mass Column ({radiobox_neutral_mass.value}) chosen.')
 
-    # Adducts considered to be searched
-    n_adducts = len(RepGen.adducts_to_consider)
-    if n_adducts != 0:
-        ann_pg.add_run(f' Matching was performed against the databases considering {n_adducts} possible adducts. These were: ')
-        a = 0
-        for ad, mass_shift in RepGen.adducts_to_consider.items():
-            ann_pg.add_run(f'{ad} (mass shift of {float(mass_shift)})')
-            if a == n_adducts - 1:
-                ann_pg.add_run(f'.')
-            elif a == n_adducts - 2:
-                ann_pg.add_run(f' and ')
-            else:
-                ann_pg.add_run(f', ')
-            a += 1
+        # Adducts considered to be searched
+        n_adducts = len(RepGen.adducts_to_consider)
+        if n_adducts != 0:
+            ann_form_pg.add_run(f' Matching was performed against the databases considering {n_adducts} possible adducts. These were: ')
+            a = 0
+            for ad, mass_shift in RepGen.adducts_to_consider.items():
+                ann_form_pg.add_run(f'{ad} (mass shift of {float(mass_shift)})')
+                if a == n_adducts - 1:
+                    ann_form_pg.add_run(f'.')
+                elif a == n_adducts - 2:
+                    ann_form_pg.add_run(f' and ')
+                else:
+                    ann_form_pg.add_run(f', ')
+                a += 1
 
+
+    # Data Annotation Specific Section
+    document.add_heading('Data Annotation', level=3)
+
+    ann_pg = document.add_paragraph(f'Data Annotation in this software was made using {n_databases.value} database(s).')
 
     # Information on Databases used
     for db in range(n_databases.value):
@@ -271,13 +276,52 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
     # Information on the annotations made with each Database used
     if n_databases.value != 0:
-        document.add_paragraph(f'Annotation with these databases led to the annotation of :')
+        document.add_paragraph(f'Annotation with these databases led to the annotation of (before annotation de-duplication):')
         for db in range(n_databases.value):
             db_info = DB_dict[str(db + 1)]
             document.add_paragraph(f'{db_info.abv}: {verbose_annotated_compounds[db+1].value.split( )[1]} compounds',
                                 style='List Bullet')
 
+
+    # Formula Assignment Specific Section
+    document.add_heading('Formula Assignment', level=3)
+    if len(FormAssign_store.current_parameters) == 0:
+        document.add_paragraph('Formula Assignment was not performed using the software.')
+    else:
+        # Parameters
+        form_pg = document.add_paragraph(f"Formula Assignment was performed ")
+        if FormAssign_store.current_parameters['isotope_check'] == True:
+            form_pg.add_run(f"allowing the search for possible isotopic peaks.")
+        else:
+            form_pg.add_run(f"not allowing the search for possible isotopic peaks.")
+
+        # Results
+        iso_count = DataFrame_Store.original_df.loc[[
+            i for i in DataFrame_Store.original_df.dropna().index if 'iso.' in DataFrame_Store.original_df.dropna().loc[
+                i, FormAssign_store.current_parameters['form_col']]]].shape[0]
+        adduct_counts = DataFrame_Store.original_df[FormAssign_store.current_parameters['form_col'] + ' Adduct'].value_counts()
+        n_form = len(DataFrame_Store.original_df[FormAssign_store.current_parameters['form_col']].dropna())
+
+        form_pg2 = document.add_paragraph('')
+        form_pg2.add_run(f'{FormAssign_store.current_results["Total"]} formulas').bold = True
+        form_pg2.add_run(f' were assigned to the dataset, ')
+        form_pg2.add_run(f'{n_form} formulas').bold = True
+        form_pg2.add_run(f' remained after de-duplication. ')
+        if FormAssign_store.current_parameters['isotope_check']:
+            old_iso = FormAssign_store.current_results["Isotopes"]
+            form_pg2.add_run(f'{old_iso}').bold = True
+            form_pg2.add_run(f' were isotopic peak feature assignments, ')
+            form_pg2.add_run(f'{iso_count} isotopic peaks').bold = True
+            form_pg2.add_run(f' remained after de-duplication.')
+
+        for ad in adduct_counts.index:
+            old_ad_n = FormAssign_store.current_results[ad]
+            document.add_paragraph(f'{ad} adduct: {old_ad_n} formula assignments were made, {adduct_counts.loc[ad]} remained after de-duplication.',
+                                style='List Bullet')
+
+
     # Annotation De-Duplication section
+    document.add_heading('Data De-Duplication', level=3)
     p6 = document.add_paragraph(f'After the annotations performed, the annotations (including previous annotations made) were ')
     p6.add_run('checked. The following table was obtained from observing the multiplicity of the annotations.')
 
@@ -1632,9 +1676,10 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
 
 # Saving Parameters function
-def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, checkbox_com_exc,
-                    com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, pathora_store,
-                    PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True):
+def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, FormAssign_store,
+                    checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store,
+                    pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
+                    include_data_analysis=True):
     "Creates a json file containing relevant parameters used in current dataset analysis."
 
     # Dict with parameters to be saved
@@ -1662,6 +1707,15 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
                                                    'IDcol': DB_dict[str(d+1)].IDcol,
                                                    'annotation': DB_dict[str(d+1)].annotation,
                                                    'formula': DB_dict[str(d+1)].formula,}
+
+
+    # Saving Formula Assignment Related Parameters
+    if len(FormAssign_store.current_parameters) > 0:
+        params_to_be_saved['Formula Assignment'] = {'form_col': FormAssign_store.current_parameters['form_col'],
+                                                    'isotope_check': FormAssign_store.current_parameters['isotope_check']}
+    else:
+        params_to_be_saved['Formula Assignment'] = {'form_col': FormAssign_store.form_col,
+                                                    'isotope_check': FormAssign_store.isotope_check}
 
 
     # Saving Data Pre-Treatment Related Parameters
@@ -1932,8 +1986,8 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
 # Loading parameters from saved json files.
 def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_databases, annotation_margin_method_radio,
                          annotation_ppm_deviation, annotation_Da_deviation, RepGen, adducts_to_search_widget, DB_dict,
-                         PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params, n_components_compute,
-                         HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store, pathora_store,
+                         FormAssign_Store, PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params,
+                         n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store, pathora_store,
                          PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim,
                          RF_store_binsim, params_pre_treat_loaded_in, params_analysis_loaded_in):
     "Load in Previously Saved Parameters for Data Analysis."
@@ -1962,6 +2016,10 @@ def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_datab
                 DB_dict[str(int(d)+1)].content[2][1].value = params_to_load['Data Annotation'][d]["IDcol"]
                 DB_dict[str(int(d)+1)].content[3][1].value = params_to_load['Data Annotation'][d]["annotation"]
                 DB_dict[str(int(d)+1)].content[4][1].value = params_to_load['Data Annotation'][d]["formula"]
+
+        # Loading Formula Assignment Related Parameters
+        FormAssign_Store.form_col = params_to_load['Formula Assignment']['form_col']
+        FormAssign_Store.isotope_check = params_to_load['Formula Assignment']['isotope_check']
 
         # Loading Data Pre-Treatment Related Parameters
         PreTreatment_Method.mvi_method = params_to_load['Data Pre-Treatment']['mvi_method']

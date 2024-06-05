@@ -519,10 +519,10 @@ def _confirm_param_file_button(event):
     try:
         report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
                     annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, RepGen,
-                    adducts_to_search_widget, DB_dict, PreTreatment_Method, checkbox_com_exc, com_exc_compounds,
-                    PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store,
-                    pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim,
-                    RF_store_binsim, params_pre_treat_loaded_in.value, params_analysis_loaded_in.value)
+                    adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
+                    com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
+                    dataviz_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
+                    PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in.value, params_analysis_loaded_in.value)
 
         # Adjust necessary widgets
         if 'BinSim Analysis' in params_to_load.value.keys():
@@ -1266,7 +1266,7 @@ def _press_confirm_annotation_perform(event):
 
     # Update the information for annotation de-duplication
     DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
-    iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
+    iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation, DB_dict)
     #data_ann_deduplicator.annotated_df = DataFrame_Store.original_df
 
     # Disable posterior sidebar buttons
@@ -1327,6 +1327,8 @@ class FormulaAssign_Storage(param.Parameterized):
     # Isotope results
     dict_iso = param.Dict({})
     current_parameters = param.Dict({})
+    current_results = param.Dict({})
+    forma = param.DataFrame()
 
 
     def reset(self):
@@ -1498,6 +1500,7 @@ def _confirm_button_formula_assignment_perform(event):
             i+=1
 
         # Storing the results of formula assignment
+        FormAssign_store.forma = forma
         DataFrame_Store.original_df[FormAssign_store.form_col] = forma['Form_give']
         DataFrame_Store.original_df[FormAssign_store.form_col + ' Adduct'] = forma['Adduct']
         # Put Has Match Column at the end
@@ -1518,11 +1521,13 @@ def _confirm_button_formula_assignment_perform(event):
         adduct_counts = forma['Adduct'].value_counts()
         assign_desc = ['Formula Assignment was sucessfully performed.', '',
                     f'<strong>{len(forma.dropna())} formulas</strong> were assigned to the dataset.']
+        FormAssign_store.current_results = {'Total': len(forma.dropna()), 'Isotopes': iso_count}
         if FormAssign_store.isotope_check:
             assign_desc.append(f'<strong>{iso_count}</strong> of these are isotopic feature assignments.')
         assign_desc.append(f'')
         for ad in adduct_counts.index:
-            assign_desc.append(f'<strong>{adduct_counts.loc[ad]} {ad}</strong> adduct formula assignments were performed.')
+            assign_desc.append(f'<strong>{adduct_counts.loc[ad]} {ad}</strong> adduct formula assignments were made.')
+            FormAssign_store.current_results[ad] = adduct_counts.loc[ad]
         page2_1.append(pn.pane.HTML('<br>'.join(assign_desc)))
 
         # Append the button to move the page
@@ -1554,8 +1559,17 @@ def _confirm_button_next_step_2_2(event):
     page2_2_button.disabled = False
     confirm_button_next_step_3.disabled = True
 
+    # Join Filtered and Annotated dfs to make the original DataFrame for pre-treatment
+    DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
+    # Add Formula Assignment Cols
+    DataFrame_Store.original_df[FormAssign_store.form_col] = FormAssign_store.forma['Form_give']
+    DataFrame_Store.original_df[FormAssign_store.form_col + ' Adduct'] = FormAssign_store.forma['Adduct']
+    # Creates in the DataFrame a column ('Has Match?') that indicates if a feature was annotated either previously to being
+    # inputted in this software or using the data annotation of this software
+    iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation, DB_dict)
+
     # Creating the background for de-duplication
-    data_ann_deduplicator.annotated_df = DataFrame_Store.original_df
+    data_ann_deduplicator.annotated_df = DataFrame_Store.original_df.copy()
     data_ann_deduplicator.update_columns_with_annotations(data_ann_deduplicator.annotated_df, checkbox_annotation, checkbox_formula)
     data_ann_deduplicator.create_multiple_annotation_report()
 
@@ -1582,9 +1596,16 @@ def _confirm_button_next_step_2_2_without_formulas(event):
         if FormAssign_store.current_parameters['form_col'] in DataFrame_Store.original_df.columns:
             DataFrame_Store.original_df.drop(columns=FormAssign_store.current_parameters['form_col'])
     FormAssign_store.current_parameters = {}
+    FormAssign_store.current_results = {}
+
+    # Join Filtered and Annotated dfs to make the original DataFrame for pre-treatment
+    DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
+    # Creates in the DataFrame a column ('Has Match?') that indicates if a feature was annotated either previously to being
+    # inputted in this software or using the data annotation of this software
+    iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation, DB_dict)
 
     # Creating the background for de-duplication
-    data_ann_deduplicator.annotated_df = DataFrame_Store.original_df
+    data_ann_deduplicator.annotated_df = DataFrame_Store.original_df.copy()
     data_ann_deduplicator.update_columns_with_annotations(data_ann_deduplicator.annotated_df, checkbox_annotation, checkbox_formula)
     data_ann_deduplicator.create_multiple_annotation_report()
 
@@ -1785,11 +1806,6 @@ def _skip_deduplication_button(event):
     page3_button.disabled = False
     confirm_button_next_step_4.disabled = True
     save_data_dataframes_button.disabled = True
-    # Join Filtered and Annotated dfs to make the original DataFrame for pre-treatment
-    #DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
-    # Creates in the DataFrame a column ('Has Match?') that indicates if a feature was annotated either previously to being
-    # inputted in this software or using the data annotation of this software
-    iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
 
     # Disable posterior sidebar buttons
     page4_button.disabled = True
@@ -1828,8 +1844,6 @@ def _perform_deduplication_button(event):
                                                         name='Performing Multiple Annotation Metabolic Feature Merging...'))
 
     # Perform Metabolic Feature Merging
-    #DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
-    #iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
     multiple_adds = True if len(RepGen.adducts_to_consider) > 1 else False
     data_ann_deduplicator.perform_deduplication(DataFrame_Store.original_df, target_list.sample_cols,
                                             radiobox_neutral_mass.value, multiple_adds)
@@ -2500,10 +2514,10 @@ def _confirm_button_next_step_5(event):
                 if params_loaded_in.value:
                     report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
                                 annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, RepGen,
-                                adducts_to_search_widget, DB_dict, PreTreatment_Method, checkbox_com_exc, com_exc_compounds,
-                                PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store,
-                                pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim,
-                                RF_store_binsim, False, params_analysis_loaded_in.value)
+                                adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
+                                com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
+                                dataviz_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
+                                PLSDA_store_binsim, RF_store_binsim, False, params_analysis_loaded_in.value)
 
                     # Adjust necessary widgets
                     if 'BinSim Analysis' in params_to_load.value.keys():
@@ -2589,8 +2603,8 @@ def _save_parameters_pretreat_button(event):
         # Trying to save parameters
         filename = params_filename.value
         report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget,
-                        DB_dict, checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store,
-                        dataviz_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim,
+                        DB_dict, FormAssign_store, checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store,
+                        RF_store, dataviz_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim,
                         RF_store_binsim, include_data_analysis=False)
 
         pn.state.notifications.success(f'Pre-Treatment Parameters successfully saved in {filename}.json')
@@ -6901,8 +6915,8 @@ def _report_generation_button(event):
     try:
         report_generation.ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
                                         target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                                        data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
-                                        pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page)
+                                        FormAssign_store, data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store,
+                                        PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page)
     except:
         while len(rep_gen_page) > 6:
             rep_gen_page.pop(5)
@@ -6927,9 +6941,9 @@ def _save_parameters_analysis_button(event):
     try:
         # Trying to save parameters
         filename = params_filename.value
-        report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, checkbox_com_exc,
-                        com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, pathora_store, PCA_params_binsim,
-                        HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True)
+        report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, FormAssign_store,
+                        checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, pathora_store,
+                        PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True)
 
         pn.state.notifications.success(f'Parameters successfully saved in {filename}.json')
 

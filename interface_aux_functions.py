@@ -217,7 +217,7 @@ def read_database(filename, abv, ID_col, name_col, formula_col):
     return db
 
 
-def creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation):
+def creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation, DB_dict):
     "Creating the has match column to be used later (common/exclusive compounds)."
 
     # If annotation was not performed in this software
@@ -230,7 +230,10 @@ def creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
     # If annotation was performed in this software
     else:
         # Join columns with annotations not made by this software with the ones made by this software
-        cols_to_see = checkbox_annotation.value + list(DataFrame_Store.original_df.columns[-n_databases.value*4:])
+        cols_to_see = checkbox_annotation.value.copy() #+ list(DataFrame_Store.original_df.columns[-n_databases.value*4:])
+        for db in range(n_databases.value):
+            db_info = DB_dict[str(db + 1)]
+            cols_to_see.append('Matched '+db_info.abv+' IDs')
 
         DataFrame_Store.original_df['Has Match?'] = np.nan # Creating the column
         for i in DataFrame_Store.original_df.index:
