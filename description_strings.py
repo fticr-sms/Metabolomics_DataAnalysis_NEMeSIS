@@ -175,6 +175,23 @@ A full list of parameters loaded in can be viewed by opening the corresponding j
 
 
 
+# Formula Assignment Opening Description HTML in string format
+formula_assignment_opening_string = """Here Formula Assignment is made according to our algorithm. In-depth description
+of the criteria and steps the algorithm makes are detailed in the software documentation. It uses its default formula
+database unless it is changed with the FormulaDatabaseCreator.ipynb notebook (if changed make sure their name follows
+the convention 'formulas_improved_dict{lowest molecular mass allowed in file}.csv', for example 'formulas_improved_dict250.csv').
+It is mostly geared towards assignment up to 1250 Da.
+<br>
+<br>
+Parameters used that are shared with data annotation have to be changed in the data annotation page (even if it is not
+performed) to make sure the same parameters are used in both procedures. Changeable parameters are formula assignment
+specific.
+<br>
+<br>
+When choosing the name of the formula column, make sure it is not the same name of a pre-existing column."""
+
+
+
 # Data Multiple Annotation De-Duplication Description HTML in string format
 
 annotation_deduplication_opening_string = '''<p>Due to the proximity of mass values, the same compound (or formula) can be

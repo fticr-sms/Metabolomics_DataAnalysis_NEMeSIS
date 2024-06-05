@@ -18,6 +18,7 @@ from upsetplot import from_contents
 from fractions import Fraction
 import pickle
 import json
+import os
 
 # File with functions to auxiliate the graphical interface
 import interface_aux_functions as iaf
@@ -25,6 +26,7 @@ import description_strings as desc_str
 import report_generation
 
 import metanalysis_standard as metsta
+import form_assign_func as form_afunc
 import multianalysis as ma
 
 # The initial pages, especially the read file one does not have the nomenclature that I started using later on
@@ -104,13 +106,30 @@ class DataAnnotation:
                                 page2)
 
     def view(self):
+        annotation_margin_method_radio.disabled = False
+        annotation_ppm_deviation.disabled = False
+        annotation_Da_deviation.disabled = False
+        return self.content
+
+
+class FormulaAssignment:
+    def __init__(self):
+        self.content = pn.Column("# Section 2.1: Formula Assignment",
+                                 pn.pane.HTML(desc_str.formula_assignment_opening_string),
+                                page2_1)
+
+    def view(self):
+        annotation_margin_method_radio.disabled = True
+        annotation_ppm_deviation.disabled = True
+        annotation_Da_deviation.disabled = True
+        adducts_to_search_widget.disabled = True
         return self.content
 
 
 class AnnDeDuplication:
     def __init__(self):
-        self.content = pn.Column("# Section 2.1: Data Multiple Annotation De-Duplication - Metabolic Feature Merging",
-                                page2_1)
+        self.content = pn.Column("# Section 2.2: Data Multiple Annotation De-Duplication - Metabolic Feature Merging",
+                                page2_2)
 
     def view(self):
         return self.content
@@ -659,6 +678,7 @@ def _disable_remaining_analysis_from_metadata(a,b,c,d):
     page1_2_button.disabled = True
     page2_button.disabled = True
     page2_1_button.disabled = True
+    page2_2_button.disabled = True
     page3_button.disabled = True
     page4_button.disabled = True
 
@@ -708,6 +728,7 @@ def _update_confirm_target(event):
     page1_2_button.disabled = True
     page2_button.disabled = True
     page2_1_button.disabled = True
+    page2_2_button.disabled = True
     page3_button.disabled = True
     page4_button.disabled = True
 
@@ -820,6 +841,7 @@ def _confirm_button_initial_filtering(event):
     # Disable posterior sidebar buttons
     page2_button.disabled = True
     page2_1_button.disabled = True
+    page2_2_button.disabled = True
     page3_button.disabled = True
     page4_button.disabled = True
     # Disable statistical analysis
@@ -997,6 +1019,7 @@ def _confirm_button_n_databases(event):
 
     # Disable posterior sidebar buttons
     page2_1_button.disabled = True
+    page2_2_button.disabled = True
     page3_button.disabled = True
     page4_button.disabled = True
     # Disable statistical analysis
@@ -1082,8 +1105,10 @@ def _annotation_margin_method(method):
     "Controls the widget that appears as a parameter to complement the annotation margin method chosen."
     if method == 'PPM Deviation':
         annotation_param_selection[1][0] = annotation_ppm_deviation
+        formula_param_selection[3][0] = annotation_ppm_deviation
     else:
         annotation_param_selection[1][0] = annotation_Da_deviation
+        formula_param_selection[3][0] = annotation_Da_deviation
 
 # Organizing section of parameters for annotation
 annotation_param_selection = pn.Column(annotation_margin_method_radio, 
@@ -1240,14 +1265,13 @@ def _press_confirm_annotation_perform(event):
     adducts_to_search_widget.disabled = True
 
     # Update the information for annotation de-duplication
-    data_ann_deduplicator.update_columns_with_annotations(annotated_df.value, checkbox_annotation, checkbox_formula)
     DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
     iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
-    data_ann_deduplicator.annotated_df = DataFrame_Store.original_df
-    data_ann_deduplicator.create_multiple_annotation_report()
+    #data_ann_deduplicator.annotated_df = DataFrame_Store.original_df
 
     # Disable posterior sidebar buttons
     page2_1_button.disabled = True
+    page2_2_button.disabled = True
     page3_button.disabled = True
     page4_button.disabled = True
     # Disable statistical analysis
@@ -1260,28 +1284,335 @@ def _press_confirm_annotation_perform(event):
 confirm_button_annotation_perform.on_click(_press_confirm_annotation_perform)
 
 # Button to next step
-confirm_button_next_step_2_1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Annotation De-Duplication',
+confirm_button_next_step_2_1 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Formula Assignment',
                                                      button_type='success', disabled=False)
 
 # Go to next step function and calling it
 def _confirm_button_next_step_2_1(event):
-    "Performs actions to pass from step 2_1 page to step 3 page."
+    "Performs actions to pass from step 2 page to step 2_1 page."
     page2_1_button.disabled = False
-    confirm_button_next_step_3.disabled = True
+    confirm_button_next_step_2_2.disabled = True
 
     # Reset the next page layout
-    while len(page2_1)>3:
+    while len(page2_1)>1:
+        page2_1.pop(-1)
+    page2_1.append(confirm_button_next_step_2_2_without_formulas)
+
+
+    # Update to show the Data Pre-Treatment page
+    main_area.clear()
+    show_page(pages["Formula Assignment"])
+confirm_button_next_step_2_1.on_click(_confirm_button_next_step_2_1)
+
+#### This marks the separation to use mainly param instead of only panel
+
+
+
+
+# Formula Assignment page
+
+# Class to store Formula Assignment Parameters and info
+class FormulaAssign_Storage(param.Parameterized):
+    "Class to store all information on Formula Assignment."
+
+    # Name of the column for Formula Assignment
+    form_col = param.String(default='Formula_Assignment')
+    isotope_check = param.Boolean(default=True)
+
+    # Comparing Formula Assignment with annotations
+    form_assigned_ann = param.Number(default=0)
+    form_assigned_not_ann = param.Number(default=0)
+    no_form_assigned = param.Number(default=0)
+
+    # Isotope results
+    dict_iso = param.Dict({})
+    current_parameters = param.Dict({})
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'form_col': pn.widgets.TextAreaInput(name='Enter name for the Formula Assignment column',
+                                                        value='Formula_Assignment', disabled=False, rows=1, max_rows=1),
+            'isotope_check': pn.widgets.Checkbox(name='Search for and Assign Isotopic Peaks',
+                                                        value=True, disabled=False),
+        }
+
+        # Control panel
+        self.controls = pn.Param(self,
+                                 parameters=['form_col', 'isotope_check'],
+                                 widgets=widgets, name='Parameters for Formula Assignment')
+
+# Initializing the store
+FormAssign_store = FormulaAssign_Storage()
+
+
+# Necessary widgets for the page
+confirm_button_formula_assignment_perform = pn.widgets.Button(name='Perform Formula Assignment',
+                                                     button_type='success', disabled=False)
+
+formula_assignment_progress_widget = pn.indicators.Progress(name='Formula Assignment Progress', value=0, max=10000,
+                                                           bar_color='success')
+
+
+def _confirm_button_formula_assignment_perform(event):
+    "Performs the full formula assignment procedure and updates layout throughout."
+
+    # Clean the layout
+    while len(page2_1)>1:
         page2_1.pop(-1)
 
+    # Disable posterior sidebar buttons
+    page2_2_button.disabled = True
+    page3_button.disabled = True
+    page4_button.disabled = True
+    # Disable statistical analysis
+    _disabling_stat_analysis_buttons()
+
+    # Have an exception to escape formula assignment in case an error appears
+    try:
+        # Initialize Database reading
+
+        # Loading Widget while reading the databases
+        page2_1.append(pn.indicators.LoadingSpinner(value=True, size=90,
+                                                name='Initializing Formula Databases for Assignment...'))
+
+        # Import the Formula Database
+        formulas = {}
+        for file in os.listdir():
+            if file.startswith('formulas_improved_dict'):
+                name = file.split('dict')[1].split('.')[0]
+                formulas[int(name)] = pd.read_csv(file).set_index('Unnamed: 0')
+        keys = list(formulas.keys())
+        keys.sort()
+        n_keys = len(keys)
+
+        # Import the equation coefficients
+        with open('poly_coefs.json') as fp:
+            short_range_eq = json.load(fp)
+        # Details for the short range check
+        sr_ratios = {'H/C': [short_range_eq['H/C']['0.2'], short_range_eq['H/C']['0.99']],
+                    'O/C': [0, short_range_eq['O/C']['0.75']],
+                    'N/C': [0, short_range_eq['N/C']['0.7']],
+                    'P/C': [0, short_range_eq['P/C']['0.99']],
+                    'S/C': [0, short_range_eq['S/C']['0.7']],
+                    'F/C': [0, 0],
+                    'Cl/C': [0, 0]}
+
+        # Preparing the Formula Assignment
+        int_col = 'Mean Intensity'
+        # Get the file to be used for formula_assignment ready
+        ann_data_copy = DataFrame_Store.original_df.sort_values(by=radiobox_neutral_mass.value).copy()
+        # Create a column with mean intensities to judge for isotopes
+        ann_data_copy[int_col] = ann_data_copy.loc[:, target_list.sample_cols].mean(axis=1)
+
+
+        page2_1.pop(-1)
+        if len(formulas) > 0:
+            pn.state.notifications.success(f'Formula Database successfully read. Keys: {list(formulas.keys())}')
+        else:
+            pn.state.notifications.error('No Formula Database could be read.')
+            page2_1.append(confirm_button_next_step_2_2_without_formulas)
+            return
+
+        # Formula Assignment
+
+        # Progress bar
+        formula_assignment_progress_widget.value = 0
+        page2_1.append(pn.Row('#### Formula Assignment Progress:',
+                                formula_assignment_progress_widget))
+
+
+        # DataFrame to store the results
+        forma = pd.DataFrame(columns = ['Form_give','Theo_mass', 'Adduct'])
+
+        dict_iso = {} # Store the results from an Isotope Checker
+
+        # Maximum mass value in data
+        max_mass_in_data = ann_data_copy[radiobox_neutral_mass.value].iloc[-1]
+
+        # Seeing how the threshold for assignment is set
+        if annotation_margin_method_radio.value == 'PPM Deviation':
+            deviation_in_ppm = True
+            threshppm = annotation_ppm_deviation.value
+        else:
+            deviation_in_ppm = False
+            threshppm = annotation_Da_deviation.value
+
+        # Assign Formulas
+        i = 0
+        while i < n_keys:
+            # Seeing the distance this covers
+            if i + 1 != n_keys:
+                dif_to_next_key = keys[i+1] - keys[i]
+            else:
+                dif_to_next_key = max_mass_in_data - keys[i]
+
+            # Split it into 50 Da chunks so it runs faster
+            for split in range(0,int(dif_to_next_key),50):
+                # Reducing the formula database to those 50 Da
+                reduced_form = formulas[keys[i]].loc[formulas[keys[i]].index>=keys[i]+split-0.01]
+                reduced_form = reduced_form.loc[reduced_form.index<=keys[i]+split+50+0.01]
+
+                # And the data to those 50 Da
+                teste = ann_data_copy[ann_data_copy[radiobox_neutral_mass.value] > keys[i]+split]
+                teste = teste[teste[radiobox_neutral_mass.value] <= keys[i]+split+50]
+
+                # Now for each metabolic feature in our data
+                for j in range(len(teste)):
+                    mass = teste.iloc[j].loc[radiobox_neutral_mass.value]
+                    idx = teste.index[j]
+                    # If there can be no assignment
+                    if len(reduced_form) == 0:
+                        forma.loc[idx] = np.nan, np.nan, np.nan
+                        continue
+
+                    # Perform the assignment
+                    tup = form_afunc.form_checker_ratios_adducts(teste, idx, int_col, threshppm, reduced_form,
+                                            dict_iso=dict_iso, mass_column=radiobox_neutral_mass.value,
+                                            isotope_check=FormAssign_store.isotope_check,
+                                            adducts_to_consider=RepGen.adducts_to_consider,
+                                            deviation_in_ppm=deviation_in_ppm,
+                                            short_range_eq=sr_ratios)
+                    dict_iso = tup[-3]
+
+                    # Store results
+                    forma.loc[idx] = tup[1], tup[2], tup[3]
+
+                # Updating the progress bar
+                new_value = formula_assignment_progress_widget.value + int(
+                    50/max_mass_in_data*10000)
+                if new_value < 10000:
+                    formula_assignment_progress_widget.value = new_value
+                else:
+                    formula_assignment_progress_widget.value = 10000
+            i+=1
+
+        # Storing the results of formula assignment
+        DataFrame_Store.original_df[FormAssign_store.form_col] = forma['Form_give']
+        DataFrame_Store.original_df[FormAssign_store.form_col + ' Adduct'] = forma['Adduct']
+        # Put Has Match Column at the end
+        hasmatch_col = DataFrame_Store.original_df.pop('Has Match?')
+        DataFrame_Store.original_df['Has Match?'] = hasmatch_col
+
+        # Complete the progress bar
+        formula_assignment_progress_widget.value = 10000
+
+        pn.state.notifications.warning(f'Formula Assignment Completed.')
+
+        # Save parameters of formula assignment
+        FormAssign_store.current_parameters = {'form_col': FormAssign_store.form_col,
+                                            'isotope_check': FormAssign_store.isotope_check}
+
+        # Build a description of the procedure
+        iso_count = forma.loc[[i for i in forma.dropna().index if 'iso.' in forma.dropna().loc[i,'Form_give']]].shape[0]
+        adduct_counts = forma['Adduct'].value_counts()
+        assign_desc = ['Formula Assignment was sucessfully performed.', '',
+                    f'<strong>{len(forma.dropna())} formulas</strong> were assigned to the dataset.']
+        if FormAssign_store.isotope_check:
+            assign_desc.append(f'<strong>{iso_count}</strong> of these are isotopic feature assignments.')
+        assign_desc.append(f'')
+        for ad in adduct_counts.index:
+            assign_desc.append(f'<strong>{adduct_counts.loc[ad]} {ad}</strong> adduct formula assignments were performed.')
+        page2_1.append(pn.pane.HTML('<br>'.join(assign_desc)))
+
+        # Append the button to move the page
+        confirm_button_next_step_2_2.disabled = False
+        page2_1.append(confirm_button_next_step_2_2)
+
+
+    # In case formula assignment gives an error, have a way out
+    except:
+        pn.state.notifications.error(f'Formula Assignment could not be performed. An error has appeared.')
+        page2_1.append(confirm_button_next_step_2_2_without_formulas)
+
+
+
+# Button to next step
+confirm_button_next_step_2_2 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Annotation De-Duplication',
+                                                     button_type='success', disabled=True)
+
+confirm_button_next_step_2_2_without_formulas = pn.widgets.Button(icon=iaf.img_confirm_button, name='Go to the Next Step - Annotation De-Duplication - Without Formula Assignment',
+                                                     button_type='warning', disabled=False)
+
+# Function happens when pressing the button
+confirm_button_formula_assignment_perform.on_click(_confirm_button_formula_assignment_perform)
+
+
+# Go to next step function and calling it
+def _confirm_button_next_step_2_2(event):
+    "Performs actions to pass from step 2_2 page to step 3 page."
+    page2_2_button.disabled = False
+    confirm_button_next_step_3.disabled = True
+
+    # Creating the background for de-duplication
+    data_ann_deduplicator.annotated_df = DataFrame_Store.original_df
+    data_ann_deduplicator.update_columns_with_annotations(data_ann_deduplicator.annotated_df, checkbox_annotation, checkbox_formula)
+    data_ann_deduplicator.create_multiple_annotation_report()
+
+    # Reset the next page layout
+    while len(page2_2)>3:
+        page2_2.pop(-1)
+
     # Updating next page layout
-    page2_1[1] = pn.pane.DataFrame(data_ann_deduplicator.mult_ann_report)
+    page2_2[1] = pn.pane.DataFrame(data_ann_deduplicator.mult_ann_report)
 
     # Update to show the Data Pre-Treatment page
     main_area.clear()
     show_page(pages["Annotation De-Duplication"])
-confirm_button_next_step_2_1.on_click(_confirm_button_next_step_2_1)
+confirm_button_next_step_2_2.on_click(_confirm_button_next_step_2_2)
 
-#### This marks the separation to use mainly param instead of only panel
+
+def _confirm_button_next_step_2_2_without_formulas(event):
+    "Performs actions to pass from step 2_2 page to step 3 page without formula assignment."
+    page2_2_button.disabled = False
+    confirm_button_next_step_3.disabled = True
+
+    # Erasing any possibility of having beed previously done formula assignment
+    if len(FormAssign_store.current_parameters) > 0:
+        if FormAssign_store.current_parameters['form_col'] in DataFrame_Store.original_df.columns:
+            DataFrame_Store.original_df.drop(columns=FormAssign_store.current_parameters['form_col'])
+    FormAssign_store.current_parameters = {}
+
+    # Creating the background for de-duplication
+    data_ann_deduplicator.annotated_df = DataFrame_Store.original_df
+    data_ann_deduplicator.update_columns_with_annotations(data_ann_deduplicator.annotated_df, checkbox_annotation, checkbox_formula)
+    data_ann_deduplicator.create_multiple_annotation_report()
+
+    # Reset the next page layout
+    while len(page2_2)>3:
+        page2_2.pop(-1)
+
+    # Updating next page layout
+    page2_2[1] = pn.pane.DataFrame(data_ann_deduplicator.mult_ann_report)
+
+    # Update to show the Data Pre-Treatment page
+    main_area.clear()
+    show_page(pages["Annotation De-Duplication"])
+confirm_button_next_step_2_2_without_formulas.on_click(_confirm_button_next_step_2_2_without_formulas)
+
+
+# Part of the page
+formula_param_selection = pn.Column(FormAssign_store.controls,
+                                    '#### Parameters used for data annotation (cannot be modified)',
+                                    annotation_margin_method_radio,
+                                       pn.Row(annotation_ppm_deviation, tooltip_annotation),
+                                       pn.Row(adducts_to_search_widget, adducts_to_search_tooltip),
+                                       confirm_button_formula_assignment_perform)
+
+
+# Set up the initial page
+page2_1 = pn.Column(formula_param_selection,
+                    confirm_button_next_step_2_2_without_formulas,)
 
 
 
@@ -1328,6 +1659,12 @@ class AnnDeDuplication_Storage(param.Parameterized):
             if col.startswith('Matched ') and col.endswith(' IDs'):
                 mcid.append(col)
                 mcid_alt[col] = col
+
+        # Formula Assignment column made in the software
+        if len(FormAssign_store.current_parameters) > 0:
+            if FormAssign_store.current_parameters['form_col'] in self.annotated_df:
+                mcid.append(FormAssign_store.current_parameters['form_col'])
+                mcid_alt[FormAssign_store.current_parameters['form_col']] = FormAssign_store.current_parameters['form_col']
 
         # Previous Formula Annotation columns
         mcid  = mcid + checkbox_formula.value
@@ -1449,7 +1786,7 @@ def _skip_deduplication_button(event):
     confirm_button_next_step_4.disabled = True
     save_data_dataframes_button.disabled = True
     # Join Filtered and Annotated dfs to make the original DataFrame for pre-treatment
-    DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
+    #DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
     # Creates in the DataFrame a column ('Has Match?') that indicates if a feature was annotated either previously to being
     # inputted in this software or using the data annotation of this software
     iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
@@ -1483,16 +1820,16 @@ def _perform_deduplication_button(event):
     _disabling_stat_analysis_buttons()
 
     # Updating layout
-    while len(page2_1)>3:
-        page2_1.pop(-1)
+    while len(page2_2)>3:
+        page2_2.pop(-1)
 
     # Loading Widget while de-duplication is happenning
-    page2_1.append(pn.indicators.LoadingSpinner(value=True, size=90,
-                                                        name='Perfoming Multiple Annotation Metabolic Feature Merging...'))
+    page2_2.append(pn.indicators.LoadingSpinner(value=True, size=90,
+                                                        name='Performing Multiple Annotation Metabolic Feature Merging...'))
 
     # Perform Metabolic Feature Merging
-    DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
-    iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
+    #DataFrame_Store.original_df = DataFrame_Store.concat_annots(filtered_df.value, annotated_df.value)
+    #iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation)
     multiple_adds = True if len(RepGen.adducts_to_consider) > 1 else False
     data_ann_deduplicator.perform_deduplication(DataFrame_Store.original_df, target_list.sample_cols,
                                             radiobox_neutral_mass.value, multiple_adds)
@@ -1506,7 +1843,7 @@ def _perform_deduplication_button(event):
     data_ann_deduplicator.merge_situations.loc['Possible Problem Cases'] = len(data_ann_deduplicator.merge_problems)
 
     # Remove loading widget
-    page2_1.pop(-1)
+    page2_2.pop(-1)
 
     # Middle section update
     middle_section_dedup[2] = data_ann_deduplicator.merge_report
@@ -1522,7 +1859,7 @@ def _perform_deduplication_button(event):
         middle_section_dedup[7] = pn.pane.DataFrame(data_ann_deduplicator.merge_problems)
 
     # Appending it
-    page2_1.append(middle_section_dedup)
+    page2_2.append(middle_section_dedup)
 perform_deduplication_button.on_click(_perform_deduplication_button)
 
 # Skip seeing problem cases
@@ -1572,8 +1909,8 @@ def _see_merge_problems_button(event):
     _disabling_stat_analysis_buttons()
 
     # Updating layout
-    while len(page2_1)>4:
-        page2_1.pop(-1)
+    while len(page2_2)>4:
+        page2_2.pop(-1)
 
     # Merge Problems section update
     merge_problems_section_page.clear()
@@ -1604,13 +1941,13 @@ def _see_merge_problems_button(event):
         merge_problems_section_page.append(confirm_mergeproblems_to_merge_button)
 
         # Appending it
-        page2_1.append(merge_problems_section_page)
+        page2_2.append(merge_problems_section_page)
 
     # If there are not merge problems
     else:
         merge_problems_section_page.append('### No Merge Problem Cases Detected')
         merge_problems_section_page.append(confirm_button_next_step_3)
-        page2_1.append(merge_problems_section_page)
+        page2_2.append(merge_problems_section_page)
 see_merge_problems_button.on_click(_see_merge_problems_button)
 
 # Dictionary to store CheckBoxGroups Widgets for Problem Cases
@@ -1627,6 +1964,10 @@ def _confirm_mergeproblems_to_merge_button(event):
         if key.startswith('Matched') and key.endswith(' IDs'):
             ann_cols.extend([key, 'Matched '+ key[8:-4] +' names', 'Matched '+ key[8:-4] +' formulas',
                             'Matched '+ key[8:-4] +' adducts', key[8:-4] +' match count'])
+    if len(FormAssign_store.current_parameters) > 0:
+        if FormAssign_store.current_parameters['form_col'] in data_ann_deduplicator.mcid:
+            ann_cols.append(FormAssign_store.current_parameters['form_col'])
+            ann_cols.append(FormAssign_store.current_parameters['form_col'] + ' Adduct')
     ann_cols.extend(checkbox_formula.value)
     merge_prob_description = pd.DataFrame(columns=data_ann_deduplicator.merge_description.columns)
     not_merged_desc = ['##### Metabolic Features not merged (from problem cases)']
@@ -1721,7 +2062,7 @@ confirm_button_next_step_3 = pn.widgets.Button(icon=iaf.img_confirm_button, name
                                                      button_type='success', disabled=False)
 confirm_button_next_step_3.on_click(_skip_merge_problem_cases_button)
 
-page2_1 = pn.Column(pn.pane.HTML(desc_str.annotation_deduplication_opening_string),
+page2_2 = pn.Column(pn.pane.HTML(desc_str.annotation_deduplication_opening_string),
                    data_ann_deduplicator.mult_ann_report,
                    pn.Row(skip_deduplication_button,
                           pn.Column(data_ann_deduplicator.controls, perform_deduplication_button)))
@@ -2643,7 +2984,7 @@ tooltip_comexc_dfs = pn.widgets.TooltipIcon(value="""File is created only consid
 
 # When pressing the button, creates and saves the common and exclusive compound Excel
 def _save_comexc_dfs_button(event):
-    "Creates and saves to Excelthe common and exclusive annotated compound dataframes."
+    "Creates and saves to Excel the common and exclusive annotated compound dataframes."
     # Building the common and exclusive dataframes
     common_df, exclusive_dfs = iaf.build_common_exclusive_dfs_to_save(com_exc_compounds, target_list, checkbox_annotation,
                                                               checkbox_formula, radiobox_neutral_mass, checkbox_others)
@@ -4958,6 +5299,10 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
             iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
 
         formula_cols = checkbox_formula.value + [i for i in DataFrame_Store.metadata_df.columns if i.startswith('Matched') and i.endswith('formulas')]
+        if len(FormAssign_store.current_parameters) > 0:
+            if FormAssign_store.current_parameters['form_col'] in DataFrame_Store.metadata_df:
+                formula_cols.append(FormAssign_store.current_parameters['form_col'])
+
 
         # VK Plots
         self.controls_vk.widgets['vk_formula_to_consider'].options = formula_cols
@@ -6682,6 +7027,7 @@ def Yes_Reset(event):
     page1_2_button.disabled = True
     page2_button.disabled = True
     page2_1_button.disabled = True
+    page2_2_button.disabled = True
     page3_button.disabled = True
     page4_button.disabled = True
     _disabling_stat_analysis_buttons()
@@ -6843,12 +7189,18 @@ def Yes_Reset(event):
     while len(page2) > 1:
         page2.pop(-1)
 
+    # Formula Assignment page
+    FormAssign_store.reset()
+    while len(page2_1)>1:
+        page2_1.pop(-1)
+    page2_1.append(confirm_button_next_step_2_2_without_formulas)
+
     # Annotation De-Duplication page
     data_ann_deduplicator.reset()
     merge_problems_widgets.clear()
-    while len(page2_1)>3:
-        page2_1.pop(-1)
-    page2_1[1] = pn.pane.DataFrame(data_ann_deduplicator.mult_ann_report)
+    while len(page2_2)>3:
+        page2_2.pop(-1)
+    page2_2[1] = pn.pane.DataFrame(data_ann_deduplicator.mult_ann_report)
     middle_section_dedup[2] = data_ann_deduplicator.merge_report
     middle_section_dedup[3] = pn.Row(data_ann_deduplicator.merge_situations, data_ann_deduplicator.mergings_performed)
     middle_section_dedup[5] = data_ann_deduplicator.merge_description
@@ -6881,6 +7233,7 @@ pages = {
     "Data Metadata": DataMetadata(),
     "Data Filtering": DataFiltering(),
     "Data Annotation": DataAnnotation(),
+    "Formula Assignment": FormulaAssignment(),
     "Annotation De-Duplication": AnnDeDuplication(),
     "Data Pre-Treatment": DataPreTreatment(),
     "Class Colours": ClassColours(),
@@ -6917,7 +7270,8 @@ page1_button = pn.widgets.Button(name="Data Reading", button_type="primary")
 page1_1_button = pn.widgets.Button(name="Data Metadata", button_type="primary", disabled=True)
 page1_2_button = pn.widgets.Button(name="Data Filtering", button_type="primary", disabled=True)
 page2_button = pn.widgets.Button(name="Data Annotation", button_type="primary", disabled=True)
-page2_1_button = pn.widgets.Button(name="Annotation De-Duplication", button_type="primary", disabled=True)
+page2_1_button = pn.widgets.Button(name="Formula Assignment", button_type="primary", disabled=True)
+page2_2_button = pn.widgets.Button(name="Annotation De-Duplication", button_type="primary", disabled=True)
 page3_button = pn.widgets.Button(name="Data Pre-Treatment", button_type="primary", disabled=True)
 page4_button = pn.widgets.Button(name="Class Colours", button_type="primary", disabled=True)
 page5_button = pn.widgets.Button(name="Common/Exclusive Comp.", button_type="default", disabled=True)
@@ -6938,7 +7292,8 @@ page1_button.on_click(lambda event: show_page(pages["Data Reading"]))
 page1_1_button.on_click(lambda event: show_page(pages["Data Metadata"]))
 page1_2_button.on_click(lambda event: show_page(pages["Data Filtering"]))
 page2_button.on_click(lambda event: show_page(pages["Data Annotation"]))
-page2_1_button.on_click(lambda event: show_page(pages["Annotation De-Duplication"]))
+page2_1_button.on_click(lambda event: show_page(pages["Formula Assignment"]))
+page2_2_button.on_click(lambda event: show_page(pages["Annotation De-Duplication"]))
 page3_button.on_click(lambda event: show_page(pages["Data Pre-Treatment"]))
 page4_button.on_click(lambda event: show_page(pages["Class Colours"]))
 page5_button.on_click(lambda event: show_page(pages["Common and Exclusive Compounds"]))
@@ -6954,8 +7309,8 @@ RESET_button.on_click(RESET)
 
 
 sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing and Pre-Treatment', page1_button, page1_1_button, page1_2_button, page2_button, page2_1_button,
-                    page3_button, page4_button, '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button, page11_button,
-                    page12_button, '## Report Generation', page13_button, '## To Reset', RESET_button)
+                    page2_2_button, page3_button, page4_button, '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button,
+                    page11_button, page12_button, '## Report Generation', page13_button, '## To Reset', RESET_button)
 
 
 app = pn.template.BootstrapTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])

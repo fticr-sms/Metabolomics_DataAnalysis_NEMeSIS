@@ -385,6 +385,11 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
 
                                 else:
                                     temp_full_new_line.loc[key] = saving_annotations[key]
+                                    # Column is our Formula Assignment column
+                                if key + ' Adduct' in annotated_data.columns:
+                                    temp = annotated_data.loc[[
+                                        i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
+                                    temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
 
                             merging_situations['Overwrite'] = merging_situations['Overwrite'] + 1
                             mergings_performed[data_ann_deduplicator.mcid_alt[col]] = mergings_performed[
@@ -422,6 +427,11 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
 
                         else:
                             temp_full_new_line.loc[key] = saving_annotations[key]
+                            # Column is our Formula Assignment column
+                            if key + ' Adduct' in annotated_data.columns:
+                                temp = annotated_data.loc[[
+                                    i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
+                                temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
 
                     # All that's left is the Bucket Label and Neutral Mass
                     if multiple_adds:
