@@ -3,7 +3,18 @@ This page includes the release notes for both jupyter notebook and graphical int
 
 ## Jupyter Notebook Version Release Notes
 
-**V2.5 - Introducing adducts to data annotation and expansion of univariate analysis (22/04/2024).**
+**V2.6 - Introducing Peak Alignment, Formula Assignment, Pathway Over-Representation Analysis and expansion of compound finder tools (05/06/2024)**
+
+- Added Sample Peak Alignment to Data Reading section of the notebook as an alternative to directly reading pre-aligned files.
+- Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.
+- (Furthermore, addded external jupyter notebook for creation of own formula database to use for this formula assignment).
+- Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).
+- Added option to search for KEGG ID in finder (requires HMDB annotation).
+- Added search for highly positive or negative correlated metabolites to a metabolite of choice.
+- Added option to search for compounds in batch (requires external file).
+- Small improvements in code and descriptions as well as small bugfixes.
+
+**V2.5 - Introducing adducts to data annotation and expansion of univariate analysis (23/04/2024).**
 
 - Type of index in the dataset can be chosen if they are positive/negative m/z masses or neutral masses, creating respectively a 'Probable m/z' or a 'Neutral Mass' column.
 - Added way to introduce which adduct to consider for data annotation.
@@ -115,7 +126,18 @@ This page includes the release notes for both jupyter notebook and graphical int
 
 ## Graphical Interface Version Release Notes
 
-#### Version Alpha.3 (26/04/2024)
+**Version Alpha.4 (05/06/2024)**
+
+- Original files can now be read from different folders than where the software is (files will still be downloaded to the software folder).
+- Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.
+- (Furthermore, addded external jupyter notebook for creation of own formula database to use for this formula assignment).
+- Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).
+- Simplifying some table displays and eliminating redundant parameters (decrease memory usage).
+- Improved hover data for PCA and PLS-DA projection plots.
+- Small bugfixes and enhancing descriptions.
+- Added external interface software to perform Sample Peak Alignment (DataAlignmentInterface.py) whose output can be used as input to the software.
+
+**Version Alpha.3 (26/04/2024)**
 
 - Added possibility to interpret mass values in data index as Neutral, Positive m/z or Negative m/z (in Data Reading).
 - Added possibility to define which adducts to search for Data Annotation when comparing data masses to the databases selected.

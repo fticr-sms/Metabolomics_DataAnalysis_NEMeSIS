@@ -127,7 +127,7 @@ However, in the future, these databases will have corresponding python files tha
 - Small bugfix in index hyperlinks when using Visual Studio Code (did not jump to subsections).
 - Example data in De-duplication section is now skipped if the example dataset is not loaded.
 
-#### V2.5 - Introducing adducts to data annotation and expansion of univariate analysis (22/04/2024).
+#### V2.5 - Introducing adducts to data annotation and expansion of univariate analysis (23/04/2024).
 
 - Type of index in the dataset can be chosen if they are positive/negative m/z masses or neutral masses, creating respectively a 'Probable m/z' or a 'Neutral Mass' column.
 - Added way to introduce which adduct to consider for data annotation.
@@ -140,6 +140,17 @@ However, in the future, these databases will have corresponding python files tha
 - Added multi-class univariate statisical analysis (ANOVA and Kruskal-Wallis test).
 - Add 'index' as a search possibility in the compound finder and minor bugfix where previously annotated columns would not be searched when using 'Name' or 'Formula' options.
 - Improve to some descriptions and minor bugfixes.
+
+#### V2.6 - Introducing Peak Alignment, Formula Assignment, Pathway Over-Representation Analysis and expansion of compound finder tools (05/06/2024)
+
+- Added Sample Peak Alignment to Data Reading section of the notebook as an alternative to directly reading pre-aligned files.
+- Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.
+- (Furthermore, addded external jupyter notebook for creation of own formula database to use for this formula assignment).
+- Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).
+- Added option to search for KEGG ID in finder (requires HMDB annotation).
+- Added search for highly positive or negative correlated metabolites to a metabolite of choice.
+- Added option to search for compounds in batch (requires external file).
+- Small improvements in code and descriptions as well as small bugfixes.
 
 #### In Future Patches:
 
@@ -177,6 +188,16 @@ However, in the future, these databases will have corresponding python files tha
 - Updated the rest of the graphical interface and report generation based on the changes in Data Reading and adducts in Data Annotation.
 - Minor bugfixes and improvements throughout software.
 
+#### Version Alpha.4 (05/06/2024)
+
+- Original files can now be read from different folders than where the software is (files will still be downloaded to the software folder).
+- Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.
+- (Furthermore, addded external jupyter notebook for creation of own formula database to use for this formula assignment).
+- Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).
+- Simplifying some table displays and eliminating redundant parameters (decrease memory usage).
+- Improved hover data for PCA and PLS-DA projection plots.
+- Small bugfixes and enhancing descriptions.
+- Added external interface software to perform Sample Peak Alignment (DataAlignmentInterface.py) whose output can be used as input to the software.
 
 ### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
 
