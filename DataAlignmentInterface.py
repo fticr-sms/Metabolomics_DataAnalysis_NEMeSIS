@@ -269,4 +269,4 @@ main_area = AlignmentPage().content
 
 app = pn.template.BootstrapTemplate(title='Data Alignment Interface', sidebar=[], main=[main_area])
 
-app.show(websocket_max_message_size=100*1024*1014, http_server_kwargs={'max_buffer_size': 100*1024*1014})
+app.show(websocket_max_message_size=100*1024*1024, http_server_kwargs={'max_buffer_size': 100*1024*1024})

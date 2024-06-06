@@ -36,6 +36,7 @@ import multianalysis as ma
 pn.extension('plotly', 'floatpanel', 'katex', notifications=True)
 hv.extension('plotly')
 pn.config.sizing_mode="stretch_width"
+pn.config.throttled = True
 mpl.use('agg')
 
 # To allow the interaction of different packages
@@ -2507,6 +2508,8 @@ def _confirm_button_next_step_5(event):
             comp_finder_page[3] = 'Sample Bar Plot of the Searched Compound'
             comp_finder_page[5] = 'Class Bar Plot of the Searched Compound'
             comp_finder_page[7] = 'Class Boxplot of the Searched Compound'
+            comp_finder_page[9] = 'Correlation Tables Section'
+            save_correlation_table_button.disabled = True
             com_exc_compounds.reset()
 
             # Reload parameters of data analysis if they were loaded in
@@ -6582,6 +6585,12 @@ class CompoundFinder(param.Parameterized):
     class_bar_plot = param.List(default=['To plot a bar plot with class avg. intensities'])
     class_boxplot = param.List(default=['To plot a boxplot with class avg. intensities'])
 
+    # Correlated Metabolites Attributes
+    corr_method = param.String(default='Pearson Correlation')
+    corr_button_confirm = param.Boolean(default=False)
+    corr_matrix = param.DataFrame(pd.DataFrame())
+    corr_current_method = param.String(default='Pearson Correlation')
+
 
     def _calculate_possible_options(self, metadata_df, checkbox_annotation, checkbox_formula, radiobox_neutral_mass):
         "Obtain a dictionary detailing all the possible peak/annotation options and corresponding idxs where they appear."
@@ -6671,6 +6680,46 @@ class CompoundFinder(param.Parameterized):
                    'filename': f'NormInt_ClassBarPlot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
         comp_finder_page[7] = pn.pane.Plotly(self.class_boxplot[0], config={'toImageButtonOptions': {
                    'filename': f'NormInt_ClassBoxplot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
+        save_correlation_table_button.disabled = True
+        comp_finder_page[9] = 'Correlation Tables Section'
+
+
+    def _corr_button_confirm(self, event):
+        "Calculates correlation matrix and updates its section of the layout."
+
+        # Calculate correlations
+        if self.corr_method == 'Pearson Correlation':
+            c_meth = 'pearson'
+        elif self.corr_method == 'Spearman Correlation':
+            c_meth = 'spearman'
+        else:
+            c_meth = 'kendall'
+        corr_matrix = DataFrame_Store.treated_df.corr(method=c_meth)[[self.current_params['id_comp']]]
+
+        # Building the matrix
+        corr_mets = DataFrame_Store.metadata_df.copy()
+        corr_mets.insert(0,'Bucket label', corr_mets.index)
+        corr_mets.insert(1,'Corr Coef', '')
+        for c in corr_mets.index:
+            corr_mets['Corr Coef'][c] = corr_matrix.loc[c][self.current_params['id_comp']]
+        corr_mets = corr_mets.drop(self.id_comp)
+        corr_mets = corr_mets.sort_values(by='Corr Coef', ascending=False)
+        corr_mets.index = range(1, len(corr_mets)+1)
+
+        # Storing the matrix
+        self.corr_matrix = corr_mets
+        self.corr_current_method = self.corr_method
+        pos_corr = self.corr_matrix.head(20)
+        neg_corr = self.corr_matrix.tail(20)
+
+        # Update the layout
+        comp_finder_page[9] = pn.Column(
+            f'### Current Metabolite: {self.current_params["id_comp"]} ({self.current_params["id_type"]})',
+            '#### Most Positively Correlated Metabolites',
+            pn.pane.DataFrame(pos_corr),
+            '#### Most Negatively Correlated Metabolites',
+            pn.pane.DataFrame(neg_corr.iloc[::-1]),)
+        save_correlation_table_button.disabled = False
 
 
     def reset(self):
@@ -6691,6 +6740,9 @@ class CompoundFinder(param.Parameterized):
         self.controls.widgets['id_comp'].options = ['']
         self.controls.widgets['id_comp'].placeholder = ''
         self.bucket_to_idxs = None
+        self.corr_method = 'Pearson Correlation'
+        self.corr_matrix = pd.DataFrame()
+        self.corr_current_method = 'Pearson Correlation'
 
 
     # Update the Widget options
@@ -6784,6 +6836,15 @@ class CompoundFinder(param.Parameterized):
                 name='Class based plots ignore missing values (if not selected missing values are treated as 0).')
         }
 
+        # Widget Correlation section
+        widgets_corr = {
+            'corr_method': pn.widgets.RadioBoxGroup(name='Select Type of Correlation', value='Pearson Correlation',
+                                                    options = ['Pearson Correlation', 'Spearman Correlation', 'Kendall Correlation'],
+                                                    inline=True),
+            'corr_button_confirm': pn.widgets.Button(name='Calculate Metabolite Correlations to Currently Selected Metabolite',
+                                                     button_type='warning')
+        }
+
         self.controls = pn.Param(self, parameters=['id_type', 'id_comp', 'confirm_id_button'],
                                  widgets=widgets, name='Compound Identifier to Find')
 
@@ -6791,12 +6852,42 @@ class CompoundFinder(param.Parameterized):
                                                        'class_boxplot_points', 'ignore_missing_values'],
                                  widgets=widgets_fig_param, name='Figure Parameters')
 
+        self.controls_corr = pn.Param(self, parameters=['corr_method','corr_button_confirm'],
+                                 widgets=widgets_corr,
+                                 name='Select type of correlation to compute (Kendall Corr. computing is slow)')
+
 # Initialize Store
 comp_finder = CompoundFinder()
 
 # Calling the function when the button is pressed
 comp_finder.controls.widgets['confirm_id_button'].on_click(comp_finder._confirm_id_button)
 
+# Calling the function when the button is pressed
+comp_finder.controls_corr.widgets['corr_button_confirm'].on_click(comp_finder._corr_button_confirm)
+
+
+# Widget to save dataframe with correlations
+save_correlation_table_button = pn.widgets.Button(
+    name='Save Full Table with Correlations to the Searched Metabolite',
+    button_type='warning', icon=iaf.download_icon, disabled=True)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_correlation_table_button(event):
+    "Save Correlation Results as an Excel."
+    try:
+        params = comp_finder.current_params
+        # Building the datafile name
+        filename_string = f'CorrMetabolites_{params["id_comp"]}_{params["id_type"]}_'
+        filename_string = filename_string + f'{comp_finder.corr_current_method.split(" ")[0]}Corr'
+        filename_string = filename_string + '.xlsx'
+
+        # Saving the file
+        comp_finder.corr_matrix.to_excel(filename_string)
+        pn.state.notifications.success(f'{filename_string} successfully saved.')
+    except:
+        pn.state.notifications.error(f'File could not be saved.')
+
+save_correlation_table_button.on_click(_save_correlation_table_button)
 
 # Initializing the layout of the page
 comp_finder_page = pn.Column(comp_finder.controls,
@@ -6811,7 +6902,11 @@ comp_finder_page = pn.Column(comp_finder.controls,
                             pn.Column('### Class Boxlot',
                                       comp_finder.controls_fig.widgets['class_boxplot_points'],
                                     comp_finder.controls_fig.widgets['ignore_missing_values']),
-                            'Class Boxplot of the Searched Compound',)
+                            'Class Boxplot of the Searched Compound',
+                            pn.Column('### Metabolite Correlations',
+                                      comp_finder.controls_corr),
+                            'Correlation Tables Section',
+                            save_correlation_table_button)
 
 
 
@@ -7163,6 +7258,8 @@ def Yes_Reset(event):
     comp_finder_page[3] = 'Sample Bar Plot of the Searched Compound'
     comp_finder_page[5] = 'Class Bar Plot of the Searched Compound'
     comp_finder_page[7] = 'Class Boxplot of the Searched Compound'
+    comp_finder_page[9] = 'Correlation Tables Section'
+    save_correlation_table_button.disabled = True
     com_exc_compounds.reset()
 
     # Report Generation page
@@ -7329,4 +7426,4 @@ sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing an
 
 app = pn.template.BootstrapTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
 
-app.show(websocket_max_message_size=100*1024*1014, http_server_kwargs={'max_buffer_size': 100*1024*1014})
+app.show(websocket_max_message_size=100*1024*1024, http_server_kwargs={'max_buffer_size': 100*1024*1024})
