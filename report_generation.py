@@ -266,6 +266,8 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     document.add_heading('Data Annotation', level=3)
 
     ann_pg = document.add_paragraph(f'Data Annotation in this software was made using {n_databases.value} database(s).')
+    if RepGen.only_select_min_ppm:
+        ann_pg.add_run(f' Within the deviation window allowed, only compounds with the minimum mass deviation found were kept. Others were removed.')
 
     # Information on Databases used
     for db in range(n_databases.value):
@@ -1699,7 +1701,8 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
                                             'annotation_margin_method': RepGen.annotation_margin_method,
                                             'annotation_ppm_deviation': RepGen.annotation_margin_ppm_deviation,
                                             'annotation_Da_deviation': RepGen.annotation_margin_Da_deviation,
-                                            'adducts_to_be_searched': adducts_to_search_widget.value}
+                                            'adducts_to_be_searched': adducts_to_search_widget.value,
+                                            'only_select_min_ppm': RepGen.only_select_min_ppm}
     # Database Specific Parameters
     for d in range(n_databases.value):
         params_to_be_saved['Data Annotation'][d] = {'file': DB_dict[str(d+1)].file,
@@ -1985,11 +1988,11 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
 
 # Loading parameters from saved json files.
 def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_databases, annotation_margin_method_radio,
-                         annotation_ppm_deviation, annotation_Da_deviation, RepGen, adducts_to_search_widget, DB_dict,
-                         FormAssign_Store, PreTreatment_Method, checkbox_com_exc, com_exc_compounds, PCA_params,
-                         n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store, dataviz_store, pathora_store,
-                         PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim, PLSDA_store_binsim,
-                         RF_store_binsim, params_pre_treat_loaded_in, params_analysis_loaded_in):
+                         annotation_ppm_deviation, annotation_Da_deviation, only_select_min_ppm_widget, RepGen,
+                         adducts_to_search_widget, DB_dict, FormAssign_Store, PreTreatment_Method, checkbox_com_exc,
+                         com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
+                         dataviz_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
+                         PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in, params_analysis_loaded_in):
     "Load in Previously Saved Parameters for Data Analysis."
 
     # Data Pre-Processing and Pre-Treatment Related Parameters
@@ -2005,12 +2008,13 @@ def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_datab
         annotation_margin_method_radio.value = params_to_load['Data Annotation']['annotation_margin_method']
         annotation_ppm_deviation.value = params_to_load['Data Annotation']['annotation_ppm_deviation']
         annotation_Da_deviation.value = params_to_load['Data Annotation']['annotation_Da_deviation']
+        only_select_min_ppm_widget.value = params_to_load['Data Annotation']['only_select_min_ppm']
         if params_to_load['Data Reading']['type_of_mass_values_in_file'] == RepGen.type_of_mass_values_in_file:
             adducts_to_search_widget.value = params_to_load['Data Annotation']['adducts_to_be_searched']
         # Database Specific Parameters
         for d in params_to_load['Data Annotation'].keys():
             if d not in ['n_databases', 'annotation_margin_method', 'annotation_ppm_deviation', 'annotation_Da_deviation',
-                         'adducts_to_be_searched']:
+                         'only_select_min_ppm', 'adducts_to_be_searched']:
                 DB_dict[str(int(d)+1)].content[0][1].value = params_to_load['Data Annotation'][d]["file"]
                 DB_dict[str(int(d)+1)].content[1][1].value = params_to_load['Data Annotation'][d]["abv"]
                 DB_dict[str(int(d)+1)].content[2][1].value = params_to_load['Data Annotation'][d]["IDcol"]

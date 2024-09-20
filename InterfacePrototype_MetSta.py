@@ -45,7 +45,6 @@ pd.DataFrame.iteritems = pd.DataFrame.items
 # TODO: Make a way to choose folder where all figures and tables downloaded go to
 # TODO: Updating packages made a series of future deprecation warnings appear - adapt code to them
 # TODO: Make PCA and projection plots save the current components names in the filename
-# TODO: Add Pathway ORA to report generation and parameter saving/loading
 
 
 # Define pages as classes
@@ -325,6 +324,12 @@ class DataFrame_Storage(param.Parameterized):
     # BinSim treated DataFrame
     binsim_df = param.DataFrame()
 
+    # Annotated compounds only DataFrame
+    #annotated_df = param.DataFrame()
+
+    # Filtered Dataset
+    #filtered_df = param.DataFrame()
+
 
     def concat_annots(_, MS_df, annot_df):
         "Joins m/z peak data with annotation data in a single DataFrame."
@@ -369,7 +374,6 @@ def _disabling_stat_analysis_buttons():
 # TODO: Data Visualization page does not reset figure parameters to default (Volcano plot does not reset colours but that is okay)
 
 # Page 1 - Reading File
-# TODO: Make it be able to read positive and negative ionization mode obtained data perhaps so it is not just suited to MetaboScape
 
 class FileReading(param.Parameterized):
     """Class to store as attributes file read."""
@@ -519,8 +523,8 @@ def _confirm_param_file_button(event):
     # Load parameters into the interface
     try:
         report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
-                    annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, RepGen,
-                    adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
+                    annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, only_select_min_ppm_widget,
+                    RepGen, adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
                     com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
                     dataviz_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
                     PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in.value, params_analysis_loaded_in.value)
@@ -881,7 +885,6 @@ page1_2 = pn.Column(pn.Row(filt_method, filt_method_tooltip), pn.Row(filt_kw, fi
 
 
 # Page 2 - Annotation of Metabolites
-# TODO: Make it selectable if you want to search for possible adducts (if added possibility to read positive and negative m/z indexes)
 
 # Widgets for selecting number of databases
 n_databases_show = pn.widgets.IntInput(name='Nº of Databases to annotate', value=1, step=1, start=0, end=5)
@@ -1097,6 +1100,8 @@ adducts_to_search_widget = pn.widgets.TextAreaInput(
 adducts_to_search_tooltip = pn.widgets.TooltipIcon(
     value="At least 1 adduct must be here to perform annotation. Example - Adduct name : Mass Difference to Neutral Mass")
 
+only_select_min_ppm_widget = pn.widgets.Checkbox(name='Within the deviation window allowed, only keep compounds with the minimum mass deviation.', value=False)
+
 confirm_button_annotation_perform = pn.widgets.Button(name='Perform Annotation',
                                                      button_type='success', disabled=False)
 
@@ -1115,6 +1120,7 @@ def _annotation_margin_method(method):
 annotation_param_selection = pn.Column(annotation_margin_method_radio, 
                                        pn.Row(annotation_ppm_deviation, tooltip_annotation),
                                        pn.Row(adducts_to_search_widget, adducts_to_search_tooltip),
+                                       only_select_min_ppm_widget,
                                        confirm_button_annotation_perform)
 
 # Make the annotation part of the layout appear and disable button to confirm databases
@@ -1213,6 +1219,13 @@ def metabolite_annotation():
                     candidates_for_annotation = pd.concat((candidates_for_annotation, candidates_for_annotation_ad))
                     matched_adds.extend([ad_col,] * len(candidates_for_annotation_ad))
 
+            # Reduce candidates to those which have the minimum ppm deviation
+            if only_select_min_ppm_widget.value:
+                if len(candidates_for_annotation) > 0:
+                    min_dev = candidates_for_annotation.min().values[0]
+                    matched_adds = list(np.array(matched_adds)[candidates_for_annotation[0].values == min_dev])
+                    candidates_for_annotation = candidates_for_annotation[candidates_for_annotation[0].values == min_dev]
+
             # Store candidates
             for m in candidates_for_annotation.index:
                 matched_ids.append(m)
@@ -1261,6 +1274,7 @@ def _press_confirm_annotation_perform(event):
     RepGen.annotation_margin_method = annotation_margin_method_radio.value
     RepGen.annotation_margin_ppm_deviation = annotation_ppm_deviation.value
     RepGen.annotation_margin_Da_deviation = annotation_Da_deviation.value
+    RepGen.only_select_min_ppm = only_select_min_ppm_widget.value
 
     # Disable possibility to change adducts
     adducts_to_search_widget.disabled = True
@@ -2453,6 +2467,7 @@ def _confirm_button_next_step_5(event):
 
             # Pathway Assignment page
             PathAssign_store.reset()
+            pathora_store.controls.widgets['confirm_button_ORA'].disabled = True
             while len(path_matching_section) > 3:
                 path_matching_section.pop(-1)
             while len(hmdb_id_searching_section) > 3:
@@ -2516,8 +2531,8 @@ def _confirm_button_next_step_5(event):
             try:
                 if params_loaded_in.value:
                     report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
-                                annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, RepGen,
-                                adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
+                                annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, only_select_min_ppm_widget,
+                                RepGen, adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
                                 com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
                                 dataviz_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
                                 PLSDA_store_binsim, RF_store_binsim, False, params_analysis_loaded_in.value)
@@ -4824,6 +4839,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
             # Repeated content from the main function to not add another attribute to the class
             results_df = self.univariate_results_non_filt.copy()
             results_df['-log10(Adj. p-value)'] = -np.log10(results_df['FDR adjusted p-value'])
+            results_df['Feature'] = results_df.index
 
             expression = []
             for i in results_df.index:
@@ -5037,6 +5053,7 @@ def _updating_univariate_analysis_page_layout():
     # Generate and the Volcano plot data
     results_df = UnivarA_Store.univariate_results_non_filt.copy()
     results_df['-log10(Adj. p-value)'] = -np.log10(results_df['FDR adjusted p-value'])
+    results_df['Feature'] = results_df.index
 
     expression = []
     for i in results_df.index:
@@ -5677,6 +5694,10 @@ def _confirm_hmdb_cols_button(event):
     # Perform the assignment
     PathAssign_store._pathway_assignments(DataFrame_Store.metadata_df, pathway_db)
     PathAssign_store._path_assign_describer() # Get the description of the assignment
+    if len(PathAssign_store.pathway_assignments) > 0:
+        pathora_store.controls.widgets['confirm_button_ORA'].disabled = False
+    else:
+        pathora_store.controls.widgets['confirm_button_ORA'].disabled = True
 
     # Update page layout
     while len(path_matching_section) > 3:
@@ -6040,7 +6061,7 @@ class PathwayORA_Storage(param.Parameterized):
                                  'Only the exclusive metabolites for each class',
                                  'Only the significant metabolites of a 1v1 univariate analysis'],
                        inline=False),
-            'confirm_button_ORA': pn.widgets.Button(name="Perform Over-Representation Analysis", button_type='primary'),
+            'confirm_button_ORA': pn.widgets.Button(name="Perform Over-Representation Analysis", button_type='primary', disabled=True),
         }
 
         widgets2 = {
@@ -6928,6 +6949,7 @@ class ReportGeneration(param.Parameterized):
     annotation_margin_ppm_deviation = param.Number()
     annotation_margin_Da_deviation = param.Number()
     adducts_to_consider = param.Dict()
+    only_select_min_ppm = param.Boolean(default=False)
 
     # Related to Annotation De-Duplication
     deduplication_performed = param.String('Annotation De-Duplication was not performed')
@@ -7203,6 +7225,7 @@ def Yes_Reset(event):
 
     # Pathway Assignment page
     PathAssign_store.reset()
+    pathora_store.controls.widgets['confirm_button_ORA'].disabled = True
     while len(path_matching_section) > 3:
         path_matching_section.pop(-1)
     while len(hmdb_id_searching_section) > 3:
@@ -7291,6 +7314,7 @@ def Yes_Reset(event):
     annotation_margin_method_radio.value = 'PPM Deviation'
     annotation_ppm_deviation.value = 1
     annotation_Da_deviation.value = 0.001
+    only_select_min_ppm_widget.value = False
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
     #DB_dict_reset(DB_dict)
     dbs_arrangement.clear()

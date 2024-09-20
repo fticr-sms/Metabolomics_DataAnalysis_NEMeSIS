@@ -91,12 +91,12 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, mass_val_col, adducts
         matched_formulas_col = 'Matched '+d+' formulas'
         matched_add_col = 'Matched '+d+' adducts'
         match_count_col = d+' match count'
-        annotated_data[matched_ids_col] = ""
-        annotated_data[matched_names_col] = ""
-        annotated_data[matched_formulas_col] = ""
-        annotated_data[matched_add_col] = ""
+        annotated_data[matched_ids_col] = [[] for i in range(len(annotated_data))]
+        annotated_data[matched_names_col] = [[] for i in range(len(annotated_data))]
+        annotated_data[matched_formulas_col] = [[] for i in range(len(annotated_data))]
+        annotated_data[matched_add_col] = [[] for i in range(len(annotated_data))]
         if d == 'HMDB':
-            annotated_data['Matched KEGG IDs'] = ""
+            annotated_data['Matched KEGG IDs'] = [[] for i in range(len(annotated_data))]
         annotated_data[match_count_col] = ""
 
         # And for each metabolic feature
@@ -138,12 +138,12 @@ def metabolite_annotation(annotated_data, dbs, ppm_margin, mass_val_col, adducts
 
             # Perform annotation (if any compound was found)
             if len(matched_ids) > 0:
-                annotated_data.at[a, matched_ids_col] = matched_ids
-                annotated_data.at[a, matched_names_col] = matched_names
-                annotated_data.at[a, matched_formulas_col] = matched_formulas
-                annotated_data.at[a, matched_add_col] = matched_adds
+                annotated_data.at[a, matched_ids_col].extend(matched_ids)
+                annotated_data.at[a, matched_names_col].extend(matched_names)
+                annotated_data.at[a, matched_formulas_col].extend(matched_formulas)
+                annotated_data.at[a, matched_add_col].extend(matched_adds)
                 if d == 'HMDB':
-                    annotated_data.at[a, 'Matched KEGG IDs'] = matched_keggs
+                    annotated_data.at[a, 'Matched KEGG IDs'].extend(matched_keggs)
                 annotated_data.at[a, match_count_col] = len(matched_ids)
             else:
                 annotated_data.at[a, matched_ids_col] = np.nan

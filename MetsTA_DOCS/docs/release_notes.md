@@ -164,9 +164,3 @@ This page includes the release notes for both jupyter notebook and graphical int
 **Version Alpha.0 (13/12/2023)**
 
 - Alpha Version of the Graphical Interface of the MetsTA software (includes homepage, instruction page and all data analysis pipeline except for BinSim Analysis).
-
-
-## Projected Features In Future Patches
-
-- Add sMDiN analysis to notebooks.
-- Add Formula Assignment.
