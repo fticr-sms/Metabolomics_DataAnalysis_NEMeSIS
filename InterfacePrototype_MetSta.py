@@ -1477,8 +1477,8 @@ def _confirm_button_formula_assignment_perform(event):
             # Split it into 50 Da chunks so it runs faster
             for split in range(0,int(dif_to_next_key),50):
                 # Reducing the formula database to those 50 Da
-                reduced_form = formulas[keys[i]].loc[formulas[keys[i]].index>=keys[i]+split-0.01]
-                reduced_form = reduced_form.loc[reduced_form.index<=keys[i]+split+50+0.01]
+                #reduced_form = formulas[keys[i]].loc[formulas[keys[i]].index>=keys[i]+split-0.01]
+                #reduced_form = reduced_form.loc[reduced_form.index<=keys[i]+split+50+0.01]
 
                 # And the data to those 50 Da
                 teste = ann_data_copy[ann_data_copy[radiobox_neutral_mass.value] > keys[i]+split]
@@ -1489,12 +1489,12 @@ def _confirm_button_formula_assignment_perform(event):
                     mass = teste.iloc[j].loc[radiobox_neutral_mass.value]
                     idx = teste.index[j]
                     # If there can be no assignment
-                    if len(reduced_form) == 0:
-                        forma.loc[idx] = np.nan, np.nan, np.nan
-                        continue
+                    #if len(reduced_form) == 0:
+                    #    forma.loc[idx] = np.nan, np.nan, np.nan
+                    #    continue
 
                     # Perform the assignment
-                    tup = form_afunc.form_checker_ratios_adducts(teste, idx, int_col, threshppm, reduced_form,
+                    tup = form_afunc.form_checker_ratios_adducts(teste, idx, int_col, threshppm, formulas,
                                             dict_iso=dict_iso, mass_column=radiobox_neutral_mass.value,
                                             isotope_check=FormAssign_store.isotope_check,
                                             adducts_to_consider=RepGen.adducts_to_consider,
@@ -2323,8 +2323,9 @@ def _confirm_button_next_step_4(event):
 confirm_button_next_step_4.on_click(_confirm_button_next_step_4)
 
 # Widget to save dataframes in .csv format (specifically annotated data, treated data and metadata)
-save_data_dataframes_button = pn.widgets.Button(name='Save representative Dataframes as .csv files (in current folder)',
-                                                button_type='warning', icon=iaf.download_icon, disabled=True)
+save_data_dataframes_button = pn.widgets.Button(
+    name='Save Dataframes and class target (can be used for side modules) (in current folder)',
+    button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframes
 def _save_data_dataframes_button(event):
@@ -2332,6 +2333,21 @@ def _save_data_dataframes_button(event):
     DataFrame_Store.original_df.to_csv('annotated_df.csv')
     DataFrame_Store.treated_df.to_csv('treated_df.csv')
     pd.concat((DataFrame_Store.metadata_df, DataFrame_Store.treated_df.T), axis=1).to_csv('complete_treated_df.csv')
+
+    # Exports for the side modules
+    # Complete exported data
+    with pd.ExcelWriter('Export_TreatedData.xlsx') as writer:
+        DataFrame_Store.processed_df.to_excel(writer, sheet_name='Metadata+Normalized Data')
+        DataFrame_Store.treated_df.to_excel(writer, sheet_name='Fully Treated Data')
+        DataFrame_Store.binsim_df.to_excel(writer, sheet_name='BinSim Treated Data')
+        DataFrame_Store.univariate_df.to_excel(writer, sheet_name='MVI+Norm Data')
+
+    # Export target
+    with open('Export_Target.txt', 'w') as f:
+        f.write('\n'.join(target_list.target))
+
+    DataFrame_Store.processed_df.to_pickle('Export_ProcData.pickle')
+
     pn.state.notifications.success(f'DataFrames successfully saved.')
 
 save_data_dataframes_button.on_click(_save_data_dataframes_button)
@@ -7448,6 +7464,6 @@ sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing an
                     page11_button, page12_button, '## Report Generation', page13_button, '## To Reset', RESET_button)
 
 
-app = pn.template.BootstrapTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
+app = pn.template.BootstrapTemplate(title='Metabolomics Data Analysis Software', sidebar=[sidebar], main=[main_area])
 
 app.show(websocket_max_message_size=100*1024*1024, http_server_kwargs={'max_buffer_size': 100*1024*1024})

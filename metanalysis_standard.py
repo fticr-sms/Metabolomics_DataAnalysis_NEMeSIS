@@ -316,6 +316,8 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                     col_alt_id = col_alt
                     if col_alt not in prev_an_form_cols:
                         col_alt = 'Matched '+col_alt+' IDs'
+                    if col_alt == col:
+                        saving_annotations[col_alt_id] = subset_df[col_alt].value_counts().index[0]
                     if col_alt != col:
                         a = []
                         # See if there are annotations in the other databases
@@ -357,8 +359,24 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                     lost_idxs.extend(idxs) # Add the other to lost_idxs that will be removed when all this is over
 
                     overwrite = False #
+                    adducts_summed = False
 
-                    new_line = subset_df[sample_cols].max() # Get the intensity values for the new merged line
+                    # Get the intensity values for the new merged line
+                    if 'Matched '+col_id+' adducts' not in subset_df.columns: # If not made in our software, it can't see
+                        new_line = subset_df[sample_cols].max()
+                    else:
+                        add_series = subset_df['Matched '+col_id+' adducts'].value_counts().index
+                        if len(add_series) == 1:
+                            new_line = subset_df[sample_cols].max()
+                        else:
+                            new_line = subset_df[sample_cols].copy()
+                            dif_ads = []
+                            for ad in add_series:
+                                idxs = [i for i in subset_df.index if subset_df.loc[i, 'Matched '+col_id+' adducts'] == ad]
+                                new_df = new_line.loc[idxs].max()
+                                dif_ads.append(new_df)
+                            new_line = pd.concat(dif_ads, axis=1).sum(axis=1).replace({0:np.nan})
+                            adducts_summed = True
                     # For each annotation, see if the highest intensity values all come from one line
                     # Probably a better way to do this
                     for i in range(len(subset_df)):
@@ -375,27 +393,38 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                             temp_full_new_line = subset_df.iloc[i].copy()
 
                             # Filling the meta data of the new line with the data stored in saving annotations
+                            idx_max = subset_df.loc[:,sample_cols].mean(axis=1).idxmax()
                             for key in saving_annotations:
+                                #col_alt = key
                                 if key in prev_an_form_cols:
-                                    temp_full_new_line.loc[key] = saving_annotations[key]
+                                    #subset_notnull = subset_df[subset_df[col_alt].notnull()]
+                                    #idx_max = subset_notnull.loc[:,sample_cols].mean(axis=1).idxmax()
+                                    #temp_full_new_line.loc[key] = saving_annotations[key]
                                     # Column is our Formula Assignment column
                                     if key + ' Adduct' in annotated_data.columns:
-                                        temp = annotated_data.loc[[
-                                            i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
-                                        temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
+                                        #temp = annotated_data.loc[[
+                                        #    i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
+                                        #temp_full_new_line[key + ' Adduct'] = subset_df.iloc[0][key + ' Adduct']
+                                        temp_full_new_line[[key, key+' Adduct']] = subset_df.loc[idx_max, [key, key+' Adduct']]
+                                    else:
+                                        temp_full_new_line.loc[key] = subset_df.loc[idx_max, key]
 
                                 else:
+                                    #col_alt = 'Matched '+col_alt+' IDs'
+                                    #subset_notnull = subset_df[subset_df[col_alt].notnull()]
+                                    #idx_max = subset_notnull.loc[:,sample_cols].mean(axis=1).idxmax()
                                     # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
-                                    temp = annotated_data.loc[[
-                                        i for i in annotated_data.index if annotated_data.loc[i,
-                                                    'Matched '+key+' IDs'] == saving_annotations[key]]]
+                                    #temp = annotated_data.loc[[
+                                    #    i for i in annotated_data.index if annotated_data.loc[i,
+                                    #                'Matched '+key+' IDs'] == saving_annotations[key]]]
 
                                     rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
                                                 'Matched '+key+' adducts', key+' match count']
                                     if key == 'HMDB':
                                         if 'Matched KEGG IDs' in annotated_data.columns:
                                             rel_cols.append('Matched KEGG IDs')
-                                    temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                                    #temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                                    temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
                             merging_situations['Overwrite'] = merging_situations['Overwrite'] + 1
                             mergings_performed[col_id] = mergings_performed[col_id] + 1
@@ -406,6 +435,9 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                             annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
 
                             if verbose:
+                                if adducts_summed:
+                                    print('Adducts were summed:', list(subset_df.index), 'to', keep_id)
+
                                 if col_id in prev_an_form_cols:
                                     print(f'Merging {len(subset_df)} peaks (bucket labels: {list(subset_df.index)}) into one ', end='')
                                     print(f'({subset_df.index[i]}) by overwriting due to repeating annotations by previous ', end='')
@@ -427,26 +459,37 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                     temp_full_new_line.loc[sample_cols] = new_line
 
                     # Filling the meta data of the new line with the data stored in saving annotations
+                    idx_max = subset_df.loc[:,sample_cols].mean(axis=1).idxmax()
                     for key in saving_annotations:
+                        #col_alt = key
                         if key in prev_an_form_cols:
-                            temp_full_new_line.loc[key] = saving_annotations[key]
+                            #subset_notnull = subset_df[subset_df[col_alt].notnull()]
+                            #idx_max = subset_notnull.loc[:,sample_cols].mean(axis=1).idxmax()
+                            #temp_full_new_line.loc[key] = saving_annotations[key]
                             # Column is our Formula Assignment column
                             if key + ' Adduct' in annotated_data.columns:
-                                temp = annotated_data.loc[[
-                                    i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
-                                temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
+                                #temp = annotated_data.loc[[
+                                #    i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
+                                #temp_full_new_line[key + ' Adduct'] = subset_df.iloc[0][key + ' Adduct']
+                                temp_full_new_line[[key, key+' Adduct']] = subset_df.loc[idx_max, [key, key+' Adduct']]
+                            else:
+                                temp_full_new_line.loc[key] = subset_df.loc[idx_max, key]
 
                         else:
+                            #col_alt = 'Matched '+col_alt+' IDs'
+                            #subset_notnull = subset_df[subset_df[col_alt].notnull()]
+                            #idx_max = subset_notnull.loc[:,sample_cols].mean(axis=1).idxmax()
                             # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
-                            temp = annotated_data.loc[[
-                                i for i in annotated_data.index if annotated_data.loc[i,
-                                            'Matched '+key+' IDs'] == saving_annotations[key]]]
+                            #temp = annotated_data.loc[[
+                            #    i for i in annotated_data.index if annotated_data.loc[i,
+                            #                'Matched '+key+' IDs'] == saving_annotations[key]]]
                             rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
                                         'Matched '+key+' adducts', key+' match count']
                             if key == 'HMDB':
                                 if 'Matched KEGG IDs' in annotated_data.columns:
                                     rel_cols.append('Matched KEGG IDs')
-                            temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                            #temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                            temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
                     # All that's left is the bucket label, Neutral Mass and m/z
                     if multiple_adds:
@@ -471,7 +514,7 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                         else:
                             # Get the new bucket label
                             argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
-                            new_bucket = str(subset_df.iloc[argmax_idx].name)
+                            new_bucket = subset_df.iloc[argmax_idx].name
                             new_idxs[annotated_data.index[min_idx]] = new_bucket
                             temp_full_new_line[mass_col] = subset_df.iloc[argmax_idx][mass_col]
 
@@ -500,6 +543,9 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
 
                     # Putting the merged line in the DataFrame
                     annotated_data.loc[annotated_data.index[min_idx]] = temp_full_new_line.copy()
+
+                    if adducts_summed:
+                        print('Adducts were summed:', list(subset_df.index), 'to', new_bucket)
 
                     if verbose:
                         if col_id in prev_an_form_cols:
@@ -573,6 +619,7 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
             if an == len(given_idxs):
                 annotation = an
                 possible_merging = True
+                col_id = col_id
                 break
 
     if possible_merging:
@@ -585,6 +632,8 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
             if col_alt not in prev_formula_cols:
                 if col_alt not in prev_an_form_cols:
                     col_alt = 'Matched '+col_alt+' IDs'
+                if col_alt == col:
+                    saving_annotations[col_alt_id] = subset_df[col_alt].value_counts().index[0]
                 if col_alt != col:
                     a = []
                     # See if there are annotations in the other databases
@@ -615,7 +664,22 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
 
         overwrite = False #
 
-        new_line = subset_df[sample_cols].max() # Get the intensity values for the new merged line
+        #new_line = subset_df[sample_cols].max()
+        # Get the intensity values for the new merged line
+        if 'Matched '+col_id+' adducts' not in subset_df.columns: # If not made in our software, it can't see
+            new_line = subset_df[sample_cols].max()
+        else:
+            add_series = subset_df['Matched '+col_id+' adducts'].value_counts().index
+            if len(add_series) == 1:
+                new_line = subset_df[sample_cols].max()
+            else:
+                new_line = subset_df[sample_cols].copy()
+                dif_ads = []
+                for ad in add_series:
+                    idxs = [i for i in subset_df.index if subset_df.loc[i, 'Matched '+col_id+' adducts'] == ad]
+                    new_df = new_line.loc[idxs].max()
+                    dif_ads.append(new_df)
+                new_line = pd.concat(dif_ads, axis=1).sum(axis=1).replace({0:np.nan})
         # For each annotation, see if the highest intensity values all come from one line
         # Probably a better way to do this
         for i in range(len(subset_df)):
@@ -633,27 +697,38 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
                 temp_full_new_line = subset_df.iloc[i].copy()
 
                 # Filling the meta data of the new line with the data stored in saving annotations
+                idx_max = subset_df.loc[:,sample_cols].mean(axis=1).idxmax()
                 for key in saving_annotations:
+                    #col_alt = key
                     if key in prev_an_form_cols:
-                        temp_full_new_line.loc[key] = saving_annotations[key]
+                        #subset_notnull = subset_df[subset_df[col_alt].notnull()]
+                        #idx_max = subset_notnull.loc[:,sample_cols].mean(axis=1).idxmax()
+                        #temp_full_new_line.loc[key] = saving_annotations[key]
                         # Column is our Formula Assignment column
                         if key + ' Adduct' in annotated_data.columns:
-                            temp = annotated_data.loc[[
-                                i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
-                            temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
+                            #temp = annotated_data.loc[[
+                            #    i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]].copy()
+                            #temp_full_new_line[key + ' Adduct'] = subset_df.iloc[0][key + ' Adduct']
+                            temp_full_new_line[[key, key+' Adduct']] = subset_df.loc[idx_max, [key, key+' Adduct']]
+                        else:
+                            temp_full_new_line.loc[key] = subset_df.loc[idx_max, key]
 
                     else:
+                        #col_alt = 'Matched '+col_alt+' IDs'
+                        #subset_notnull = subset_df[subset_df[col_alt].notnull()]
+                        #idx_max = subset_notnull.loc[:,sample_cols].mean(axis=1).idxmax()
                         # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
-                        temp = annotated_data.loc[[
-                            i for i in annotated_data.index if annotated_data.loc[i,
-                                        'Matched '+key+' IDs'] == saving_annotations[key]]]
+                        #temp = annotated_data.loc[[
+                        #    i for i in annotated_data.index if annotated_data.loc[i,
+                        #                'Matched '+key+' IDs'] == saving_annotations[key]]]
 
                         rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
                                     'Matched '+key+' adducts', key+' match count']
                         if key == 'HMDB':
                             if 'Matched KEGG IDs' in annotated_data.columns:
                                 rel_cols.append('Matched KEGG IDs')
-                        temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                        #temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                        temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
                 merge_description[keep_id] = {'DB': col_id, 'Repeating annotation': annotation,
                         'Nº merged peaks': len(subset_df), 'Merged peaks': list(subset_df.index),
@@ -682,32 +757,47 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
             temp_full_new_line.loc[sample_cols] = new_line
 
             # Filling the meta data of the new line with the data stored in saving annotations
+            idx_max = subset_df.loc[:,sample_cols].mean(axis=1).idxmax()
             for key in saving_annotations:
+                #col_alt = key
                 if key in prev_an_form_cols:
-                    temp_full_new_line.loc[key] = saving_annotations[key]
+                    #subset_notnull = subset_df[subset_df[col_alt].notnull()]
+                    #idx_max = subset_notnull.loc[:,sample_cols].mean(axis=1).idxmax()
+                    #temp_full_new_line.loc[key] = saving_annotations[key]
                     # Column is our Formula Assignment column
                     if key + ' Adduct' in annotated_data.columns:
-                        temp = annotated_data.loc[[
-                            i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
-                        temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
+                        #temp = annotated_data.loc[[
+                        #    i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]].copy()
+                        #temp_full_new_line[key + ' Adduct'] = subset_df.iloc[0][key + ' Adduct']
+                        temp_full_new_line[[key, key+' Adduct']] = subset_df.loc[idx_max, [key, key+' Adduct']]
+                    else:
+                        temp_full_new_line.loc[key] = subset_df.loc[idx_max, key]
 
                 else:
+                    #col_alt = 'Matched '+col_alt+' IDs'
+                    #subset_notnull = subset_df[subset_df[col_alt].notnull()]
+                    #idx_max = subset_notnull.loc[:,sample_cols].mean(axis=1).idxmax()
                     # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
-                    temp = annotated_data.loc[[
-                        i for i in annotated_data.index if annotated_data.loc[i,
-                                    'Matched '+key+' IDs'] == saving_annotations[key]]]
+                    #temp = annotated_data.loc[[
+                    #    i for i in annotated_data.index if annotated_data.loc[i,
+                    #                'Matched '+key+' IDs'] == saving_annotations[key]]]
                     rel_cols = ['Matched '+key+' IDs', 'Matched '+key+' names', 'Matched '+key+' formulas',
                                 'Matched '+key+' adducts', key+' match count']
                     if key == 'HMDB':
-                            if 'Matched KEGG IDs' in annotated_data.columns:
-                                rel_cols.append('Matched KEGG IDs')
-                    temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                        if 'Matched KEGG IDs' in annotated_data.columns:
+                            rel_cols.append('Matched KEGG IDs')
+                    #temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                    temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
             # Formula annotations becomes the ones from the peak with the highest average intensity across the samples
             for form in prev_formula_cols:
                 if form in annotated_data.columns:
-                    argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
-                    temp_full_new_line[form] = subset_df.iloc[argmax_idx][form]
+                    idx_max = subset_df.loc[:,sample_cols].mean(axis=1).idxmax()
+                    #temp_full_new_line[form] = subset_df.iloc[argmax_idx][form]
+                    if form + ' Adduct' in annotated_data.columns:
+                        temp_full_new_line[[form, form+' Adduct']] = subset_df.loc[idx_max, [form, form+' Adduct']]
+                    else:
+                        temp_full_new_line.loc[form] = subset_df.loc[idx_max, form]
 
             # All that's left is the bucket label, Neutral Mass and m/z
             if multiple_adds:
@@ -1389,7 +1479,7 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
                             nright += 1  # Correct prediction
 
                     # Save y-test and predictions to calculate F1-score, precision and recall
-                    all_preds.extend(list(rounded[:,0]))
+                    all_preds.extend(list(rounded[0]))
                     all_tests.extend(y_test)
 
             # Calculate important features (3 different methods to choose from)

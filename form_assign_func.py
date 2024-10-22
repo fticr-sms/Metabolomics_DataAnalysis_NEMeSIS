@@ -394,6 +394,8 @@ def short_range_eq_f(mass, sr_eq):
         return 0
     elif type(sr_eq) == int:
         return sr_eq
+    elif type(sr_eq) == float:
+        return sr_eq
     result = 0
     for i in range(len(sr_eq)):
         result += sr_eq[i]*mass**i
@@ -793,7 +795,7 @@ def formulator(c,h,o,n,s,p,f=0,cl=0,c13=0):
     return formula
 
 
-def form_checker_ratios_adducts(data, idx, int_col, threshppm, df, dict_iso={}, isotope_check=True, mass_column='NeutralMass',
+def form_checker_ratios_adducts(data, idx, int_col, threshppm, formula_db_dict, dict_iso={}, isotope_check=True, mass_column='NeutralMass',
                         adducts_to_consider={'M':0}, deviation_in_ppm=True,
                        short_range_eq={'H/C': [None, None], 'O/C': [None, None], 'N/C': [None, None], 'P/C': [None, None], 'S/C': [None, None]}):
     """Assigning formulas to an m/z peak based on the distance of the m/z to the formulas present in a given database.
@@ -803,13 +805,13 @@ def form_checker_ratios_adducts(data, idx, int_col, threshppm, df, dict_iso={}, 
        int_col: str; name of the column where the intensities are in the data DataFrame.
        threshppm: scalar; error threshold for formulae in ppm - i.e. relative error threshold. If deviation_in_ppm is False,
     it is the flat Da deviation allowed
-       df: pandas DataFrame; dataframe with the formulas that are possible to assign to the m/z peak.
+       formula_db_dict: Dict; dictionary with DataFrames with the formulas that are possible to assign to the m/z peak.
        dict_iso: dictionary; dictionary with information about which masses will be considered C(13) peaks and with which 
     formula.
        isotope_check: bool (default: True); True (isotope check is made, taking into account other peaks in the mass list), 
     False (isotope is not made, formula assignment made independent of other peaks in the mass list).
        mass_column: str (default: 'NeutralMass'); name of the column where the masses are in the data DataFrame.
-       adducts_to_consider: dict (default:{'M':0}); dict with the kyes being the name of the adduct to consider for formula
+       adducts_to_consider: dict (default:{'M':0}); dict with the keys being the name of the adduct to consider for formula
     assignment and the values the corresponding mass shift they cause in the formula mass.
        deviation_in_ppm: bool (default=True); if True, threshppm is taken as ppm deviation, if False, it is taken as flat Da
     deviation.
@@ -828,13 +830,18 @@ def form_checker_ratios_adducts(data, idx, int_col, threshppm, df, dict_iso={}, 
     joined_df = pd.DataFrame()
     for adduct, mass_dev in adducts_to_consider.items():
         neutral_mass = float(mass - mass_dev)
+        d = 1000
+        for i in range(250, 1251, 250):
+            if neutral_mass < i:
+                d = i-250
+                break
         # Calculate mass difference allowed based on the mass and ppm thresholds given
         if deviation_in_ppm:
             mass_dif = neutral_mass - (neutral_mass*1000000/(1000000 + threshppm))
         else:
             mass_dif = threshppm
         # Select the formulas from the database dataframe that are within said mass difference to the mass given
-        df2 = df.copy()
+        df2 = formula_db_dict[d].copy()
         df2 = df2[df2.index<= (neutral_mass+mass_dif)]
         df2 = df2[df2.index>= (neutral_mass-mass_dif)]
         df2['Adduct'] = adduct
