@@ -6718,6 +6718,10 @@ class CompoundFinder(param.Parameterized):
         comp_finder_page[7] = pn.pane.Plotly(self.class_boxplot[0], config={'toImageButtonOptions': {
                    'filename': f'NormInt_ClassBoxplot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
         save_correlation_table_button.disabled = True
+        if len(self.id_df) == 1:
+            self.controls_corr.widgets['corr_button_confirm'].disabled = False
+        else:
+            self.controls_corr.widgets['corr_button_confirm'].disabled = True
         comp_finder_page[9] = 'Correlation Tables Section'
 
 
@@ -6731,15 +6735,27 @@ class CompoundFinder(param.Parameterized):
             c_meth = 'spearman'
         else:
             c_meth = 'kendall'
-        corr_matrix = DataFrame_Store.treated_df.corr(method=c_meth)[[self.current_params['id_comp']]]
+
+        # Finding the DataFrame
+        if self.id_type == 'Metabolite Bucket Label':
+            finder = DataFrame_Store.treated_df.loc[:, self.bucket_to_idxs[self.id_comp]].copy()
+        elif self.id_type == 'Metabolite Formula':
+            finder = DataFrame_Store.treated_df.loc[:, self.formula_to_idxs[self.id_comp]].copy()
+        elif self.id_type == 'Metabolite Name':
+            finder = DataFrame_Store.treated_df.loc[:, self.name_to_idxs[self.id_comp]].copy()
+        elif self.id_type == 'Metabolite Neutral or m/z Mass':
+            finder = DataFrame_Store.treated_df.loc[:, self.neutral_mass_to_idxs[self.id_comp]].copy()
+        else:
+            pn.state.notifications('Type of identifier provided not recognized.')
+        corr_matrix = DataFrame_Store.treated_df.corr(method=c_meth)[finder.columns]
 
         # Building the matrix
         corr_mets = DataFrame_Store.metadata_df.copy()
         corr_mets.insert(0,'Bucket label', corr_mets.index)
         corr_mets.insert(1,'Corr Coef', '')
         for c in corr_mets.index:
-            corr_mets['Corr Coef'][c] = corr_matrix.loc[c][self.current_params['id_comp']]
-        corr_mets = corr_mets.drop(self.id_comp)
+            corr_mets.loc[c, 'Corr Coef'] = corr_matrix.loc[c].iloc[0]
+        corr_mets = corr_mets.drop(finder.columns[0])
         corr_mets = corr_mets.sort_values(by='Corr Coef', ascending=False)
         corr_mets.index = range(1, len(corr_mets)+1)
 
@@ -6940,7 +6956,7 @@ comp_finder_page = pn.Column(comp_finder.controls,
                                       comp_finder.controls_fig.widgets['class_boxplot_points'],
                                     comp_finder.controls_fig.widgets['ignore_missing_values']),
                             'Class Boxplot of the Searched Compound',
-                            pn.Column('### Metabolite Correlations',
+                            pn.Column('### Metabolite Correlations (Only works for when 1 singular peak is obtained from the search)',
                                       comp_finder.controls_corr),
                             'Correlation Tables Section',
                             save_correlation_table_button)
