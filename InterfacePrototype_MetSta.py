@@ -1477,8 +1477,8 @@ def _confirm_button_formula_assignment_perform(event):
             # Split it into 50 Da chunks so it runs faster
             for split in range(0,int(dif_to_next_key),50):
                 # Reducing the formula database to those 50 Da
-                reduced_form = formulas[keys[i]].loc[formulas[keys[i]].index>=keys[i]+split-0.01]
-                reduced_form = reduced_form.loc[reduced_form.index<=keys[i]+split+50+0.01]
+                #reduced_form = formulas[keys[i]].loc[formulas[keys[i]].index>=keys[i]+split-0.01]
+                #reduced_form = reduced_form.loc[reduced_form.index<=keys[i]+split+50+0.01]
 
                 # And the data to those 50 Da
                 teste = ann_data_copy[ann_data_copy[radiobox_neutral_mass.value] > keys[i]+split]
@@ -1489,12 +1489,12 @@ def _confirm_button_formula_assignment_perform(event):
                     mass = teste.iloc[j].loc[radiobox_neutral_mass.value]
                     idx = teste.index[j]
                     # If there can be no assignment
-                    if len(reduced_form) == 0:
-                        forma.loc[idx] = np.nan, np.nan, np.nan
-                        continue
+                    #if len(reduced_form) == 0:
+                    #    forma.loc[idx] = np.nan, np.nan, np.nan
+                    #    continue
 
                     # Perform the assignment
-                    tup = form_afunc.form_checker_ratios_adducts(teste, idx, int_col, threshppm, reduced_form,
+                    tup = form_afunc.form_checker_ratios_adducts(teste, idx, int_col, threshppm, formulas,
                                             dict_iso=dict_iso, mass_column=radiobox_neutral_mass.value,
                                             isotope_check=FormAssign_store.isotope_check,
                                             adducts_to_consider=RepGen.adducts_to_consider,
@@ -2323,8 +2323,9 @@ def _confirm_button_next_step_4(event):
 confirm_button_next_step_4.on_click(_confirm_button_next_step_4)
 
 # Widget to save dataframes in .csv format (specifically annotated data, treated data and metadata)
-save_data_dataframes_button = pn.widgets.Button(name='Save representative Dataframes as .csv files (in current folder)',
-                                                button_type='warning', icon=iaf.download_icon, disabled=True)
+save_data_dataframes_button = pn.widgets.Button(
+    name='Save Dataframes and class target (can be used for side modules) (in current folder)',
+    button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframes
 def _save_data_dataframes_button(event):
@@ -2332,6 +2333,21 @@ def _save_data_dataframes_button(event):
     DataFrame_Store.original_df.to_csv('annotated_df.csv')
     DataFrame_Store.treated_df.to_csv('treated_df.csv')
     pd.concat((DataFrame_Store.metadata_df, DataFrame_Store.treated_df.T), axis=1).to_csv('complete_treated_df.csv')
+
+    # Exports for the side modules
+    # Complete exported data
+    with pd.ExcelWriter('Export_TreatedData.xlsx') as writer:
+        DataFrame_Store.processed_df.to_excel(writer, sheet_name='Metadata+Normalized Data')
+        DataFrame_Store.treated_df.to_excel(writer, sheet_name='Fully Treated Data')
+        DataFrame_Store.binsim_df.to_excel(writer, sheet_name='BinSim Treated Data')
+        DataFrame_Store.univariate_df.to_excel(writer, sheet_name='MVI+Norm Data')
+
+    # Export target
+    with open('Export_Target.txt', 'w') as f:
+        f.write('\n'.join(target_list.target))
+
+    DataFrame_Store.processed_df.to_pickle('Export_ProcData.pickle')
+
     pn.state.notifications.success(f'DataFrames successfully saved.')
 
 save_data_dataframes_button.on_click(_save_data_dataframes_button)
@@ -6702,6 +6718,10 @@ class CompoundFinder(param.Parameterized):
         comp_finder_page[7] = pn.pane.Plotly(self.class_boxplot[0], config={'toImageButtonOptions': {
                    'filename': f'NormInt_ClassBoxplot_{self.id_type}_{self.id_comp}_MissValues{mv}', 'scale':4}})
         save_correlation_table_button.disabled = True
+        if len(self.id_df) == 1:
+            self.controls_corr.widgets['corr_button_confirm'].disabled = False
+        else:
+            self.controls_corr.widgets['corr_button_confirm'].disabled = True
         comp_finder_page[9] = 'Correlation Tables Section'
 
 
@@ -6715,15 +6735,27 @@ class CompoundFinder(param.Parameterized):
             c_meth = 'spearman'
         else:
             c_meth = 'kendall'
-        corr_matrix = DataFrame_Store.treated_df.corr(method=c_meth)[[self.current_params['id_comp']]]
+
+        # Finding the DataFrame
+        if self.id_type == 'Metabolite Bucket Label':
+            finder = DataFrame_Store.treated_df.loc[:, self.bucket_to_idxs[self.id_comp]].copy()
+        elif self.id_type == 'Metabolite Formula':
+            finder = DataFrame_Store.treated_df.loc[:, self.formula_to_idxs[self.id_comp]].copy()
+        elif self.id_type == 'Metabolite Name':
+            finder = DataFrame_Store.treated_df.loc[:, self.name_to_idxs[self.id_comp]].copy()
+        elif self.id_type == 'Metabolite Neutral or m/z Mass':
+            finder = DataFrame_Store.treated_df.loc[:, self.neutral_mass_to_idxs[self.id_comp]].copy()
+        else:
+            pn.state.notifications('Type of identifier provided not recognized.')
+        corr_matrix = DataFrame_Store.treated_df.corr(method=c_meth)[finder.columns]
 
         # Building the matrix
         corr_mets = DataFrame_Store.metadata_df.copy()
         corr_mets.insert(0,'Bucket label', corr_mets.index)
         corr_mets.insert(1,'Corr Coef', '')
         for c in corr_mets.index:
-            corr_mets['Corr Coef'][c] = corr_matrix.loc[c][self.current_params['id_comp']]
-        corr_mets = corr_mets.drop(self.id_comp)
+            corr_mets.loc[c, 'Corr Coef'] = corr_matrix.loc[c].iloc[0]
+        corr_mets = corr_mets.drop(finder.columns[0])
         corr_mets = corr_mets.sort_values(by='Corr Coef', ascending=False)
         corr_mets.index = range(1, len(corr_mets)+1)
 
@@ -6924,7 +6956,7 @@ comp_finder_page = pn.Column(comp_finder.controls,
                                       comp_finder.controls_fig.widgets['class_boxplot_points'],
                                     comp_finder.controls_fig.widgets['ignore_missing_values']),
                             'Class Boxplot of the Searched Compound',
-                            pn.Column('### Metabolite Correlations',
+                            pn.Column('### Metabolite Correlations (Only works for when 1 singular peak is obtained from the search)',
                                       comp_finder.controls_corr),
                             'Correlation Tables Section',
                             save_correlation_table_button)
@@ -7448,6 +7480,6 @@ sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing an
                     page11_button, page12_button, '## Report Generation', page13_button, '## To Reset', RESET_button)
 
 
-app = pn.template.BootstrapTemplate(title='Testing MetsTA', sidebar=[sidebar], main=[main_area])
+app = pn.template.BootstrapTemplate(title='Metabolomics Data Analysis Software', sidebar=[sidebar], main=[main_area])
 
 app.show(websocket_max_message_size=100*1024*1024, http_server_kwargs={'max_buffer_size': 100*1024*1024})
