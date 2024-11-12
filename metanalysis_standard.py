@@ -36,6 +36,196 @@ from multianalysis import _generate_y_PLSDA, _calculate_vips
 ####### ---------------------------------- #######
 
 ### Step 1 Functions
+### Functions related to Data Filtering
+
+def basic_feat_filtering(file, target=None, filt_method='total_samples', filt_kw=2,
+                  extra_filt=None, extra_filt_data=None):
+    "Performs feature filtering in 2 steps."
+
+    # Filtering based on the sampels each feature appears in
+    if filt_method == 'total_samples': # Filter features based on the times (filt_kw) they appear in the dataset
+        # Minimum can be a percentage if it is a value between 0 and 1!
+        data_filt = transf.keep_atleast(file, minimum=filt_kw)
+    elif filt_method == 'class_samples': # Features retained if they appear filt_kw times in the samples of at least one class
+        # Minimum can be a percentage if it is a value between 0 and 1!
+        data_filt = transf.keep_atleast(file, minimum=filt_kw, y=np.array(target))
+    elif filt_method == None: # No filtering
+        data_filt = file.copy()
+    else:
+        raise ValueError('Feature Filtering strategy not accepted/implemented in function. Implement if new strategy.')
+
+    # Extra filtering based if the features are annotated
+    if extra_filt == 'Formula': # Keep only features with a formula annotated on the dataset
+        meta_cols_formulas = [i for i in extra_filt_data.columns if 'formulas' in i]
+        if 'Formula' in extra_filt_data.columns:
+            idxs_to_keep = [i for i in data_filt.columns if type(extra_filt_data.loc[i, 'Formula']) == str]
+        else:
+            idxs_to_keep = []
+        for col in meta_cols_formulas:
+            idxs_to_keep.extend([i for i in data_filt.columns if type(extra_filt_data.loc[i, col]) == list])
+        idxs_to_keep = pd.unique(np.array(idxs_to_keep))
+        data_filt = data_filt.loc[:,idxs_to_keep]
+
+    elif extra_filt == 'Name': # Keep only features with a name annotated on the dataset
+        meta_cols_names = [i for i in extra_filt_data.columns if 'names' in i]
+        if 'Name' in extra_filt_data.columns:
+            idxs_to_keep = [i for i in data_filt.columns if type(extra_filt_data.loc[i, 'Name']) == str]
+        else:
+            idxs_to_keep = []
+        for col in meta_cols_names:
+            idxs_to_keep.extend([i for i in data_filt.columns if type(extra_filt_data.loc[i, col]) == list])
+        idxs_to_keep = pd.unique(np.array(idxs_to_keep))
+        data_filt = data_filt.loc[:,idxs_to_keep]
+
+    elif extra_filt == None: # No extra filtering
+        data_filt = data_filt.copy()
+    else:
+        raise ValueError('Feature Filtering strategy not accepted/implemented in function. Implement if new strategy.')
+
+    return data_filt
+
+
+def min_intensity_filter(df, sample_cols, intensity_calculation='mean', threshold_type='% Based', threshold_value=0.1):
+    "Filter features based on their intensity."
+
+    # Calculating Intensities
+    if intensity_calculation == 'mean':
+        ints =  df[sample_cols].mean(axis=1)
+    elif intensity_calculation == 'median':
+        ints =  df[sample_cols].median(axis=1)
+
+    # Thresholding
+    if threshold_type == '% Based':
+        # Remove the X % percent of features with the lowest intensities
+        #ints = ints.sort_values()
+        #n_feats_to_remove = int(len(df)*threshold_value)
+        idxs_to_remove = ints[ints < ints.quantile(threshold_value)].index
+        df = df.drop(index=idxs_to_remove)
+
+    elif threshold_type == 'Intensity value':
+        # Remove the features below a hard intensity threshold
+        idxs_to_remove = ints[ints < threshold_value].index
+        df = df.drop(index=idxs_to_remove)
+
+    else:
+        raise ValueError('Intensity-based Filtering strategy not accepted/implemented. Implement if new strategy.')
+
+    return df
+
+
+def QC_reproducibility_filter(df, qc_sample_cols, rsd_threhold=0.3):
+    "Filter features based on the relative standard deviation of features in the Quality Control samples."
+
+    # Only applicable when there are more than 2 QC samples
+    if len(qc_sample_cols) > 2:
+        # Select QC samples
+        qc_samples = df[qc_sample_cols]
+
+        # Calculate the relative standard deviation for each feature
+        qc_rsd = qc_samples.std(axis=1)/qc_samples.mean(axis=1)
+        # Remove indexes that are above a designated rsd_threshold
+        idxs_to_remove = qc_rsd[(qc_rsd > rsd_threhold)].index
+        df = df.drop(index=idxs_to_remove)
+
+    return df
+
+
+def variance_based_filter(df, sample_cols, variance_calculation_type='Relative Standard Deviation',
+                          feat_to_remove_percent=0.1):
+    "Filter features based on their variance (features with lower variance are removed)."
+
+    # DataFrame with the samples
+    sample_df = df[sample_cols]
+
+    # Mean and Standard Deviation from the features
+    mean_sample_df = sample_df.mean(axis=1)
+    std_sample_df = sample_df.std(axis=1)
+
+    # Calculate the varinces for the different possible types than can be chosen
+    if variance_calculation_type == 'Inter-Quartile Range':
+        iqr_sample_df = sample_df.quantile(0.75, axis=1) - sample_df.quantile(0.25, axis=1)
+        var_df = iqr_sample_df
+    elif variance_calculation_type == 'Standard Deviation':
+        var_df = std_sample_df
+    elif variance_calculation_type == 'Relative Standard Deviation':
+        rsd_sample_df = std_sample_df / mean_sample_df
+        var_df = rsd_sample_df
+    elif variance_calculation_type == 'Median Absolute Deviation':
+        mad_sample_df = (sample_df.T - mean_sample_df).abs().T.median(axis=1)
+        var_df = mad_sample_df
+    elif variance_calculation_type == 'Relative Median Absolute Deviation':
+        mad_sample_df = (sample_df.T - mean_sample_df).abs().T.median(axis=1)
+        rmad_sample_df = mad_sample_df / sample_df.median(axis=1)
+        var_df = rmad_sample_df
+    else:
+        raise ValueError('Variance-based Filtering strategy not accepted/implemented. Implement if new strategy.')
+
+    # Select idxs_to_keep
+    idxs_to_keep = var_df[var_df >= var_df.quantile(feat_to_remove_percent)].index
+
+    return df.loc[idxs_to_keep]
+
+
+def filtering_data_metabolomics(df, sample_cols, qc_cols, target, # DataFrame, Columns of Samples, of QC samples and the target
+                               # Filter 1: Filter based on the number of samples features appear in
+                               basic_filt='total_samples', # 'total_samples', 'class_samples', None
+                               n_min_samples_feature_appear=2, # Min. number of samples a feature must appear in data/class
+                               # Filter 2: Intensity based filter
+                               int_based_filter=False, # True or False whether you apply it
+                               intensity_calculation='mean', # 'median'
+                               threshold_type='Intensity value', # '% Based'
+                               threshold_value=1*10**6, # Fraction such as 0.1 for % Based
+                               # Filter 3: QC sample feature varation based filter
+                               QC_filter=False, # True or False whether you apply it
+                               rsd_threhold=0.25, # Fraction of features to remove in this check
+                               # Filter 4: Sample feature variance based filter
+                               var_based_filter=False, # True or False whether you apply it
+                               variance_calculation_type='Relative Standard Deviation', # 'Inter-Quartile Range',
+                                #'Standard Deviation', 'Relative Standard Deviation', 'Median Absolute Deviation',
+                                #'Relative Median Absolute Deviation'
+                               feat_to_remove_percent=0.10, # Fraction of features to remove in this check
+                               # Select features to keep independent of the filtering performed
+                               feats_to_keep=[]
+                               ):
+    """Performs up to 4 types of metabolic feature filtering from metabolomics datasets.
+
+       return: Filtered DataFrame."""
+
+    # Select Features to keep even if they are filtered
+    rows_to_keep = df.loc[feats_to_keep]
+
+    # Filter 1: Filter based on the number of samples features appear in
+    if basic_filt != None:
+        meta_cols = [i for i in df.columns if i not in sample_cols]
+        temp = basic_feat_filtering(df[sample_cols].T, target=target,
+                                    filt_method=basic_filt, # Method
+                                    filt_kw=n_min_samples_feature_appear) # Make a sample have to appear
+        df = pd.concat((df[meta_cols].reindex(temp.columns), temp.T), axis=1)
+
+    # Filter 2: Intensity based filter
+    if int_based_filter:
+        df = min_intensity_filter(df, sample_cols, intensity_calculation=intensity_calculation,
+                                threshold_type=threshold_type, threshold_value=threshold_value)
+
+    # Filter 3: QC sample feature varation based filter
+    if QC_filter:
+        df = QC_reproducibility_filter(df, qc_cols, rsd_threhold=rsd_threhold)
+
+    # Filter 4: Sample feature variance based filter
+    if var_based_filter:
+        df = variance_based_filter(df, sample_cols,
+                                variance_calculation_type=variance_calculation_type,
+                                feat_to_remove_percent=feat_to_remove_percent)
+
+    # Re-add or keep features explicitly told to leave in the DataFrame
+    for i in rows_to_keep.index:
+        df.loc[i] = rows_to_keep.loc[i]
+
+    return df
+
+
+
+
 ### Function to give an overall characterization of data
 
 def characterize_data(dataset, name='dataset', target=None):
@@ -874,52 +1064,6 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
 
 ### Step 2 Functions
 ### Functions related to Data Pre-treatment
-
-def basic_feat_filtering(file, target=None, filt_method='total_samples', filt_kw=2,
-                  extra_filt=None, extra_filt_data=None):
-    "Performs feature filtering in 2 steps."
-
-    # Filtering based on the sampels each feature appears in
-    if filt_method == 'total_samples': # Filter features based on the times (filt_kw) they appear in the dataset
-        # Minimum can be a percentage if it is a value between 0 and 1!
-        data_filt = transf.keep_atleast(file, minimum=filt_kw)
-    elif filt_method == 'class_samples': # Features retained if they appear filt_kw times in the samples of at least one class
-        # Minimum can be a percentage if it is a value between 0 and 1!
-        data_filt = transf.keep_atleast(file, minimum=filt_kw, y=np.array(target))
-    elif filt_method == None: # No filtering
-        data_filt = file.copy()
-    else:
-        raise ValueError('Feature Filtering strategy not accepted/implemented in function. Implement if new strategy.')
-
-    # Extra filtering based if the features are annotated
-    if extra_filt == 'Formula': # Keep only features with a formula annotated on the dataset
-        meta_cols_formulas = [i for i in extra_filt_data.columns if 'formulas' in i]
-        if 'Formula' in extra_filt_data.columns:
-            idxs_to_keep = [i for i in data_filt.columns if type(extra_filt_data.loc[i, 'Formula']) == str]
-        else:
-            idxs_to_keep = []
-        for col in meta_cols_formulas:
-            idxs_to_keep.extend([i for i in data_filt.columns if type(extra_filt_data.loc[i, col]) == list])
-        idxs_to_keep = pd.unique(np.array(idxs_to_keep))
-        data_filt = data_filt.loc[:,idxs_to_keep]
-
-    elif extra_filt == 'Name': # Keep only features with a name annotated on the dataset
-        meta_cols_names = [i for i in extra_filt_data.columns if 'names' in i]
-        if 'Name' in extra_filt_data.columns:
-            idxs_to_keep = [i for i in data_filt.columns if type(extra_filt_data.loc[i, 'Name']) == str]
-        else:
-            idxs_to_keep = []
-        for col in meta_cols_names:
-            idxs_to_keep.extend([i for i in data_filt.columns if type(extra_filt_data.loc[i, col]) == list])
-        idxs_to_keep = pd.unique(np.array(idxs_to_keep))
-        data_filt = data_filt.loc[:,idxs_to_keep]
-
-    elif extra_filt == None: # No extra filtering
-        data_filt = data_filt.copy()
-    else:
-        raise ValueError('Feature Filtering strategy not accepted/implemented in function. Implement if new strategy.')
-
-    return data_filt
 
 def missing_value_imputer(data_filt, mvi='min_sample', mvi_kw=1/5):
     "Performs Missing Value Imputation of choice based on parameters passed."
