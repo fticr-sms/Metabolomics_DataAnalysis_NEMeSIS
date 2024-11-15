@@ -113,7 +113,7 @@ def min_intensity_filter(df, sample_cols, intensity_calculation='mean', threshol
     return df
 
 
-def QC_reproducibility_filter(df, qc_sample_cols, rsd_threhold=0.3):
+def QC_reproducibility_filter(df, qc_sample_cols, rsd_threshold=0.3):
     "Filter features based on the relative standard deviation of features in the Quality Control samples."
 
     # Only applicable when there are more than 2 QC samples
@@ -124,7 +124,7 @@ def QC_reproducibility_filter(df, qc_sample_cols, rsd_threhold=0.3):
         # Calculate the relative standard deviation for each feature
         qc_rsd = qc_samples.std(axis=1)/qc_samples.mean(axis=1)
         # Remove indexes that are above a designated rsd_threshold
-        idxs_to_remove = qc_rsd[(qc_rsd > rsd_threhold)].index
+        idxs_to_remove = qc_rsd[(qc_rsd > rsd_threshold)].index
         df = df.drop(index=idxs_to_remove)
 
     return df
@@ -177,7 +177,7 @@ def filtering_data_metabolomics(df, sample_cols, qc_cols, target, # DataFrame, C
                                threshold_value=1*10**6, # Fraction such as 0.1 for % Based
                                # Filter 3: QC sample feature varation based filter
                                QC_filter=False, # True or False whether you apply it
-                               rsd_threhold=0.25, # Fraction of features to remove in this check
+                               rsd_threshold=0.25, # Fraction of features to remove in this check
                                # Filter 4: Sample feature variance based filter
                                var_based_filter=False, # True or False whether you apply it
                                variance_calculation_type='Relative Standard Deviation', # 'Inter-Quartile Range',
@@ -209,7 +209,7 @@ def filtering_data_metabolomics(df, sample_cols, qc_cols, target, # DataFrame, C
 
     # Filter 3: QC sample feature varation based filter
     if QC_filter:
-        df = QC_reproducibility_filter(df, qc_cols, rsd_threhold=rsd_threhold)
+        df = QC_reproducibility_filter(df, qc_cols, rsd_threshold=rsd_threshold)
 
     # Filter 4: Sample feature variance based filter
     if var_based_filter:
