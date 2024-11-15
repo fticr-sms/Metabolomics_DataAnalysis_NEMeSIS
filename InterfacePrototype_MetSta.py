@@ -89,6 +89,7 @@ class DataMetadata:
 class DataFiltering:
     def __init__(self):
         self.content = pn.Column("# Section 1.2: Selecting Data Filtering Method",
+                                 pn.pane.HTML(desc_str.data_filtering_opening_string),
                                 page1_2)
 
     def view(self):
@@ -522,7 +523,7 @@ def _confirm_param_file_button(event):
 
     # Load parameters into the interface
     try:
-        report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
+        report_generation.loading_parameters_in(params_to_load.value, data_filtering, n_databases_show, n_databases,
                     annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, only_select_min_ppm_widget,
                     RepGen, adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
                     com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
@@ -575,6 +576,7 @@ def _confirm_step1(event):
     checkbox_formula.options = list(file.read_df.columns)
     checkbox_annotation.options = list(file.read_df.columns)
     radiobox_neutral_mass.options = ['None'] + list(file.read_df.columns)
+    checkbox_QCsamples.options = list(file.read_df.columns)
     checkbox_others.options = list(file.read_df.columns)
     checkbox_samples.options = list(file.read_df.columns)
 
@@ -613,6 +615,10 @@ radiobox_neutral_mass = pn.widgets.RadioBoxGroup(
     name='Neutral Mass or m/z column for annotation', value='Neutral Mass', options=['None'] + list(file.read_df.columns),
     inline=False, disabled=False)
 
+checkbox_QCsamples = pn.widgets.CheckBoxGroup(
+    name='Quality Control Samples', value=[], options=list(file.read_df.columns),
+    inline=False, disabled=False)
+
 checkbox_others = pn.widgets.CheckBoxGroup(
     name='Others', options=list(file.read_df.columns),
     inline=False, disabled=False)
@@ -624,11 +630,11 @@ checkbox_samples = pn.widgets.CheckBoxGroup(
 # Arranging the checkboxes
 checkbox_arrangement = pn.Column(
     pn.Row('#### Select Formula columns:                         ', '#### Select Annotations columns:                     ',
-           '#### Select Neutral Mass / m/z column for annotation:', '#### Select Other NON-SAMPLE columns:                ',
-           '#### After confirming, check sample columns:         '),
+           '#### Select Neutral Mass / m/z column for annotation:', '#### Select Quality Control sample columns:                     ',
+           '#### Select Other NON-SAMPLE columns:                ', '#### After confirming, check sample columns:         '),
     pn.Row(pn.Column(checkbox_formula, scroll=True, height=400), pn.Column(checkbox_annotation, scroll=True, height=400),
-          pn.Column(radiobox_neutral_mass, scroll=True, height=400), pn.Column(checkbox_others, scroll=True, height=400),
-          pn.Column(checkbox_samples, scroll=True, height=400)))
+          pn.Column(radiobox_neutral_mass, scroll=True, height=400), pn.Column(checkbox_QCsamples, scroll=True, height=400),
+          pn.Column(checkbox_others, scroll=True, height=400), pn.Column(checkbox_samples, scroll=True, height=400)))
 
 # Button to confirm the selection in checkboxes and function detailing what happens when you press it
 confirm_button_column_selection = pn.widgets.Button(icon=iaf.img_confirm_button, name='Confirm Columns', button_type='success')
@@ -643,8 +649,9 @@ def _update_confirm_column_selection(event):
         if col not in checkbox_formula.value:
             if col not in checkbox_annotation.value:
                 if col not in radiobox_neutral_mass.value:
-                    if col not in checkbox_others.value:
-                        sample_cols.append(col)
+                    if col not in checkbox_QCsamples.value:
+                        if col not in checkbox_others.value:
+                            sample_cols.append(col)
     target_widget.disabled = False # Make you able to type in the target
     confirm_button_target.disabled = False
     
@@ -672,8 +679,8 @@ confirm_button_column_selection.on_click(_update_confirm_column_selection)
 
 # Disable further analysis when this is changed
 @pn.depends(checkbox_formula.param.value, checkbox_annotation.param.value, radiobox_neutral_mass.param.value,
-            checkbox_others.param.value, watch=True)
-def _disable_remaining_analysis_from_metadata(a,b,c,d):
+            checkbox_QCsamples.param.value, checkbox_others.param.value, watch=True)
+def _disable_remaining_analysis_from_metadata(a,b,c,d,e):
     "Disable analysis further on the pipeline"
     # Disable widgets on the current page
     confirm_button_target.disabled=True
@@ -750,11 +757,16 @@ def _confirm_button_next_step_1_1(event):
     page1_2_button.disabled = False
     confirm_button_next_step_2.disabled = True
 
+    # Necessary updates for filtering
+    data_filtering._update_basic_filt_kw_limits()
+    data_filtering._update_feats_to_keep_widget()
+    data_filtering._update_int_threshold_kw_widget()
+
     # Update default data filtering values if parameters loaded in and if possible
     # And since we are here, update normalization methods and kw as well
     if params_pre_treat_loaded_in.value:
-        if params_to_load.value['Data Filtering']['filt_kw'] <= filt_kw.end:
-            filt_kw.value = params_to_load.value['Data Filtering']['filt_kw']
+        if params_to_load.value['Data Filtering']['basic_filt_kw'] <= data_filtering.controls1.widgets['basic_filt_kw'].end:
+            data_filtering.basic_filt_kw = params_to_load.value['Data Filtering']['basic_filt_kw']
 
         PreTreatment_Method.norm_method = params_to_load.value['Data Pre-Treatment']['norm_method']
         n_kw = [i for i in params_to_load.value['Data Pre-Treatment']['norm_kw'] if i in PreTreatment_Method.controls.widgets['norm_kw'].options]
@@ -763,7 +775,7 @@ def _confirm_button_next_step_1_1(event):
 
     #page2_button.disabled = False
     # Assuring the initial layout of data filtering page
-    while len(page1_2) > 3:
+    while len(page1_2) > 6:
         page1_2.pop(-1)
     main_area.clear()
     show_page(pages["Data Filtering"])
@@ -784,85 +796,237 @@ page1_1.append(confirm_button_next_step_1_1)
 
 # Page 1-2 - Feature Filtering and Data Characteristics
 
-# Widgets for feature filtering
-filt_method = pn.widgets.Select(name="Feature Filter Method", value="Total Samples",
-                                       options=['Total Samples', 'Class Samples', 'None'])
-filt_kw = pn.widgets.IntSlider(name="Feature Filter Keyword", value=2, start=0, end=len(target_widget.value.split(',')))
-limits_filt = {"Total Samples": len(target_widget.value.split(',')),
-               "Class Samples": pd.Series(target_widget.value.split(',')).value_counts().min(), 'None': 1}
+# Class for Data Filtering
+class Data_Filtering_class(param.Parameterized):
+    """Class to store as attributes the parameters chosen to perform Data Filtering."""
 
-# Change the IntSlider limits based on the number of class labels
-@pn.depends(target = target_widget.param.value,
-            method = filt_method.param.value, watch=True)
-def _update_filt_kw_limits(target, method):
-    "Controls widget limits related to data filtering keyword based on the method chosen and the target."
-    if method == 'Total Samples':
-        filt_kw.end = len(target.split(','))
-    elif method == 'Class Samples':
-        filt_kw.end = pd.Series(target.split(',')).value_counts().min()
-    else:
-        filt_kw.end = 1
+    # Update the keyword slider based on methodology chosen
 
-filt_method_tooltip = pn.widgets.TooltipIcon(value=
-    """'Total Samples' requires a feature to appear in at least x samples in the whole dataset to be retained.
-    'Class Samples' requires a feature to appear in at least x samples of at least 1 class to be retained.""")
-filt_kw_tooltip = pn.widgets.TooltipIcon(value=
-    """How many samples a feature has to appear to be retained based on the method chosen before.""")
+    # Filter 1: Filter based on the number of samples features appear in
+    basic_filt_method = param.Selector(default="Total Samples")
+    basic_filt_kw = param.Number(default=2)
+
+    # Filter 2: Intensity based filter
+    int_based_filter = param.Boolean(default=False)
+    intensity_calculation = param.Selector(default="Mean")
+    int_threshold_type = param.Selector(default="Intensity value")
+    int_filt_kw = param.Number(default=5*10**5)
+
+    # Filter 3: QC sample feature variation based filter
+    QC_based_filter = param.Boolean(default=False)
+    QC_rsd_threshold = param.Number(default=0.3, bounds=(0,1))
+
+    # Filter 4: Sample feature variance based filter
+    var_based_filter = param.Boolean(default=False)
+    variance_calculation_type = param.Selector(default="Relative Standard Deviation")
+    feat_to_remove_percent = param.Number(default=0.1, bounds=(0,1))
+
+    # Features to Keep
+    feats_to_keep = param.List(default=[])
+
+    # Confirm Data Filtering Selection
+    confirm_button = param.Boolean(default=False)
+
+
+    # Function to confirm Pre-Treatment Selection and Updating DataFrames
+    def _confirm_button_filtering(self, event):
+        "Perform Data Filtering and update page layout."
+
+        sample_cols = target_list.sample_cols # Select sample columns
+        target = target_widget.value.split(',') # See target
+        qc_cols = checkbox_QCsamples.value
+
+        # Setting up parameters
+        if self.basic_filt_method == 'Total Samples':
+            f_meth = 'total_samples'
+        elif self.basic_filt_method == 'Class Samples':
+            f_meth = 'class_samples'
+        else:
+            f_meth = None
+
+        # Perform data filtering
+        filtered_df.value = metsta.filtering_data_metabolomics(
+                               file.read_df, sample_cols, qc_cols, target,
+                               # Filter 1: Filter based on the number of samples features appear in
+                               basic_filt=f_meth,
+                               n_min_samples_feature_appear=self.basic_filt_kw,
+                               # Filter 2: Intensity based filter
+                               int_based_filter=self.int_based_filter,
+                               intensity_calculation=self.intensity_calculation.lower(),
+                               threshold_type=self.int_threshold_type,
+                               threshold_value=self.int_filt_kw,
+                               # Filter 3: QC sample feature varation based filter
+                               QC_filter=self.QC_based_filter,
+                               rsd_threshold=self.QC_rsd_threshold,
+                               # Filter 4: Sample feature variance based filter
+                               var_based_filter=self.var_based_filter,
+                               variance_calculation_type=self.variance_calculation_type,
+                               feat_to_remove_percent=self.feat_to_remove_percent,
+                               # Features to Keep
+                               feats_to_keep=self.feats_to_keep
+                               )
+
+        characteristics_df.value = pd.DataFrame(
+                pd.Series(metsta.characterize_data(filtered_df.value[sample_cols].T, target=target))).iloc[1:]
+
+        annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
+
+        # Locking in the parameters used for feature filtering
+        UnivarA_Store.locking_filtering_params(self)
+
+        # Disable posterior sidebar buttons
+        page2_button.disabled = True
+        page2_1_button.disabled = True
+        page2_2_button.disabled = True
+        page3_button.disabled = True
+        page4_button.disabled = True
+        # Disable statistical analysis
+        _disabling_stat_analysis_buttons()
+
+        confirm_button_next_step_2.disabled = False
+
+        # Setup the page if not setup yet
+        while len(page1_2) > 6:
+            page1_2.pop(-1)
+        page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',
+                        filtered_df,
+                        confirm_button_next_step_2])
+
+
+    # Change the IntSlider limits based on the number of class labels
+    @param.depends('basic_filt_method', 'basic_filt_kw', watch=True)
+    def _update_basic_filt_kw_limits(self):
+        "Controls widget limits related to data filtering Filter 1 keyword based on the method chosen and the target."
+        if self.basic_filt_method == 'Total Samples':
+            self.controls1.widgets['basic_filt_kw'].end = len(target_widget.value.split(','))
+        elif self.basic_filt_method == 'Class Samples':
+            self.controls1.widgets['basic_filt_kw'].end = pd.Series(target_widget.value.split(',')).value_counts().min()
+        else:
+            self.controls1.widgets['basic_filt_kw'].end = 1
+
+
+    # Change the Widget and value of intensity based filtering
+    @param.depends('int_threshold_type', watch=True)
+    def _update_int_threshold_kw_widget(self):
+        "Controls widget and value related to intensity threshold data filtering Filter 2 keyword based on the threshold type chosen."
+        if self.int_threshold_type == 'Intensity value':
+            self.controls2.widgets['int_filt_kw'].end = 10**12
+            self.controls2.widgets['int_filt_kw'].value = 5*10**5
+            self.int_filt_kw = 5*10**5
+            self.controls2.widgets['int_filt_kw'].step = 1000
+            self.controls2.widgets['int_filt_kw'].name = 'Intensity Threshold'
+        elif self.int_threshold_type == '% Based':
+            self.controls2.widgets['int_filt_kw'].end = 1
+            self.controls2.widgets['int_filt_kw'].value = 0.1
+            self.int_filt_kw = 0.1
+            self.controls2.widgets['int_filt_kw'].step = 0.01
+            self.controls2.widgets['int_filt_kw'].name = '% of Features Removed based on lowest intensity on samples'
+
+        # Reset page
+        page1_2[2] = self.controls2
+
+
+    # Change the Widget options of feats_to_keep
+    def _update_feats_to_keep_widget(self):
+        "Updates feats_to_keep widget with all the feature options available."
+        self.controls5.widgets['feats_to_keep'].options = list(file.read_df.index)
+
+
+    def reset(self):
+        "Resets all relevant parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets1 = {
+            # Filter 1
+            'basic_filt_method': pn.widgets.Select(name="Filter based on the number of samples features appear in",
+                            value = 'Total Samples',
+                            options=['Total Samples', 'Class Samples', 'None'],
+                description="""'Total Samples' requires a feature to appear in at least x samples in the whole dataset to be retained.
+'Class Samples' requires a feature to appear in at least x samples of at least 1 class to be retained."""),
+            'basic_filt_kw': pn.widgets.IntSlider(name="Feature Filter Keyword", value=2, start=0,
+                                                  end=len(target_widget.value.split(','))),
+        }
+
+        widgets2 = {
+            # Filter 2
+            'int_based_filter': pn.widgets.Checkbox(name='Perform Intensity-based Data Filtering'),
+            'intensity_calculation': pn.widgets.Select(name="How to calculate intensity", value = 'Mean',
+                            options=['Mean', 'Median']),
+            'int_threshold_type': pn.widgets.Select(name="How to select which features to remove/retain",
+                                                    value = 'Intensity value', options=['Intensity value', '% Based']),
+            'int_filt_kw': pn.widgets.FloatInput(name='Intensity Threshold', value=5*10**5, step=1000, start=0, end=10**12),
+        }
+
+        widgets3 = {
+            # Filter 3
+            'QC_based_filter': pn.widgets.Checkbox(name='Perform QC sample feature variance-based Data Filtering'),
+            'QC_rsd_threshold': pn.widgets.FloatInput(
+                name="Threshold of relative standard deviation (RSD) on QC samples. Higher RSD features are removed.",
+                    value=0.3, step=0.01, start=0, end=1,
+                    description="""High variance features in QC samples are not reproducible.
+                    """),
+        }
+
+        widgets4 = {
+            # Filter 4
+            'var_based_filter': pn.widgets.Checkbox(name='Perform sample feature variance-based Data Filtering'),
+            'variance_calculation_type': pn.widgets.Select(name="How Variance is calculated/estimated", value = 'Relative Standard Deviation',
+                            options=['Inter-Quartile Range', 'Standard Deviation', 'Relative Standard Deviation',
+                                     'Median Absolute Deviation', 'Relative Median Absolute Deviation']),
+            'feat_to_remove_percent': pn.widgets.FloatInput(
+                name="% of Features Removed based on highest variance on samples",
+                    value=0.1, step=0.01, start=0, end=1,
+                    description="""Low variance features in the samples are not informative.
+                    """),
+        }
+
+        widgets5 = {
+            'feats_to_keep': pn.widgets.MultiChoice(name="Select Features to Keep in the data despite the filtering",
+                                              option_limit=8, search_option_limit=8, disabled=False,
+                        description="""Select indexes to preserve even if they would be filtered out. If so, they are
+                        re-added to the end of the data. For example, if you want to keep a reference internal standard."""),
+            'confirm_button': pn.widgets.Button(icon=iaf.img_confirm_button, name="Confirm Data Filtering",
+                                                button_type='primary'),
+        }
+
+        self.controls1 = pn.Param(self, widgets=widgets1,
+                                  parameters=['basic_filt_method', 'basic_filt_kw'],
+                                 name='Filter 1: Filter based on the number of samples features appear in')
+        self.controls2 = pn.Param(self, widgets=widgets2,
+                                  parameters=['int_based_filter', 'intensity_calculation',
+                                              'int_threshold_type', 'int_filt_kw'],
+                                 name='Filter 2: Intensity based filter')
+        self.controls3 = pn.Param(self, widgets=widgets3,
+                                  parameters=['QC_based_filter', 'QC_rsd_threshold'],
+                                 name='Filter 3: QC sample feature variation based filter')
+        self.controls4 = pn.Param(self, widgets=widgets4,
+                                  parameters=['var_based_filter', 'variance_calculation_type',
+                                              'feat_to_remove_percent',],
+                                 name='Filter 4: Sample feature variance based filter')
+        self.controls5 = pn.Param(self, widgets=widgets5,
+                                  parameters=['feats_to_keep', 'confirm_button'],
+                                 name='Features to Keep Independent of Filtering')
+
+data_filtering = Data_Filtering_class()
+
+# Call the function
+data_filtering.controls5.widgets['confirm_button'].on_click(data_filtering._confirm_button_filtering)
+
 
 # Preparing DataFrames
 filtered_df = pn.widgets.DataFrame(pd.DataFrame(), name='Filtered DataFrame', disabled=True, sortable=False, reorderable=False)
 characteristics_df = pn.widgets.DataFrame(pd.DataFrame(), name='Characteristics DataFrame')
 
-# Button to perform filtering
-confirm_button_initial_filtering = pn.widgets.Button(icon=iaf.img_confirm_button, name='Perform Filtering',
-                                                     button_type='success', disabled=False)
-
 # Button to next step
 confirm_button_next_step_2 = pn.widgets.Button(icon=iaf.img_confirm_button, name='Next Step - Annotation',
                                                      button_type='success', disabled=False)
-
-
-# Call filtering function and extend the page with data characteristics and results of filtering
-def _confirm_button_initial_filtering(event):
-    "Perform feature filtering."
-
-    sample_cols = target_list.sample_cols # Select sample columns
-    target = target_widget.value.split(',') # See target
-    # Perform filtering
-    if filt_method.value == 'Total Samples':
-        f_meth = 'total_samples'
-    elif filt_method.value == 'Class Samples':
-        f_meth = 'class_samples'
-    else:
-        f_meth = None
-    filtered_df.value, characteristics_df.value = iaf.initial_filtering(file.read_df,
-                                    sample_cols, target=target, filt_method=f_meth, filt_kw=filt_kw.value)
-
-    annotated_df.value = pd.DataFrame(index=filtered_df.value.index)
-
-    # Locking in the parameters used for feature filtering
-    UnivarA_Store.locking_filtering_params(filt_method, filt_kw)
-
-    # Disable posterior sidebar buttons
-    page2_button.disabled = True
-    page2_1_button.disabled = True
-    page2_2_button.disabled = True
-    page3_button.disabled = True
-    page4_button.disabled = True
-    # Disable statistical analysis
-    _disabling_stat_analysis_buttons()
-
-    confirm_button_next_step_2.disabled = False
-
-    # Setup the page if not setup yet
-    while len(page1_2) > 3:
-        page1_2.pop(-1)
-    page1_2.extend(['#### Characteristics of the Dataset',characteristics_df,'#### Filtered Dataset',
-                    filtered_df,
-                    confirm_button_next_step_2])
-
-# Call the function
-confirm_button_initial_filtering.on_click(_confirm_button_initial_filtering)
 
 # Go to next step function and calling it
 def _confirm_button_next_step_1_2(event):
@@ -877,9 +1041,11 @@ def _confirm_button_next_step_1_2(event):
     show_page(pages["Data Annotation"])
 confirm_button_next_step_2.on_click(_confirm_button_next_step_1_2)
 
+
 # Initial page layout
-page1_2 = pn.Column(pn.Row(filt_method, filt_method_tooltip), pn.Row(filt_kw, filt_kw_tooltip),
-                    confirm_button_initial_filtering)
+page1_2 = pn.Column('## Data Filtering Methodology Selection',
+                    data_filtering.controls1, data_filtering.controls2,
+                    data_filtering.controls3, data_filtering.controls4, data_filtering.controls5)
 
 
 
@@ -2546,7 +2712,7 @@ def _confirm_button_next_step_5(event):
             # Reload parameters of data analysis if they were loaded in
             try:
                 if params_loaded_in.value:
-                    report_generation.loading_parameters_in(params_to_load.value, filt_method, n_databases_show, n_databases,
+                    report_generation.loading_parameters_in(params_to_load.value, data_filtering, n_databases_show, n_databases,
                                 annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, only_select_min_ppm_widget,
                                 RepGen, adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
                                 com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
@@ -4722,8 +4888,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
 
     # Locked in attributes
     # Filtering
-    filt_method = param.Selector(default="Total Samples")
-    filt_kw = param.Number(default=2)
+    filt_methods = param.Dict(default={})
 
     # Pre-Treatment
     # Missing Value Imputation
@@ -4780,10 +4945,27 @@ class UnivariateAnalysis_Store(param.Parameterized):
     compute_fig = param.Boolean(default=True)
 
 
-    def locking_filtering_params(self, filt_method_widget, filt_kw_widget):
+    def locking_filtering_params(self, data_filtering):
         "Locking in parameters regarding to the data filtering made."
-        self.filt_method = filt_method_widget.value
-        self.filt_kw = filt_kw_widget.value
+        self.filt_methods = {
+            # Filter 1
+            'basic_filt_method': data_filtering.basic_filt_method,
+            'basic_filt_kw': data_filtering.basic_filt_kw,
+            # Filter 2
+            'int_based_filter': data_filtering.int_based_filter,
+            'intensity_calculation': data_filtering.intensity_calculation,
+            'int_threshold_type': data_filtering.int_threshold_type,
+            'int_filt_kw': data_filtering.int_filt_kw,
+            # Filter 3
+            'QC_based_filter': data_filtering.QC_based_filter,
+            'QC_rsd_threshold': data_filtering.QC_rsd_threshold,
+            # Filter 4
+            'var_based_filter': data_filtering.var_based_filter,
+            'variance_calculation_type': data_filtering.variance_calculation_type,
+            'feat_to_remove_percent': data_filtering.feat_to_remove_percent,
+            # Feats to Keep
+            'feats_to_keep': data_filtering.feats_to_keep
+        }
 
 
     def locking_pretreatment_params(self, PreTreatment_Method):
@@ -4829,7 +5011,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
             return
 
         # Performing and storing results from Univariate Analysis
-        a,b,c,d,e = iaf._perform_univariate_analysis(self, DataFrame_Store, target_list, filt_method, filt_kw)
+        a,b,c,d,e = iaf._perform_univariate_analysis(self, DataFrame_Store, target_list)
         self.univariate_df, self.univariate_df_set = a, b
         self.univariate_results, self.univariate_results_non_filt, self.univariate_results_set = c, d, e
 
@@ -7062,10 +7244,11 @@ def _report_generation_button(event):
 
     # Perform Report Generation
     try:
-        report_generation.ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
-                                        target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
-                                        FormAssign_store, data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store,
-                                        PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page)
+        report_generation.ReportGenerator(folder_selection.value, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_QCsamples,
+                                        checkbox_others, target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict,
+                                        verbose_annotated_compounds, FormAssign_store, data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store,
+                                        RF_store, dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim,
+                                        RF_store_binsim, rep_gen_page)
     except:
         while len(rep_gen_page) > 6:
             rep_gen_page.pop(5)
@@ -7329,15 +7512,15 @@ def Yes_Reset(event):
     checkbox_formula.value = ['Formula',]
     checkbox_annotation.value = ['Name',]
     radiobox_neutral_mass.value = 'Neutral Mass'
+    checkbox_QCsamples.value = []
     checkbox_others.value = []
     checkbox_samples.value = []
     target_widget.disabled = True
     target_widget.value = ''
 
     # Data Filtering page
-    filt_method.value = "Total Samples"
-    filt_kw.value = 2
-    while len(page1_2) > 3:
+    data_filtering.reset()
+    while len(page1_2) > 6:
         page1_2.pop(-1)
 
     # Data Annotation page

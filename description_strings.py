@@ -175,6 +175,36 @@ A full list of parameters loaded in can be viewed by opening the corresponding j
 
 
 
+# Data Filtering Opening Description HTML in string format
+data_filtering_opening_string="""Data Filtering can be performed here in 4 successive stages, each with their purpose and objective. Each stage
+can be skipped as well and we even recommend to skip some of them depending on the type of data you are utilizing.
+<br>
+<br>
+The stages are:
+<br>
+<br>
+<strong>1) Filtering based on the number of samples each feature appears in.</strong> This will only include features that appear in a determined
+number of either the total samples of the dataset or of at least the samples of one class. (Filter experimental artifacts, for example).
+<br>
+<br>
+<strong>2) Filtering based on intensity values.</strong> This will filter metabolic features based on their intensity values as calculated by the
+mean or median over the samples they appear in, removing lower intensity features. A hard threshold with a set intensity value is used or a
+percentage based threshold where the percent lowest intensity of features are removed.
+<br>
+<br>
+<strong>3) Filtering based on the feature variance of Quality Control samples.</strong> Only available if you have at least three QC samples as
+selected in the previous page. This will eliminate features that have the a variance in the quality control samples (where they should be
+equal) as estimated by relative standard deviation (standard deviation / mean) above a determined threshold, since that points that they are not
+reproducible. Features that do not appear in the QC samples are assumed to have 0 variance.
+<br>
+<br>
+<strong>4) Filtering based on the feature variance of analysed samples.</strong> This filtering is not recommended to use if you are looking for
+exclusive metabolic features in the classes of your datasets or if you aim to use feature occurrence data. It will filter out the lowest variance
+features across the samples since their intensity patterns would not be informative.
+"""
+
+
+
 # Formula Assignment Opening Description HTML in string format
 formula_assignment_opening_string = """Here Formula Assignment is made according to our algorithm. In-depth description
 of the criteria and steps the algorithm makes are detailed in the software documentation. It uses its default formula
@@ -380,10 +410,10 @@ also choose one as the control class and one as the test class to perform univar
 <br>
 <br>
 Finally, when you have more than 2 classes, each unsupervised analysis will select the samples respective to the 2 classes,
-data filtering and pre-treatment will be performed the same way it was done on the dataset before performing unsupervised
-analysis (starting from the dataset <strong>after data filtering, annotation and de-duplication</strong>)*. In case of
-filtering based on the total number of samples a feature appears in, the number used on the full dataset is converted to
-percentage-based and then a new number is calculated based on the number of samples of the control and test class, which is
+data filtering (Filter 1 only) and pre-treatment will be performed the same way it was done on the dataset before performing
+unsupervised analysis (starting from the dataset <strong>after data filtering, annotation and de-duplication</strong>)*. In
+case of filtering based on the total number of samples a feature appears in, the number used on the full dataset is converted
+to percentage-based and then a new number is calculated based on the number of samples of the control and test class, which is
 then rounded up.
 <br>
 <br>

@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import json
 
-def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_others,
+def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_QCsamples, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
                      FormAssign_store, data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store,
                      PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page):
@@ -90,6 +90,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     ann_cols = ', '.join(checkbox_annotation.value)
     form_cols = ', '.join(checkbox_formula.value)
     other_cols = ', '.join(checkbox_others.value)
+    QC_cols = ', '.join(checkbox_QCsamples.value)
 
     # Annotation and Formula columns section
     p2 = document.add_paragraph(f'From the {dataset_cols} columns, {len(checkbox_annotation.value)} (')
@@ -101,9 +102,11 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
     # Neutral/m/z Mass and Other Metadata columns section
     if radiobox_neutral_mass.value != 'None':
         p2.add_run(f'{radiobox_neutral_mass.value}').italic = True
-        p2.add_run(f' was selected as the column representing mass (neutral or m/z) values; and {len(checkbox_others.value)} (')
+        p2.add_run(f' was selected as the column representing mass (neutral or m/z) values; {len(checkbox_QCsamples.value)} (')
     else:
-        p2.add_run(f'no column was selected to represent mass values (neutral or m/z); and {len(checkbox_others.value)} (')
+        p2.add_run(f'no column was selected to represent mass values (neutral or m/z); {len(checkbox_QCsamples.value)} (')
+    p2.add_run(f'{QC_cols}').italic = True
+    p2.add_run(f') was/were selected as Quality Control sample columns; and {len(checkbox_others.value)} (')
     p2.add_run(f'{other_cols}').italic = True
     p2.add_run(f') was/were selected as metadata columns with other information (which were not used).')
 
@@ -138,94 +141,56 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
 
     # Chapter of section
-    document.add_heading('Data Filtering and Pre-Treatment', level=2)
+    document.add_heading('Data Filtering', level=2)
 
-    disclaimer2 = document.add_paragraph('')
-    disclaimer2.add_run('Annotation and Annotation De-Duplication (if performed) happenned after data ').bold = True
-    disclaimer2.add_run('filtering but before data pre-treatment, that is, metabolic feature merging happenned before data pre-treatment').bold = True
-    disclaimer2.add_run(' despite being later in the report.').bold = True
-
-    p4 = document.add_paragraph('Data Filtering and Pre-Treatment parameters used were as following:')
+    p4 = document.add_paragraph('Data Filtering methods and parameters used were as following:')
 
     # Data Filtering
-    if UnivarA_Store.filt_method == 'None':
-        document.add_paragraph('Filtering Method: None', style='List Bullet'
-        )
-    else:
-        pre_treat_bullet = document.add_paragraph(
-            f'Filtering Method: Features that appeared in at least ', style='List Bullet'
-        )
-        pre_treat_bullet.add_run(f'{UnivarA_Store.filt_kw} samples').bold = True
-        if UnivarA_Store.filt_method == 'Total Samples':
-            pre_treat_bullet.add_run(' of Total (All) Samples in the dataset')
-        elif UnivarA_Store.filt_method == 'Class Samples':
-            pre_treat_bullet.add_run(' of at least one Class in the dataset')
+    if len(UnivarA_Store.filt_methods) > 0:
+        f_m_df = UnivarA_Store.filt_methods
+        if f_m_df['basic_filt_method'] != 'None':
+            filt_bullet1 = document.add_paragraph('Filter 1: Filter based on the number of samples features appear in. ', style='List Bullet')
+            filt_bullet1.add_run(f'Features that appeared in at least ')
+            filt_bullet1.add_run(f'{f_m_df["basic_filt_kw"]} samples').bold = True
+            if f_m_df['basic_filt_method'] == 'Total Samples':
+                filt_bullet1.add_run(' of Total (All) Samples in the dataset were kept.')
+            elif f_m_df['basic_filt_method'] == 'Class Samples':
+                filt_bullet1.add_run(' of at least one Class in the dataset were kept.')
 
-    # Missing Value Imputation
-    if UnivarA_Store.mvi_method == 'Zero':
-        document.add_paragraph(f'Missing Value Imputation Method: Zero Imputation', style='List Bullet'
-            )
-    else:
-        document.add_paragraph(f'Missing Value Imputation Method: {UnivarA_Store.mvi_kw*100}% of {UnivarA_Store.mvi_method}',
-                            style='List Bullet')
+        if f_m_df['int_based_filter']:
+            filt_bullet2 = document.add_paragraph('Filter 2: Intensity based filter. Intensities were calculated based on the ', style='List Bullet')
+            filt_bullet2.add_run(f'{f_m_df["intensity_calculation"]} intensity across the samples. ').bold = True
+            if f_m_df['int_threshold_type'] == 'Intensity value':
+                filt_bullet2.add_run('Features below the threshold of ')
+                filt_bullet2.add_run(f'{f_m_df["int_filt_kw"]} ').bold = True
+                filt_bullet2.add_run('were removed.')
+            elif f_m_df['int_threshold_type'] == '% Based':
+                filt_bullet2.add_run('The ')
+                filt_bullet2.add_run(f'{f_m_df["int_filt_kw"]*100} % ').bold = True
+                filt_bullet2.add_run('of features with the lowest intensities were removed.')
 
-    # Normalization Method
-    norm_paragraph = document.add_paragraph(f'Normalization Method:', style='List Bullet'
-            )
-    if UnivarA_Store.norm_method == 'Reference Feature':
-        norm_paragraph.add_run(f' Normalization by a Reference Feature - {UnivarA_Store.norm_kw}')
-    elif UnivarA_Store.norm_method == 'Total Intensity Sum':
-        norm_paragraph.add_run(f' Normalization by Total Sum of Intensities')
-    elif UnivarA_Store.norm_method == 'PQN':
-        if UnivarA_Store.norm_kw in ['mean', 'median']:
-            n_kw = 'the ' + str(UnivarA_Store.norm_kw[0]) + ' of all samples as reference'
-        else:
-            n_kw = str(UnivarA_Store.norm_kw[0]) + ' sample as reference'
-        norm_paragraph.add_run(f' PQN (Probabilistic Quotient Normalization) using {n_kw}')
-    elif UnivarA_Store.norm_method == 'Quantile':
-        norm_paragraph.add_run(f' Quantile Normalization using the {str(UnivarA_Store.norm_kw[0])} of all samples as reference')
-    elif UnivarA_Store.norm_method == 'None':
-        norm_paragraph.add_run(f' None')
-    else:
-        pn.state.notifications.error('Normalization method used not recognized.')
-        raise ValueError('Normalization method used not recognized for Report Generation.')
+        if f_m_df['QC_based_filter']:
+            filt_bullet3 = document.add_paragraph('Filter 3: QC sample feature variation based filter. Metabolic features in ', style='List Bullet')
+            filt_bullet3.add_run(f'Quality Control samples with relative standard deviation of intensities above ')
+            filt_bullet3.add_run(f'{f_m_df["QC_rsd_threshold"]} ').bold = True
+            filt_bullet3.add_run(f'were removed.')
 
-    # Transformation Method
-    if UnivarA_Store.tf_method == 'Generalized Logarithmic Transformation (glog)':
-        if UnivarA_Store.tf_kw:
-            document.add_paragraph(
-                f'Transformation Method: Generalized Logarithmic Transformation (glog) with lambda equal to {UnivarA_Store.tf_kw}',
-                                style='List Bullet'
-                )
-        else:
-            document.add_paragraph(
-                f'Transformation Method: Generalized Logarithmic Transformation (glog) with lambda equal to 0',
-                                style='List Bullet'
-                )
-    elif not UnivarA_Store.tf_method:
-        document.add_paragraph(f'Transformation Method: None', style='List Bullet'
-                )
-    else:
-        pn.state.notifications.error('Transformation method used not recognized.')
-        raise ValueError('Transformation method used not recognized for Report Generation.')
+        if f_m_df['var_based_filter']:
+            filt_bullet4 = document.add_paragraph('Filter 4: Sample feature variance based filter. Metabolic features with the ', style='List Bullet')
+            filt_bullet4.add_run(f'{f_m_df["feat_to_remove_percent"]*100} % lowest {f_m_df["variance_calculation_type"]}').bold = True
+            filt_bullet4.add_run(f' were removed.')
 
-    # Scaling Method
-    if UnivarA_Store.scaling_method == 'Level Scaling':
-        document.add_paragraph(
-                f"Scaling Method: Level Scaling (using feature's {UnivarA_Store.scaling_kw} as scaling factors)",
-                                style='List Bullet'
-                )
-    else:
-        document.add_paragraph(f"Scaling Method: {UnivarA_Store.scaling_method}", style='List Bullet'
-                )
+        if len(f_m_df['feats_to_keep']):
+            feats_kept = ', '.join(f_m_df['feats_to_keep'])
+            document.add_paragraph(f'The following features {feats_kept} were maintained in the data despite the filtering procedures used.',
+                                   style='List Bullet')
 
     # Dataset extra characteristics
     range_min, range_max = characteristics_df.value.loc['feature value ranges'][0].split(' - ')
     p5 = document.add_paragraph(f"After pre-treatment, the dataset had {len(DataFrame_Store.treated_df.columns)} features. ")
     p5.add_run(f'Absolute intensity values (without pre-treatment) ranged between {range_min[1:]} to {range_max[:-1]}, ')
     p5.add_run(f'averaging at {characteristics_df.value.loc["feature value average (std)"][0]}.')
-        
-    document.add_paragraph(f"Treated DataFrame was downloaded as 'Report_treated_df.csv'.")
+
 
 
     # Chapter of section
@@ -412,6 +377,72 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
         data_ann_deduplicator.merge_description.to_excel(folder+'/Report_Metabolic_Feature_Peak_Merging_Description.xlsx')
         document.add_paragraph("Detailed information of metabolic feature peak merging made saved in 'Report_Metabolic_Feature_Peak_Merging_Description.xlsx'.")
 
+
+
+    # Chapter of section
+    document.add_heading('Data Pre-Treatment', level=2)
+
+    document.add_paragraph('Data Pre-Treatment parameters used were as following:')
+
+    # Missing Value Imputation
+    if UnivarA_Store.mvi_method == 'Zero':
+        document.add_paragraph(f'Missing Value Imputation Method: Zero Imputation', style='List Bullet'
+            )
+    else:
+        document.add_paragraph(f'Missing Value Imputation Method: {UnivarA_Store.mvi_kw*100}% of {UnivarA_Store.mvi_method}',
+                            style='List Bullet')
+
+    # Normalization Method
+    norm_paragraph = document.add_paragraph(f'Normalization Method:', style='List Bullet'
+            )
+    if UnivarA_Store.norm_method == 'Reference Feature':
+        norm_paragraph.add_run(f' Normalization by a Reference Feature - {UnivarA_Store.norm_kw}')
+    elif UnivarA_Store.norm_method == 'Total Intensity Sum':
+        norm_paragraph.add_run(f' Normalization by Total Sum of Intensities')
+    elif UnivarA_Store.norm_method == 'PQN':
+        if UnivarA_Store.norm_kw in ['mean', 'median']:
+            n_kw = 'the ' + str(UnivarA_Store.norm_kw[0]) + ' of all samples as reference'
+        else:
+            n_kw = str(UnivarA_Store.norm_kw[0]) + ' sample as reference'
+        norm_paragraph.add_run(f' PQN (Probabilistic Quotient Normalization) using {n_kw}')
+    elif UnivarA_Store.norm_method == 'Quantile':
+        norm_paragraph.add_run(f' Quantile Normalization using the {str(UnivarA_Store.norm_kw[0])} of all samples as reference')
+    elif UnivarA_Store.norm_method == 'None':
+        norm_paragraph.add_run(f' None')
+    else:
+        pn.state.notifications.error('Normalization method used not recognized.')
+        raise ValueError('Normalization method used not recognized for Report Generation.')
+
+    # Transformation Method
+    if UnivarA_Store.tf_method == 'Generalized Logarithmic Transformation (glog)':
+        if UnivarA_Store.tf_kw:
+            document.add_paragraph(
+                f'Transformation Method: Generalized Logarithmic Transformation (glog) with lambda equal to {UnivarA_Store.tf_kw}',
+                                style='List Bullet'
+                )
+        else:
+            document.add_paragraph(
+                f'Transformation Method: Generalized Logarithmic Transformation (glog) with lambda equal to 0',
+                                style='List Bullet'
+                )
+    elif not UnivarA_Store.tf_method:
+        document.add_paragraph(f'Transformation Method: None', style='List Bullet'
+                )
+    else:
+        pn.state.notifications.error('Transformation method used not recognized.')
+        raise ValueError('Transformation method used not recognized for Report Generation.')
+
+    # Scaling Method
+    if UnivarA_Store.scaling_method == 'Level Scaling':
+        document.add_paragraph(
+                f"Scaling Method: Level Scaling (using feature's {UnivarA_Store.scaling_kw} as scaling factors)",
+                                style='List Bullet'
+                )
+    else:
+        document.add_paragraph(f"Scaling Method: {UnivarA_Store.scaling_method}", style='List Bullet'
+                )
+
+    document.add_paragraph(f"Treated DataFrame was downloaded as 'Report_treated_df.csv'.")
 
     # Final Description
     p8 = document.add_paragraph("")
@@ -1691,9 +1722,7 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
     params_to_be_saved['Data Reading'] = {'type_of_mass_values_in_file': RepGen.type_of_mass_values_in_file}
 
     # Saving Data Filtering Related Parameters
-    params_to_be_saved['Data Filtering'] = {'filt_method': UnivarA_Store.filt_method,
-                                           'filt_kw': UnivarA_Store.filt_kw} # Special Precautions needed when loading
-
+    params_to_be_saved['Data Filtering'] = UnivarA_Store.filt_methods # Special Precautions needed when loading
 
     # Saving Data Annotation Related Parameters
     # Main Parameters
@@ -1987,7 +2016,7 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
 
 
 # Loading parameters from saved json files.
-def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_databases, annotation_margin_method_radio,
+def loading_parameters_in(params_to_load, data_filtering, n_databases_show, n_databases, annotation_margin_method_radio,
                          annotation_ppm_deviation, annotation_Da_deviation, only_select_min_ppm_widget, RepGen,
                          adducts_to_search_widget, DB_dict, FormAssign_Store, PreTreatment_Method, checkbox_com_exc,
                          com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
@@ -1998,8 +2027,23 @@ def loading_parameters_in(params_to_load, filt_method, n_databases_show, n_datab
     # Data Pre-Processing and Pre-Treatment Related Parameters
     if params_pre_treat_loaded_in:
         # Loading Data Filtering Related Parameters
-        filt_method.value = params_to_load['Data Filtering']['filt_method']
-        #filt_kw
+        # Filter 1
+        data_filtering.basic_filt_method = params_to_load['Data Filtering']['basic_filt_method']
+        #filt_kw - Special Precautions taken when loadin these in
+        # Filter 2
+        data_filtering.int_based_filter = params_to_load['Data Filtering']['int_based_filter']
+        data_filtering.intensity_calculation = params_to_load['Data Filtering']['intensity_calculation']
+        data_filtering.int_threshold_type = params_to_load['Data Filtering']['int_threshold_type']
+        data_filtering.int_filt_kw = params_to_load['Data Filtering']['int_filt_kw']
+        # Filter 3
+        data_filtering.QC_based_filter = params_to_load['Data Filtering']['QC_based_filter']
+        data_filtering.QC_rsd_threshold = params_to_load['Data Filtering']['QC_rsd_threshold']
+        # Filter 4
+        data_filtering.var_based_filter = params_to_load['Data Filtering']['var_based_filter']
+        data_filtering.variance_calculation_type = params_to_load['Data Filtering']['variance_calculation_type']
+        data_filtering.feat_to_remove_percent = params_to_load['Data Filtering']['feat_to_remove_percent']
+        # Feats to Keep
+        data_filtering.feats_to_keep = params_to_load['Data Filtering']['feats_to_keep']
 
         # Loading Data Annotation Related Parameters
         # Main Parameters

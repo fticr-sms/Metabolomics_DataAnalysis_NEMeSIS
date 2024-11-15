@@ -1618,7 +1618,7 @@ def _plot_RF_ROC_curve(RF_store, treated_df, target_list):
 
 ### Functions related to the Univariate analysis page of the graphical interface
 
-def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list, filt_method, filt_kw):
+def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list):
     "Performs Univariate Analysis."
 
     # See if a T-Test or Mann-Whitney test will be made
@@ -1674,17 +1674,17 @@ def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list, fi
             file_temp = file_temp.loc[:, selection]
 
            # Perform the same filtering and pre-treatments steps but using only the control and test class samples
-            if UnivarA_Store.filt_method == 'Total Samples':
+            if UnivarA_Store.filt_methods['basic_filt_method'] == 'Total Samples':
                 f_meth = 'total_samples'
                 # Adapting the filt_kw to a smaller subset of samples
                 # Use percentage of the original filtering used to calculate the equivalent number of samples in subset and round UP
                 # Possible Issue - since we already used the filtered dataset (because it has annotations and de-duplications),
                 # the data filtering with 'total_samples' is not perfect - since a feature must pass this data filtering but also
                 # the original data filtering made
-                f_kw = math.ceil(UnivarA_Store.filt_kw/len(target_list.sample_cols)*sum(selection))
-            elif UnivarA_Store.filt_method == 'Class Samples':
+                f_kw = math.ceil(UnivarA_Store.filt_methods['basic_filt_kw']/len(target_list.sample_cols)*sum(selection))
+            elif UnivarA_Store.filt_methods['basic_filt_method'] == 'Class Samples':
                 f_meth = 'class_samples'
-                f_kw = UnivarA_Store.filt_kw
+                f_kw = UnivarA_Store.filt_methods['basic_filt_kw']
             else:
                 f_meth = None
 
