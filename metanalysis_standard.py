@@ -1244,7 +1244,7 @@ def compute_df_with_PCs_VE_loadings(df, n_components=5, whiten=True, labels=None
 
 ### These functions are altered versions from the ones available in the multianalysis.py file from the BinSim paper
 
-def RF_model(df, y, regres=False, return_cv=True, iter_num=1, n_trees=200, cv=None, n_fold=5,
+def RF_model(df, y, regres=False, return_cv=True, iter_num=1, n_trees=200, cv=None, n_fold=5, random_state=None,
              metrics = ('accuracy', 'f1_weighted', 'precision_weighted', 'recall_weighted'), **kwargs):
     "Fitting RF models and rturning the models and their cross-validation scores."
     results = {}
@@ -1266,15 +1266,21 @@ def RF_model(df, y, regres=False, return_cv=True, iter_num=1, n_trees=200, cv=No
     if not return_cv:
         return(fitted_model)
 
-    # Evaluate RF model through cross-validation section (includes feature importance retrieval)
-    if cv is None:
-        cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+    base_cv = cv
 
     store_res = {m:[] for m in metrics}
 
     # Go through the iterations specified and evaluate the model through cross-validation
     # Manually fit the model to train folds and extract feature importance information
-    for _ in range(iter_num):
+    for itr in range(iter_num):
+        # Evaluate RF model through cross-validation section (includes feature importance retrieval)
+        cv = base_cv
+        if cv is None:
+            if random_state != None:
+                cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True, random_state=random_state*(itr+1))
+            else:
+                cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+
         if regres:
             rf = skensemble.RandomForestRegressor(n_estimators=n_trees)
         else:
@@ -1307,7 +1313,7 @@ def RF_model(df, y, regres=False, return_cv=True, iter_num=1, n_trees=200, cv=No
     results.update(store_res)
     return results#{'model': fitted_model, 'cv_scores': scores}
 
-def RF_ROC_cv(treated_data, target, pos_label, regres=False, n_trees=200, n_iter=1, cv=None, n_fold=5):
+def RF_ROC_cv(treated_data, target, pos_label, regres=False, n_trees=200, n_iter=1, cv=None, n_fold=5, random_state=None):
     """Fits and extracts Random Forest model data and calculates metrics to plot a ROC curve."""
 
     # Run classifier with cross-validation and plot ROC curves
@@ -1315,12 +1321,19 @@ def RF_ROC_cv(treated_data, target, pos_label, regres=False, n_trees=200, n_iter
     aucs = []
     mean_fpr = np.linspace(0, 1, 100)
 
-    if cv is None:
-        cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+    base_cv = cv
 
     # Number of times Random Forest cross-validation is made
     # with `n_fold` randomly generated folds.
-    for _ in range(n_iter):
+    for itr in range(n_iter):
+        # Evaluate RF model through cross-validation section
+        cv = base_cv
+        if cv is None:
+            if random_state != None:
+                cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True, random_state=random_state*(itr+1))
+            else:
+                cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+
         # Fit and evaluate a Random Forest model for each fold in cross validation
         for train_index, test_index in cv.split(treated_data, target):
             # Random Forest setup and fit
@@ -1495,7 +1508,8 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
                    iter_num=1,
                    encode2as1vector=True,
                    scale=False,
-                   feat_type='VIP'):
+                   feat_type='VIP',
+                   random_state=None):
     
     """Perform PLS-DA with n-fold cross-validation.
 
@@ -1512,6 +1526,7 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
         use one-hot encoding as with multi-class cases.
        scale: bool (default: False); if data is scaled when inputted to PLS model (only true if scaling was not done earlier).
        feat_type: string (default: 'VIP'); types of feature importance metrics to use; accepted: {'VIP', 'Coef', 'Weights'}.
+       random_state: int (default: None); set random state for stratified cross_validation (random state is random_state*(current_iteration)).
 
     Returns: (accuracy, F1-score, precision, recall, Q2, import_features);
         accuracy: list of accuracy values in group selection
@@ -1549,10 +1564,16 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
         # keep a copy to use later
         target1D = matrix.copy()
 
+    base_kf = kf
+
     # Number of iterations equal to iter_num
     for i in range(iter_num):
+        kf = base_kf
         if kf is None:
-            kf = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+            if random_state != None:
+                kf = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True, random_state=random_state*(i+1))
+            else:
+                kf = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
 
         # Setting up storing variables for cross-validation
         nright = 0 # For accuracy
@@ -1623,7 +1644,7 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
                             nright += 1  # Correct prediction
 
                     # Save y-test and predictions to calculate F1-score, precision and recall
-                    all_preds.extend(list(rounded[0]))
+                    all_preds.extend(list(rounded))
                     all_tests.extend(y_test)
 
             # Calculate important features (3 different methods to choose from)
@@ -1679,7 +1700,7 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
                     'Q2': CVR2, 'imp_feat': imp_features}
 
 
-def PLSDA_ROC_cv(treated_data, target, pos_label, n_comp=10, scale=False, n_iter=1, cv=None, n_fold=5):
+def PLSDA_ROC_cv(treated_data, target, pos_label, n_comp=10, scale=False, n_iter=1, cv=None, n_fold=5, random_state=None):
     """Fits and extracts PLS-DA model data and calculates metrics to plot a ROC curve."""
 
     # Run classifier with cross-validation and plot ROC curves
@@ -1687,8 +1708,7 @@ def PLSDA_ROC_cv(treated_data, target, pos_label, n_comp=10, scale=False, n_iter
     aucs = []
     mean_fpr = np.linspace(0, 1, 100)
 
-    if cv is None:
-        cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+    base_cv = cv
 
     encoded_target = []
     for i in target:
@@ -1700,6 +1720,14 @@ def PLSDA_ROC_cv(treated_data, target, pos_label, n_comp=10, scale=False, n_iter
     # Number of times PLS-DA cross-validation is made
     # with `n_fold` randomly generated folds.
     for itr in range(n_iter):
+        # Evaluate RF model through cross-validation section
+        cv = base_cv
+        if cv is None:
+            if random_state != None:
+                cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True, random_state=random_state*(itr+1))
+            else:
+                cv = sklearn.model_selection.StratifiedKFold(n_fold, shuffle=True)
+
         # Fit and evaluate a PLS-DA model for each fold in cross validation
         for train_index, test_index in cv.split(treated_data, encoded_target):
             # Random Forest setup and fit

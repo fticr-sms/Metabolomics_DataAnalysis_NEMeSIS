@@ -231,3 +231,7 @@ The other packages mentioned at the begginning are also needed.
 
 - Run 'OpenGraphicalInterface.bat' (this will open a command line and the interface in a browser)
 - To close the program, go to the command line and press 'Ctrl+C'.
+
+# TODO:
+
+- Fix bug in Pathway ORA Analysis of Univariate Results Obtained (The selection of significant metabolites is not being performed correctly)
