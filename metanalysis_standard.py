@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 
 import scipy.stats as stats
+import scipy.cluster.hierarchy as hier
+import itertools
 
 import sklearn.ensemble as skensemble
 from sklearn.cross_decomposition import PLSRegression
@@ -16,12 +18,18 @@ from fractions import Fraction
 
 import xgboost as xgb
 
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
 # Our Python package
 import metabolinks.transformations as transf
 
 import re
 from tqdm import tqdm
 
+# elips.py file (has to be in the same folder)
+from elips import plot_confidence_ellipse
 # multianalysis.py file (has to be in the same folder)
 from multianalysis import _generate_y_PLSDA, _calculate_vips
 
@@ -175,9 +183,9 @@ def filtering_data_metabolomics(df, sample_cols, qc_cols, target, # DataFrame, C
                                intensity_calculation='mean', # 'median'
                                threshold_type='Intensity value', # '% Based'
                                threshold_value=1*10**6, # Fraction such as 0.1 for % Based
-                               # Filter 3: QC sample feature varation based filter
+                               # Filter 3: QC sample feature variation based filter
                                QC_filter=False, # True or False whether you apply it
-                               rsd_threshold=0.25, # Fraction of features to remove in this check
+                               rsd_threshold=0.25, # Relative std threshold to remove features above said threshold
                                # Filter 4: Sample feature variance based filter
                                var_based_filter=False, # True or False whether you apply it
                                variance_calculation_type='Relative Standard Deviation', # 'Inter-Quartile Range',
@@ -1087,7 +1095,9 @@ def normalizer(data, norm='ref_feat', norm_kw='555.2692975341 Da'):
 
     # Normalizations
     if norm == 'ref_feat': # Normalization by a reference feature indicated by the norm_kw
-        N = transf.normalize_ref_feature(data, feature=norm_kw, remove=True)
+        N = data.T/data.loc[:, norm_kw]
+        N = (N.drop(norm_kw)).T
+        #N = transf.normalize_ref_feature(data, feature=norm_kw, remove=True)
     elif norm == 'total_sum': # Normalization by the total sum of intensities (no norm_kw)
         N = transf.normalize_sum(data)
     elif norm == 'PQN': # Normalization by Probabilistic Quotient Normalization (norm_kw is ref_sample, usually, 'mean')
@@ -1237,6 +1247,115 @@ def compute_df_with_PCs_VE_loadings(df, n_components=5, whiten=True, labels=None
         return principaldf
     else:
         return principaldf, var_explained, loadings
+
+
+### Step 4 Functions
+### Functions related to the visualization of PCA projection plots and HCA clustering
+
+def plot_PCA(principaldf, label_colors, components=(1,2), title="PCA", ax=None):
+    "Plot the projection of samples in the 2 main components of a PCA model."
+
+    if ax is None:
+        ax = plt.gca()
+
+    loc_c1, loc_c2 = [c - 1 for c in components]
+    col_c1_name, col_c2_name = principaldf.columns[[loc_c1, loc_c2]]
+
+    #ax.axis('equal')
+    ax.set_xlabel(f'{col_c1_name}')
+    ax.set_ylabel(f'{col_c2_name}')
+
+    unique_labels = principaldf['Label'].unique()
+
+    for lbl in unique_labels:
+        subset = principaldf[principaldf['Label']==lbl]
+        ax.scatter(subset[col_c1_name],
+                   subset[col_c2_name],
+                   s=50, color=label_colors[lbl], label=lbl)
+
+    #ax.legend(framealpha=1)
+    ax.set_title(title, fontsize=15)
+
+def plot_ellipses_PCA(principaldf, label_colors, components=(1,2),ax=None, q=None, nstd=2):
+    "Plot confidence ellipses of a class' samples based on their projection in the 2 main components of a PCA model."
+
+    if ax is None:
+        ax = plt.gca()
+
+    loc_c1, loc_c2 = [c - 1 for c in components]
+    points = principaldf.iloc[:, [loc_c1, loc_c2]]
+
+    #ax.axis('equal')
+
+    unique_labels = principaldf['Label'].unique()
+
+    for lbl in unique_labels:
+        subset_points = points[principaldf['Label']==lbl]
+        plot_confidence_ellipse(subset_points, q, nstd, ax=ax, ec=label_colors[lbl], fc='none')
+
+def color_list_to_matrix_and_cmap(colors, ind, axis=0):
+        if any(issubclass(type(x), list) for x in colors):
+            all_colors = set(itertools.chain(*colors))
+            n = len(colors)
+            m = len(colors[0])
+        else:
+            all_colors = set(colors)
+            n = 1
+            m = len(colors)
+            colors = [colors]
+        color_to_value = dict((col, i) for i, col in enumerate(all_colors))
+
+        matrix = np.array([color_to_value[c]
+                           for color in colors for c in color])
+
+        matrix = matrix.reshape((n, m))
+        matrix = matrix[:, ind]
+        if axis == 0:
+            # row-side:
+            matrix = matrix.T
+
+        cmap = mpl.colors.ListedColormap(all_colors)
+        return matrix, cmap
+
+def plot_dendogram(Z, leaf_names, label_colors, title='', ax=None, no_labels=False, labelsize=12, **kwargs):
+    if ax is None:
+        ax = plt.gca()
+    hier.dendrogram(Z, labels=leaf_names, leaf_font_size=10, above_threshold_color='0.2', orientation='left',
+                    ax=ax, **kwargs)
+    #Coloring labels
+    #ax.set_ylabel('Distance (AU)')
+    ax.set_xlabel('Distance (AU)')
+    ax.set_title(title, fontsize = 15)
+
+    #ax.tick_params(axis='x', which='major', pad=12)
+    ax.tick_params(axis='y', which='major', labelsize=labelsize, pad=12)
+    ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    #xlbls = ax.get_xmajorticklabels()
+    xlbls = ax.get_ymajorticklabels()
+    rectimage = []
+    for lbl in xlbls:
+        lbl_text = lbl.get_text()
+        if type(list(label_colors)[0]) == np.float64:
+            lbl_text = float(lbl_text)
+        col = label_colors[lbl_text]
+        lbl.set_color(col)
+        #lbl.set_fontweight('bold')
+        if no_labels:
+            lbl.set_color('w')
+        rectimage.append(col)
+
+    cols, cmap = color_list_to_matrix_and_cmap(rectimage, range(len(rectimage)), axis=0)
+
+    axins = inset_axes(ax, width="5%", height="100%",
+                   bbox_to_anchor=(1, 0, 1, 1),
+                   bbox_transform=ax.transAxes, loc=3, borderpad=0)
+
+    axins.pcolor(cols, cmap=cmap, edgecolors='w', linewidths=1)
+    axins.axis('off')
+
 
 
 ### Step 5 Functions
