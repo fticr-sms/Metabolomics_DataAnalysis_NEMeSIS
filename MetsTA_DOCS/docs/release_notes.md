@@ -3,6 +3,19 @@ This page includes the release notes for both jupyter notebook and graphical int
 
 ## Jupyter Notebook Version Release Notes
 
+**V2.7 - Data Filtering, Score-based Formula Assignment, Improved Peak De-duplication (19/02/2025)**
+
+- Added possibility to select Quality Control (QC) samples.
+- Added in-depth Data Filtering options of 4 main types: minimum appearance filters, intensity-based filters, QC based filters and variation based filters.
+- Added Score-based sections to Formula Assignment algorithm and slight changes in how the formula database is used.
+- Improved Peak De-Duplication (same annotation from different adducts are now merged by adding intensity values while same adduct peaks are merged by selecting the higher intensity value in each sample).
+- Added data export to be used in independent side modules.
+- Added random_state to define cross-validation splits for RF and PLS-DA models (only for splits).
+- Added a side module with sMDiN analysis as a standalone jupyter notebook as example of independent analysis modules.
+- Added a few quality of life changes.
+- Fixed normalization by a reference feature.
+- Minor bugfixes.
+
 **V2.6 - Introducing Peak Alignment, Formula Assignment, Pathway Over-Representation Analysis and expansion of compound finder tools (05/06/2024)**
 
 - Added Sample Peak Alignment to Data Reading section of the notebook as an alternative to directly reading pre-aligned files.
@@ -126,11 +139,24 @@ This page includes the release notes for both jupyter notebook and graphical int
 
 ## Graphical Interface Version Release Notes
 
+**Version Alpha.5 (19/02/2025)**
+
+- Added possibility to select Quality Control (QC) samples.
+- Added in-depth Data Filtering page with 4 main options: minimum appearance filters, intensity-based filters, QC based filters and variation based filters.
+- Improved Peak De-Duplication (same annotation from different adducts are now merged by adding intensity values while same adduct peaks are merged by selecting the higher intensity value in each sample).
+- Added data export to be used in independent jupyter notebook side modules.
+- Added section on correlated metabolites to searched metabolite in Compound Finder page.
+- Improved hover data for Volcano Plots.
+- Added a few quality of life changes.
+- Slight tweak to maximum file size accepted.
+- Fixed normalization by a reference feature.
+- Minor bugfixes.
+
 **Version Alpha.4 (05/06/2024)**
 
 - Original files can now be read from different folders than where the software is (files will still be downloaded to the software folder).
 - Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.
-- (Furthermore, addded external jupyter notebook for creation of own formula database to use for this formula assignment).
+- (Furthermore, added external jupyter notebook for creation of own formula database to use for this formula assignment).
 - Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).
 - Simplifying some table displays and eliminating redundant parameters (decrease memory usage).
 - Improved hover data for PCA and PLS-DA projection plots.

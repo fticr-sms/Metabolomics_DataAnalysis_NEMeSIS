@@ -152,11 +152,18 @@ However, in the future, these databases will have corresponding python files tha
 - Added option to search for compounds in batch (requires external file).
 - Small improvements in code and descriptions as well as small bugfixes.
 
-#### In Future Patches:
+#### V2.7 - Data Filtering, Score-based Formula Assignment, Improved Peak De-duplication (19/02/2025)
 
-- Add sMDiN analysis to notebooks.
-- Add Formula Assignment to software.
-
+- Added possibility to select Quality Control (QC) samples.
+- Added in-depth Data Filtering options of 4 main types: minimum appearance filters, intensity-based filters, QC based filters and variation based filters.
+- Added Score-based sections to Formula Assignment algorithm and slight changes in how the formula database is used.
+- Improved Peak De-Duplication (same annotation from different adducts are now merged by adding intensity values while same adduct peaks are merged by selecting the higher intensity value in each sample).
+- Added data export to be used in independent side modules.
+- Added random_state to define cross-validation splits for RF and PLS-DA models (only for splits).
+- Added a side module with sMDiN analysis as a standalone jupyter notebook as example of independent analysis modules.
+- Added a few quality of life changes.
+- Fixed normalization by a reference feature.
+- Minor bugfixes.
 
 # Graphical Interface Version Patch Notes
 
@@ -192,12 +199,25 @@ However, in the future, these databases will have corresponding python files tha
 
 - Original files can now be read from different folders than where the software is (files will still be downloaded to the software folder).
 - Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.
-- (Furthermore, addded external jupyter notebook for creation of own formula database to use for this formula assignment).
+- (Furthermore, added external jupyter notebook for creation of own formula database to use for this formula assignment).
 - Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).
 - Simplifying some table displays and eliminating redundant parameters (decrease memory usage).
 - Improved hover data for PCA and PLS-DA projection plots.
 - Small bugfixes and enhancing descriptions.
 - Added external interface software to perform Sample Peak Alignment (DataAlignmentInterface.py) whose output can be used as input to the software.
+
+#### Version Alpha.5 (19/02/2025)
+
+- Added possibility to select Quality Control (QC) samples.
+- Added in-depth Data Filtering page with 4 main options: minimum appearance filters, intensity-based filters, QC based filters and variation based filters.
+- Improved Peak De-Duplication (same annotation from different adducts are now merged by adding intensity values while same adduct peaks are merged by selecting the higher intensity value in each sample).
+- Added data export to be used in independent jupyter notebook side modules.
+- Added section on correlated metabolites to searched metabolite in Compound Finder page.
+- Improved hover data for Volcano Plots.
+- Added a few quality of life changes.
+- Slight tweak to maximum file size accepted.
+- Fixed normalization by a reference feature.
+- Minor bugfixes.
 
 ### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
 
@@ -232,6 +252,6 @@ The other packages mentioned at the begginning are also needed.
 - Run 'OpenGraphicalInterface.bat' (this will open a command line and the interface in a browser)
 - To close the program, go to the command line and press 'Ctrl+C'.
 
-# TODO:
+## TODO:
 
 - Fix bug in Pathway ORA Analysis of Univariate Results Obtained (The selection of significant metabolites is not being performed correctly)
