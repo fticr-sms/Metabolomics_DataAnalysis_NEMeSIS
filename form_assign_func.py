@@ -2,6 +2,7 @@
 # Needed Imports
 import pandas as pd
 import numpy as np
+import scipy.stats as stats
 import math
 import re
 from tqdm import tqdm
@@ -1152,3 +1153,382 @@ def form_checker_ratios_adducts(data, idx, int_col, threshppm, formula_db_dict, 
               dict_iso,
               'Check 0: Only 1 Formula Candidate',
                contribution)
+
+
+def check_adaptable_ranges(df2, short_range_eq, normalize=True):
+    # Store ranges to avoid unnecessary calculations
+    add_ranges = {}
+    # Store results of checks
+    multiplier = {}
+    # Go through every possiblity
+    for idx in df2.index:
+        # Calculate or load the ranges to the adduct in question if already calculated
+        adduct = df2.loc[idx, 'Adduct']
+        if adduct in add_ranges:
+            short_range = add_ranges[adduct]
+        else:
+            neutral_mass = df2.loc[idx, 'Ad. Neutral Mass']
+            short_range = {'H/C': [short_range_eq_f(neutral_mass, short_range_eq['H/C'][0]),
+                                        short_range_eq_f(neutral_mass, short_range_eq['H/C'][1])],
+                                'O/C': [short_range_eq_f(neutral_mass, short_range_eq['O/C'][0]),
+                                        short_range_eq_f(neutral_mass, short_range_eq['O/C'][1])],
+                                'N/C': [short_range_eq_f(neutral_mass, short_range_eq['N/C'][0]),
+                                        short_range_eq_f(neutral_mass, short_range_eq['N/C'][1])],
+                                'S/C': [short_range_eq_f(neutral_mass, short_range_eq['S/C'][0]),
+                                        short_range_eq_f(neutral_mass, short_range_eq['S/C'][1])],
+                                'P/C': [short_range_eq_f(neutral_mass, short_range_eq['P/C'][0]),
+                                        short_range_eq_f(neutral_mass, short_range_eq['P/C'][1])],
+                                'F/C': [short_range_eq_f(neutral_mass, short_range_eq['F/C'][0]),
+                                        short_range_eq_f(neutral_mass, short_range_eq['F/C'][1])],
+                                'Cl/C': [short_range_eq_f(neutral_mass, short_range_eq['Cl/C'][0]),
+                                        short_range_eq_f(neutral_mass, short_range_eq['Cl/C'][1])]}
+            add_ranges[adduct] = short_range
+
+        # Calculate the multi based on the number of ranges the formula fulfills
+        based_multi = 0.3
+        for i in short_range:
+            a = i.split('/')[0]
+            if short_range[i][0] <= df2.loc[idx, a] / df2.loc[idx, 'C'] <= short_range[i][1]:
+                based_multi += 0.1
+        multiplier[idx] = np.round(based_multi, 1)
+
+    # Normalize the multipliers for the maximum multipler to have 1
+    multiplier = pd.Series(multiplier)
+    if normalize:
+        multiplier = multiplier/multiplier.max()
+
+    return multiplier
+
+def check_if_in_pubchem(df2, lower_limit=0.5):
+    multiplier = pd.Series(
+        dict(zip(df2.index, [1 if df2.loc[idx, 'In Pubchem'] == True else lower_limit for idx in df2.index])))
+    return multiplier/multiplier.max()
+
+def check_valency(df2, lower_limit=0.5):
+    multiplier = pd.Series(
+        dict(zip(df2.index, [1 if df2.loc[idx, 'Valency'] == True else lower_limit for idx in df2.index])))
+    return multiplier/multiplier.max()
+
+def fewer_heteroatom_check(df2, lower_limit=0.75):
+    adjust = 1 - lower_limit
+    # Calculate % of non-heteroatom atoms
+    ha_check = df2[['C','H','O']].sum(axis = 1)/df2[['C','H','O','N','S','P','F','Cl']].sum(axis = 1)
+    # Normalize:
+    ha_check = ha_check/ha_check.max()
+    if ha_check.max() != ha_check.min():
+        ha_check = ha_check - (1-ha_check)*((adjust-(1-ha_check.min()))/(1-ha_check.min()))
+    return ha_check
+
+def mass_deviation_check(df2, threshppm, lower_limit=0.8, normalize=True):
+    # Calculate errors
+    dev_df = pd.Series(abs(((df2['Ad. Neutral Mass'] - df2.index)/df2.index)*1000000).values,
+                                                index=df2.index)
+    dev_df = threshppm - dev_df
+    dev_df = dev_df/threshppm*(1-lower_limit)+lower_limit
+    if normalize:
+        dev_df = dev_df + (1-dev_df.max())
+    return dev_df
+
+
+def inv_normal_pdf(y, mean, std):
+    'Performs inverse of normal pdf function.'
+
+    x = np.sqrt(np.log((y)*std*np.sqrt(2*np.pi))*(-2))*std + mean
+
+    return x
+
+
+def isotope_spotting_and_check(df2, data, curr_idx, ppm_max_deviation, adducts_to_consider,
+                               mass_col, int_col, dict_iso,
+                               no_isotope_score=0.2, min_isotope_score=0.6,
+                           mass_to_intensity_f=2, intensity_deviation = 0.4, normalize=True):
+
+    # Normal Distribution to calculate the score factors based on its pdf (Probabibility Density Function)
+    norm_dist_mass = stats.norm(loc=0, scale=1)
+    norm_dist_int = stats.norm(loc=0, scale=1)
+
+    # Possible ranges of score and difference between the lowest isotope score factor and the score factor when no isotope is
+    # found
+    score_range = 1 - no_isotope_score
+    score_range_min = min_isotope_score - no_isotope_score
+
+    # Calculate
+    x1 = (-(1-mass_to_intensity_f) + np.sqrt((1-mass_to_intensity_f)**2-4*(mass_to_intensity_f)*(-score_range_min/score_range
+        )))/(2*mass_to_intensity_f)
+    x2 = (-(1-mass_to_intensity_f) - np.sqrt((1-mass_to_intensity_f)**2-4*(mass_to_intensity_f)*(-score_range_min/score_range
+        )))/(2*mass_to_intensity_f)
+
+    min_int_score = x1
+    min_mass_score = score_range_min/score_range/x1
+
+    y_int = min_int_score*norm_dist_int.pdf(0) # Minimum value to have in the normal distribution based on min_int_score
+    x_int = inv_normal_pdf(y_int, 0, 1) # X value in the normal dist. so the pdf on x value being y calculated before
+    # This x will correspond to the maximum intensity deviation percentage
+
+    y_mass = min_mass_score*norm_dist_int.pdf(0) # Minimum value to have in the normal distribution based on min_mass_score
+    x_mass = inv_normal_pdf(y_mass, 0, 1) # X value in the normal dist. so the pdf on x value being y calculated before
+    # This x will correspond to the maximum deviation ppm
+
+    # Isotopic Peak Formula
+    min_int = data.loc[:, int_col].min()
+    intensity = data.loc[curr_idx, int_col]
+    min_ratio = (min_int / intensity)*0.8 # See minimum ratio that can be seen as an isotope
+    # Put a slightly lower threshold than that to account for intensity variability
+
+    isotopic_peaks = {} # Save isotopic peaks that may be assigned
+    poss_isotopic_peaks = {} # Save isotopic ratios that could've theoretically been seen
+
+    multiplier = {}
+
+    # Pass through every formula_candidate and see which isotopic peak candidates each ones have
+    for el in df2.index:
+        ele = df2.loc[el] # Corresponding row
+
+        # Get expected isotopic abundances ratios compared to monoisotopic peak
+        abuns = getabun(ele['C'], ele['H'], ele['O'], ele['N'], ele['S'], ele['Cl'])
+        abuns_ratios = pd.Series(abuns) / abuns['Monoisotopic']
+        abuns_ratios = abuns_ratios.drop('Monoisotopic')
+        abuns_ratios = abuns_ratios[abuns_ratios > min_ratio]
+
+        save_iso_candidates = {} # Store of isotopic peaks found for current formula
+        score_factor = no_isotope_score # Base score factor
+
+        if len(abuns_ratios) > 0:
+            # Get their masses
+            iso_masses = pd.Series(isotopic_masses(el)) + adducts_to_consider[df2.loc[el, 'Adduct']]
+            # Get maximum possible mass_dif from the adduct
+            mass_dif = df2.loc[el, 'Mass dif.']
+
+            poss_isotopic_peaks[el] = list(abuns_ratios.index)
+            for iso_type in abuns_ratios.index:
+                # See if their are candidates within those masses calculated
+                iso_candidates = data[data.loc[:, mass_col] <= (iso_masses[iso_type] + mass_dif)]
+                iso_candidates = iso_candidates[iso_candidates.loc[:, mass_col] >= (iso_masses[iso_type] - mass_dif)]
+                # An extra filter to remove possible peaks that have already been assigned as isotopes before
+                # First Come, First Serve type of logic
+                iso_candidates = iso_candidates.loc[[
+                        i for i in iso_candidates.index if i not in dict_iso.keys()]]
+                # If there are candidates within the calculated masses, see if their intensity is approximately
+                # what would be expected of their abundance ratios - allowing a 60% variation on the ratio computed
+                # to account for the possible big variability in intensity
+                if len(iso_candidates) > 0:
+                    theo_intensity = abuns_ratios[iso_type]*intensity
+                    intensity_error_margin = 0.6 * theo_intensity
+                    iso_candidates = iso_candidates[
+                        iso_candidates.loc[:, int_col] <= (theo_intensity + intensity_error_margin)]
+                    iso_candidates = iso_candidates[
+                        iso_candidates.loc[:, int_col] >= (theo_intensity - intensity_error_margin)]
+                    # theo_relative_intensity = the theoretical relative intensity between isotopic and monoisotopic peaks
+                    # according to natural abundancy.
+                    # exp_relative_intensity = the experimental relative intensity between the two peaks
+                    iso_candidates['theo_rel_int'] = abuns_ratios[iso_type]
+
+                if len(iso_candidates) > 0:
+                            save_iso_candidates[iso_type] = iso_candidates
+                #print(iso_candidates)
+                # If there are candidates, see the mass and intensity deviation and calculate the new score factor based on it.
+                if len(iso_candidates) > 0:
+                    # Deviation of intensity
+                    int_dev =  abs(1 -(iso_candidates[int_col]/intensity) / iso_candidates['theo_rel_int'])
+                    ppm_dev = abs((iso_masses[iso_type]-iso_candidates[mass_col])/iso_candidates[mass_col])*10**6
+
+                    if score_factor == no_isotope_score: # That is, if this is the first isotope peak found for this match
+                        x_mass_ppm_dev = ppm_dev * x_mass / ppm_max_deviation
+                        x_int_dev = int_dev * x_int / intensity_deviation
+                        score_factor = (1-no_isotope_score)/(norm_dist_mass.pdf(0)*norm_dist_int.pdf(0)
+                                               ) * norm_dist_mass.pdf(x_mass_ppm_dev)*norm_dist_int.pdf(x_int_dev) + no_isotope_score
+
+                        # Candidate peak with highest score_factor
+                        exp_iso_peak_mass = iso_candidates.index[max(range(len(score_factor)), key=score_factor.__getitem__)]
+                        # Highest score_factor
+                        score_factor = max(score_factor)
+
+                    # If the score factor was already changed of 0.75, slightly tune the results to increase score factor even more
+                    # Since this means multiple Isotope peaks were detected
+                    else:
+                        x_mass_ppm_dev = ppm_dev * x_mass / ppm_max_deviation
+                        x_int_dev = int_dev * x_int / intensity_deviation
+                        s_factor = (1-no_isotope_score)/(norm_dist_mass.pdf(0)*norm_dist_int.pdf(0)
+                                               ) * norm_dist_mass.pdf(x_mass_ppm_dev)*norm_dist_int.pdf(x_int_dev) + no_isotope_score
+
+                        # Candidate peak with highest score_factor
+                        exp_iso_peak_mass = iso_candidates.index[max(range(len(s_factor)), key=s_factor.__getitem__)]
+                        # Highest score_factor
+                        # Compound factor with previous factor
+                        score_factor = (score_factor + (1-score_factor)*s_factor)[0]
+        isotopic_peaks[el] = save_iso_candidates
+        multiplier[el] = score_factor
+
+    multiplier = pd.Series(multiplier)
+    return multiplier/multiplier.max(), isotopic_peaks, poss_isotopic_peaks
+
+def S34_check(isotopic_peaks, poss_isotopic_peaks):
+    # S34 Check
+    multiplier = {}
+    for el in poss_isotopic_peaks:
+        if 'S34' in poss_isotopic_peaks[el]:
+            if 'S34' not in isotopic_peaks[el]:
+                multiplier[el] = 0.25
+            else:
+                multiplier[el] = 1
+        else:
+            multiplier[el] = 0.5
+
+    multiplier = pd.Series(multiplier)
+    multiplier = multiplier/multiplier.max()
+    return multiplier
+
+
+def isotope_decider_new(dict_iso, idx_winner, isotopic_peaks, df2, monoiso_int, int_col, mass_col, score_multiplier):
+
+    iso_masses = isotopic_masses(idx_winner)
+    iso_peaks = isotopic_peaks[idx_winner]
+    # Go through every isotope
+    for iso in iso_peaks:
+        iso_candidates = iso_peaks[iso]
+        # If only 1 candidate
+        if len(iso_candidates) == 1:
+            dict_iso[iso_candidates[mass_col].iloc[0]] = [iso, df2.loc[idx_winner], iso_masses[iso],
+                                                          score_multiplier.loc[idx_winner]]
+
+        elif len(iso_candidates) > 1:
+            # 1st criteria - Ratios between monoisotopic and isotopic peak abundances are close (less than 20%) to what
+            # is expected
+            theo_intensity =  iso_candidates['theo_rel_int'].values[0] * monoiso_int
+            intensity_error_margin = 0.2 * theo_intensity
+            close_iso_candidates = iso_candidates[
+                iso_candidates.loc[:, int_col] <= (theo_intensity + intensity_error_margin)]
+            close_iso_candidates = close_iso_candidates[
+                close_iso_candidates.loc[:, int_col] >= (theo_intensity - intensity_error_margin)]
+
+            if len(close_iso_candidates) == 1: # If only one
+                dict_iso[close_iso_candidates[mass_col].iloc[0]] = [iso, df2.loc[idx_winner], iso_masses[iso],
+                                                                    score_multiplier.loc[idx_winner]]
+
+            else: # If zero
+                if len(close_iso_candidates) > 1: # If more than one
+                    iso_candidates = close_iso_candidates
+
+                # 2nd criteria - Closer distance between experimental to the theoretical mass for the isotope candidate
+                iso_idx = abs((iso_masses[iso] - iso_candidates[mass_col])/iso_candidates[mass_col]*
+                                1000000).astype(float).idxmin()
+                dict_iso[iso_candidates[mass_col].loc[iso_idx]] = [iso, df2.loc[idx_winner], iso_masses[iso],
+                                                                      score_multiplier.loc[idx_winner]]
+
+    return dict_iso
+
+
+def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, adducts_to_consider={'M':0}, dict_iso={},
+                deviation_in_ppm=True,
+                 isotope_check=True, s34_check=True, common_range_check=True, in_pubchem_check=True, valency_check=True,
+                 heteroatom_check=True, normalize_scores=True,
+                short_range_eq={'H/C': [None, None], 'O/C': [None, None], 'N/C': [None, None], 'P/C': [None, None],
+                                'S/C': [None, None]},):
+
+    # Get information on the peak currently to be assigned
+    mass = data.loc[curr_idx, mass_col]
+    intensity = data.loc[curr_idx, int_col]
+
+    if isotope_check:
+        if mass in dict_iso.keys():
+            if len(dict_iso[mass]) != 0:
+                iso, winner, iso_mass, score_multiplier = dict_iso[mass]
+                score = score_multiplier.product()
+                formula = formulator(winner.loc['C'], winner.loc['H'], winner.loc['O'], winner.loc['N'],
+                                    winner.loc['S'], winner.loc['P'], winner.loc['F'], winner.loc['Cl'], False)
+                return (mass, iso + ' iso. - ' + formula,
+                        winner.name, winner['Adduct'], score, dict_iso, score_multiplier)
+
+    # Select the formulas from the database dataframe that are within the ppm threshold for the different adducts to the mass given
+    joined_df = pd.DataFrame()
+    for adduct, mass_dev in adducts_to_consider.items():
+        neutral_mass = float(mass - mass_dev)
+        for i in range(250, 1251, 250):
+            if neutral_mass < i:
+                d  = i-250
+                break
+        # Calculate mass difference allowed based on the mass and ppm thresholds given
+        if deviation_in_ppm:
+            mass_dif = neutral_mass - (neutral_mass*1000000/(1000000 + threshppm))
+        else:
+            mass_dif = threshppm
+        # Select the formulas from the database dataframe that are within said mass difference to the mass given
+        df2 = formula_db_dict[d].copy()
+        df2 = df2[df2.index<= (neutral_mass+mass_dif)]
+        df2 = df2[df2.index>= (neutral_mass-mass_dif)]
+        df2['Adduct'] = adduct
+        df2['Ad. Neutral Mass'] = neutral_mass
+        df2['Mass dif.'] = mass_dif
+        # Add current adduct result to final df
+        joined_df = pd.concat((joined_df, df2))
+    # DataFrame with all possible candidates
+    df2 = joined_df
+    # Get the multipliers for the different checks
+    score_cols = []
+    for k,v in dict(zip(['Isotope Check', 'S34 Check', 'In Pubchem Check', 'Common Ranges Check', 'Valency Check',
+              'Fewer Heteroatom Check'], [isotope_check, s34_check, common_range_check, in_pubchem_check, valency_check,
+                heteroatom_check])).items():
+        if v:
+            score_cols.append(k)
+    score_cols.append('Mass Deviation Check')
+    score_multiplier = pd.DataFrame(columns=score_cols)
+
+    # No formula is within the mass interval - no formula assigned
+    if len(df2) == 0:
+        return(mass, np.nan, np.nan, np.nan, np.nan, dict_iso, score_multiplier)
+    else:
+        # Check for isotopes
+        if isotope_check:
+            i_check, isotopic_peaks, poss_isotopic_peaks = isotope_spotting_and_check(
+                df2, data, curr_idx, threshppm, mass_col=mass_col, int_col=int_col, dict_iso=dict_iso,
+                adducts_to_consider = adducts_to_consider, no_isotope_score=0.2,
+                min_isotope_score=0.6, mass_to_intensity_f=2, intensity_deviation = 0.4, normalize=normalize_scores)
+            score_multiplier['Isotope Check'] = i_check
+            if s34_check:
+                s34_check = S34_check(isotopic_peaks, poss_isotopic_peaks)
+                score_multiplier['S34 Check'] = s34_check
+        if len(df2) > 1:
+            # Calculating all multipliers for all checks
+            # In pubchem check
+            if in_pubchem_check:
+                ipc_check = check_if_in_pubchem(df2, lower_limit=0.5)
+                score_multiplier['In Pubchem Check'] = ipc_check
+            # Common Range Check
+            if common_range_check:
+                cr_check = check_adaptable_ranges(df2, short_range_eq, normalize=normalize_scores)
+                score_multiplier['Common Ranges Check'] = cr_check
+            # Valency Check
+            if valency_check:
+                v_check = check_valency(df2, lower_limit=0.5)
+                score_multiplier['Valency Check'] = v_check
+            # Fewer Heteroatom Check
+            if heteroatom_check:
+                fha_check = fewer_heteroatom_check(df2, lower_limit=0.75)
+                score_multiplier['Fewer Heteroatom Check'] = fha_check
+            # Mass Deviation Check
+            md_check = mass_deviation_check(df2, threshppm, lower_limit=0.8, normalize=normalize_scores)
+            score_multiplier['Mass Deviation Check'] = md_check
+
+            # Deciding which formula is chosen as the winner
+            score = score_multiplier.product(axis=1).max()
+            idx_winner = score_multiplier.product(axis=1).idxmax()
+            winner = df2.loc[idx_winner]
+            form = formulator(winner.loc['C'], winner.loc['H'], winner.loc['O'], winner.loc['N'],
+                                         winner.loc['S'], winner.loc['P'], winner.loc['F'], winner.loc['Cl'], False)
+
+            if isotope_check:
+                dict_iso = isotope_decider_new(dict_iso, idx_winner, isotopic_peaks, df2, intensity, int_col, mass_col,
+                                           score_multiplier)
+            return (mass, form, idx_winner, winner['Adduct'], score, dict_iso, score_multiplier)
+
+        idx_winner = df2.index[0]
+        score_multiplier.loc[idx_winner] = [1,]*len(score_multiplier.columns)
+        winner = df2.loc[idx_winner]
+        form = formulator(winner.loc['C'], winner.loc['H'], winner.loc['O'], winner.loc['N'],
+                                     winner.loc['S'], winner.loc['P'], winner.loc['F'], winner.loc['Cl'], False)
+        #if not isotope_check:
+        #    score_multiplier = score_multiplier.iloc[:, 2:]
+        if isotope_check:
+            dict_iso = isotope_decider_new(dict_iso, idx_winner, isotopic_peaks, df2, intensity, int_col, mass_col,
+                                       score_multiplier)
+        return (mass, form, idx_winner, winner['Adduct'], 1, dict_iso, score_multiplier)
