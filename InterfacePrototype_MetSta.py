@@ -630,7 +630,7 @@ checkbox_samples = pn.widgets.CheckBoxGroup(
 # Arranging the checkboxes
 checkbox_arrangement = pn.Column(
     pn.Row('#### Select Formula columns:                         ', '#### Select Annotations columns:                     ',
-           '#### Select Neutral Mass / m/z column for annotation:', '#### Select Quality Control sample columns:                     ',
+           '#### Select Neutral Mass / m/z column for annotation:', '#### Select Quality Control sample columns:          ',
            '#### Select Other NON-SAMPLE columns:                ', '#### After confirming, check sample columns:         '),
     pn.Row(pn.Column(checkbox_formula, scroll=True, height=400), pn.Column(checkbox_annotation, scroll=True, height=400),
           pn.Column(radiobox_neutral_mass, scroll=True, height=400), pn.Column(checkbox_QCsamples, scroll=True, height=400),
@@ -2504,8 +2504,8 @@ def _save_data_dataframes_button(event):
     # Complete exported data
     with pd.ExcelWriter('Export_TreatedData.xlsx') as writer:
         DataFrame_Store.processed_df.to_excel(writer, sheet_name='Metadata+Normalized Data')
-        DataFrame_Store.treated_df.to_excel(writer, sheet_name='Fully Treated Data')
-        DataFrame_Store.binsim_df.to_excel(writer, sheet_name='BinSim Treated Data')
+        DataFrame_Store.treated_df.T.to_excel(writer, sheet_name='Fully Treated Data')
+        DataFrame_Store.binsim_df.T.to_excel(writer, sheet_name='BinSim Treated Data')
         DataFrame_Store.univariate_df.to_excel(writer, sheet_name='MVI+Norm Data')
 
     # Export target
@@ -5011,6 +5011,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
             return
 
         # Performing and storing results from Univariate Analysis
+        # TODO: UNIVARIATE ANALYSIS AND DATA FILTERING
         a,b,c,d,e = iaf._perform_univariate_analysis(self, DataFrame_Store, target_list)
         self.univariate_df, self.univariate_df_set = a, b
         self.univariate_results, self.univariate_results_non_filt, self.univariate_results_set = c, d, e
