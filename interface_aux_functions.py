@@ -1674,17 +1674,20 @@ def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list):
             file_temp = file_temp.loc[:, selection]
 
            # Perform the same filtering and pre-treatments steps but using only the control and test class samples
-            if UnivarA_Store.filt_methods['basic_filt_method'] == 'Total Samples':
-                f_meth = 'total_samples'
-                # Adapting the filt_kw to a smaller subset of samples
-                # Use percentage of the original filtering used to calculate the equivalent number of samples in subset and round UP
-                # Possible Issue - since we already used the filtered dataset (because it has annotations and de-duplications),
-                # the data filtering with 'total_samples' is not perfect - since a feature must pass this data filtering but also
-                # the original data filtering made
-                f_kw = math.ceil(UnivarA_Store.filt_methods['basic_filt_kw']/len(target_list.sample_cols)*sum(selection))
-            elif UnivarA_Store.filt_methods['basic_filt_method'] == 'Class Samples':
-                f_meth = 'class_samples'
-                f_kw = UnivarA_Store.filt_methods['basic_filt_kw']
+            if len(UnivarA_Store.filt_methods) > 0:
+                if UnivarA_Store.filt_methods['basic_filt_method'] == 'Total Samples':
+                    f_meth = 'total_samples'
+                    # Adapting the filt_kw to a smaller subset of samples
+                    # Use percentage of the original filtering used to calculate the equivalent number of samples in subset and round UP
+                    # Possible Issue - since we already used the filtered dataset (because it has annotations and de-duplications),
+                    # the data filtering with 'total_samples' is not perfect - since a feature must pass this data filtering but also
+                    # the original data filtering made
+                    f_kw = math.ceil(UnivarA_Store.filt_methods['basic_filt_kw']/len(target_list.sample_cols)*sum(selection))
+                elif UnivarA_Store.filt_methods['basic_filt_method'] == 'Class Samples':
+                    f_meth = 'class_samples'
+                    f_kw = UnivarA_Store.filt_methods['basic_filt_kw']
+                else:
+                    f_meth = None
             else:
                 f_meth = None
 
@@ -1735,7 +1738,7 @@ def _plot_Volcano_plot(results_df, UnivarA_Store):
                               'Upregulated': UnivarA_Store.color_up_sig},
           width=600, height=600,
           hover_data=["Feature", "p-value", "FDR adjusted p-value",
-                      f'FC ({UnivarA_Store.test_class} / {UnivarA_Store.control_class})'],
+                      f'FC ({UnivarA_Store.current_univ_params["Test Class"]}/{UnivarA_Store.current_univ_params["Control Class"]})'],
           labels={'log2FC': f'log2 (Fold Change)',
                '-log10(Adj. p-value)': '- log10 (Adjusted (Benjamini-Hochberg) p-value)'})
 
