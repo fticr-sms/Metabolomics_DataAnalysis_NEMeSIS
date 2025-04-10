@@ -2005,7 +2005,7 @@ def permutation_PLSDA(df, labels, n_comp=10, iter_num=100, cv=None, n_fold=5, ra
                         nright += 1  # Correct prediction
 
                 # Save y-test and predictions to calculate F1-score, precision and recall
-                all_preds.extend(list(rounded[:,0]))
+                all_preds.extend(list(rounded))
                 all_tests.extend(y_test)
 
 

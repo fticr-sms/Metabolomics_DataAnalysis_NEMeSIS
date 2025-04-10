@@ -5538,18 +5538,20 @@ class VanKrev_KMD_CCS_Storage(param.Parameterized):
 
 
         # VK Plots
-        self.controls_vk.widgets['vk_formula_to_consider'].options = formula_cols
         self.controls_vk.widgets['vk_formula_to_consider'].value = formula_cols
+        self.controls_vk.widgets['vk_formula_to_consider'].options = formula_cols
         self._compute_VK_plots()
 
         # KMD Plots
-        self.controls_kmd.widgets['kmd_formula_to_consider'].options = formula_cols
+        self.kmd_formula_to_consider = formula_cols
         self.controls_kmd.widgets['kmd_formula_to_consider'].value = formula_cols
+        self.controls_kmd.widgets['kmd_formula_to_consider'].options = formula_cols
         self._compute_KMD_plots()
 
         # CCS
-        self.controls_ccs.widgets['ccs_formula_to_consider'].options = formula_cols
+        self.ccs_formula_to_consider = formula_cols
         self.controls_ccs.widgets['ccs_formula_to_consider'].value = formula_cols
+        self.controls_ccs.widgets['ccs_formula_to_consider'].options = formula_cols
         self._compute_CCS_plot()
 
 
@@ -6179,6 +6181,10 @@ class PathwayORA_Storage(param.Parameterized):
                                    'type_of_ORA': self.type_of_ORA}
 
         self.controls_results.widgets['class_to_show'].options = list(ora_dfs.keys())
+        if self.class_to_show == '':
+            self.class_to_show = list(ora_dfs.keys())[0]
+        else:
+            self._update_ora_results_df()
 
 
     # Update the df based on specifications chosen
