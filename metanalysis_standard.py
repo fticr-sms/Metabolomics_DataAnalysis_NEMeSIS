@@ -272,6 +272,16 @@ def characterize_data(dataset, name='dataset', target=None):
                 }
 
 
+# Functions to convert RGB colours to hex code and vice-versa
+# From Stack Overflow (https://stackoverflow.com/questions/29643352/converting-hex-to-rgb-value-in-python)
+def RGB(col): return '#%02x%02x%02x' % (int(col[0]), int(col[1]), int(col[2]))
+
+def hex_to_rgb(value):
+    value = value.lstrip('#')
+    size = len(value)
+    return tuple(int(value[i:i + size // 3], 16) for i in range(0, size, size // 3))
+
+
 ### Step 1.2 Functions
 ### Functions related to metabolite annotations
 
