@@ -17,6 +17,7 @@ Repository for the metabolomics data analysis pipeline. This pipeline includes b
 - Run the line 'pip install metabolinks'.
 - Run the line 'pip install UpSetPlot'.
 - Run the line 'conda install -c conda-forge py-xgboost'.
+- Run the line 'pip install pyopenms'.
 - Restart jupyter.
 
 **pyvenn**
@@ -227,6 +228,7 @@ However, in the future, these databases will have corresponding python files tha
 - plotly >= 5.18.0
 - docx >= 1.1.0
 - kaleido == 0.1.0.post1
+- pyopenms >= 3.4.0
 
 To install these packages run in the command line (or AnacondaPrompt):
 - conda install -c pyviz panel

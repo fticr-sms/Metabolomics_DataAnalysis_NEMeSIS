@@ -754,12 +754,14 @@ def TargetStorage_filling(target_list, colours):
 
         # Generate random colours after the first 10
         else:
-            # From https://www.geeksforgeeks.org/create-random-hex-color-code-using-python/
-            # Generating a random number in between 0 and 2^24
-            color = random.randrange(0, 2**24)
-            # Converting that number from base-10 (decimal) to base-16 (hexadecimal)
-            hex_color = hex(color)
-            color_in_hex = "#" + hex_color[2:]
+            color_in_hex = ''
+            while len(color_in_hex) != 7:
+                # From https://www.geeksforgeeks.org/create-random-hex-color-code-using-python/
+                # Generating a random number in between 0 and 2^24
+                color = random.randrange(0, 2**24)
+                # Converting that number from base-10 (decimal) to base-16 (hexadecimal)
+                hex_color = hex(color)
+                color_in_hex = "#" + hex_color[2:]
             temp_dict[classes[cl]] = color_in_hex
     return temp_dict
 

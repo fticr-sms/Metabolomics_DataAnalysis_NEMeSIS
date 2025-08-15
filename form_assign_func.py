@@ -1434,6 +1434,7 @@ def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, 
             if len(dict_iso[mass]) != 0:
                 iso, winner, iso_mass, score_multiplier = dict_iso[mass]
                 score = score_multiplier.product()
+                score_multiplier['Final Score'] = score
                 formula = formulator(winner.loc['C'], winner.loc['H'], winner.loc['O'], winner.loc['N'],
                                     winner.loc['S'], winner.loc['P'], winner.loc['F'], winner.loc['Cl'], False)
                 return (mass, iso + ' iso. - ' + formula,
@@ -1506,12 +1507,14 @@ def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, 
                 fha_check = fewer_heteroatom_check(df2, lower_limit=0.75)
                 score_multiplier['Fewer Heteroatom Check'] = fha_check
             # Mass Deviation Check
-            md_check = mass_deviation_check(df2, threshppm, lower_limit=0.8, normalize=normalize_scores)
+            md_check = mass_deviation_check(df2, threshppm, lower_limit=0.6, normalize=normalize_scores)
             score_multiplier['Mass Deviation Check'] = md_check
 
             # Deciding which formula is chosen as the winner
-            score = score_multiplier.product(axis=1).max()
-            idx_winner = score_multiplier.product(axis=1).idxmax()
+            final_scores = score_multiplier.product(axis=1).astype(float)
+            score = final_scores.max()
+            idx_winner = final_scores.idxmax()
+            score_multiplier['Final Score'] = final_scores
             winner = df2.loc[idx_winner]
             form = formulator(winner.loc['C'], winner.loc['H'], winner.loc['O'], winner.loc['N'],
                                          winner.loc['S'], winner.loc['P'], winner.loc['F'], winner.loc['Cl'], False)
@@ -1523,6 +1526,7 @@ def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, 
 
         idx_winner = df2.index[0]
         score_multiplier.loc[idx_winner] = [1,]*len(score_multiplier.columns)
+        score_multiplier['Final Score'] = 1
         winner = df2.loc[idx_winner]
         form = formulator(winner.loc['C'], winner.loc['H'], winner.loc['O'], winner.loc['N'],
                                      winner.loc['S'], winner.loc['P'], winner.loc['F'], winner.loc['Cl'], False)
