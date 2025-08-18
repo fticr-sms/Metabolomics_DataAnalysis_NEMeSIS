@@ -1173,6 +1173,57 @@ def DB_dict_reset(DB_dict):
     for i in DB_dict.keys():
         DB_dict[i] = ['1']
         DB_dict[i] = DatabaseSection()
+
+# Final Database Class
+class Final_DB(param.Parameterized):
+    "Class to store the joined Database."
+
+    # Name of the column for Formula Assignment
+    db = param.DataFrame()
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name"]:
+                setattr(self, param, self.param[param].default)
+
+
+    def joining_databases(self, DB_dict):
+        "Joining all databases into one DataFrame."
+
+        all_idxs = []
+        for i in range(n_databases.value):
+            # Get the correct database
+            db_to_use = str(i+1)
+            # Extend the Idxs of each database
+            all_idxs.extend(list(DB_dict[db_to_use].db.value.index))
+        full_db = pd.DataFrame(columns=['Mass', 'Name', 'Formula', 'Kegg', 'DB'], index=all_idxs)
+
+        for i in range(n_databases.value):
+            # Get the correct database
+            db_to_use = str(i+1)
+            # Get the mass, name and formula of every metabolite
+            full_db.loc[list(DB_dict[db_to_use].db.value.index),['Mass', 'Name', 'Formula']] = DB_dict[db_to_use].db.value.loc[:,[
+                'Mass', DB_dict[db_to_use].annotation, DB_dict[db_to_use].formula,]].values
+
+            # Get kegg id if HMDB
+            if DB_dict[db_to_use].abv == 'HMDB':
+                full_db.loc[list(DB_dict[db_to_use].db.value.index), 'Kegg'] = DB_dict[db_to_use].db.value.loc[:, 'kegg']
+
+            # Provide a DB identifier to each metabolite
+            full_db.loc[list(DB_dict[db_to_use].db.value.index), 'DB'] = [DB_dict[db_to_use].abv,] * len(DB_dict[db_to_use].db.value.index)
+
+        self.db = full_db
+        page2[3][1] = f'Joined databases have {len(full_db)} metabolites.'
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+
+# Initializing the store
+Final_Ann_DB = Final_DB()
         
 dbs_arrangement_all = pn.Row(DB_dict['1'].content, DB_dict['2'].content, DB_dict['3'].content,
                    DB_dict['4'].content, DB_dict['5'].content)
@@ -1209,12 +1260,12 @@ def _confirm_button_n_databases(event):
         page2.append(titles)
         page2.append(dbs_arrangement)
     else:
-        while len(page2)>4:
+        while len(page2)>3:
             page2.pop(-1)
         page2[1] = pn.Row(titles)
         page2[2] = dbs_arrangement
 
-    page2.append(confirm_button_databases_read)
+    page2.append(pn.Column(confirm_button_databases_read, ''))
     confirm_button_databases_read.disabled = True
     if n_databases.value == 0: # Case where no database is going to be used for annotation
         confirm_button_databases_read.disabled = False
@@ -1245,6 +1296,7 @@ def _press_confirm_button_db(db1, db2, db3, db4, db5):
             break
     if all_read:
         confirm_button_databases_read.disabled=False
+
 
 # Annotation parameters widgets
 annotation_margin_method_radio = pn.widgets.RadioBoxGroup(name='Annotation Margin Method', value='PPM Deviation',
@@ -1291,7 +1343,10 @@ annotation_param_selection = pn.Column(annotation_margin_method_radio,
 
 # Make the annotation part of the layout appear and disable button to confirm databases
 def _confirm_button_databases_read(event):
-    "Confirms the databases read and updates layout."
+    "Confirms the databases read, joins databases and updates layout."
+    # Joining Dataabses
+    Final_Ann_DB.joining_databases(DB_dict)
+
     confirm_button_databases_read.disabled = True
     confirm_button_annotation_perform.disabled = False
     annotated_df.value = pd.DataFrame(index=filtered_df.value.index) # Setup the annotation df
@@ -1302,8 +1357,8 @@ confirm_button_databases_read.on_click(_confirm_button_databases_read)
 
 # Widgets for annotation part
 performing_annotation_arrangement = pn.Column() # Start with empty page for the annotation widgets
-tqdm_database = {i+1:pn.widgets.Tqdm() for i in range(n_databases.end)}
-verbose_annotated_compounds = {i+1:pn.widgets.StaticText(name='', value=f'') for i in range(n_databases.end)}
+tqdm_database = pn.widgets.Tqdm()
+verbose_annotated_compounds = pn.widgets.StaticText(name='', value=f'')
 annotated_df = pn.widgets.DataFrame(pd.DataFrame(index=filtered_df.value.index))
 
 # Function to perform metabolite annotation (also contributes to updating the page)
@@ -1311,110 +1366,119 @@ def metabolite_annotation():
     "Perform metabolite annotation for every database loaded."
 
     performing_annotation_arrangement.clear()
-    # For each database, perform annotation adding a section with 4 columns (ID, metabolite name, formula and number of matches)
-    for i in range(n_databases.value):
-        # Get the correct database
-        db_to_use = str(i+1)
+    # Perform annotation adding a section with 6/7 columns
+    # (ID, metabolite name, formula, corresponding adducts and db, number of matches and possibly kegg matches)
 
-        # Calculating adduct masses in annotation databases
-        for adduct in RepGen.adducts_to_consider.keys():
-            DB_dict[db_to_use].db.value[adduct] = (DB_dict[
-                db_to_use].db.value['Mass'] + RepGen.adducts_to_consider[adduct]).astype(float)
+    # Calculating adduct masses in annotation databases
+    for adduct in RepGen.adducts_to_consider.keys():
+        Final_Ann_DB.db[adduct] = (Final_Ann_DB.db['Mass'] + RepGen.adducts_to_consider[adduct]).astype(float)
 
-        # Prepare columns
-        matched_ids_col = 'Matched '+DB_dict[db_to_use].abv+' IDs'
-        matched_names_col = 'Matched '+DB_dict[db_to_use].abv+' names'
-        matched_formulas_col = 'Matched '+DB_dict[db_to_use].abv+' formulas'
-        matched_add_col = 'Matched '+DB_dict[db_to_use].abv+' adducts'
-        match_count_col = DB_dict[db_to_use].abv+' match count'
-        annotated_df.value[matched_ids_col] = ''
-        annotated_df.value[matched_names_col] = ""
-        annotated_df.value[matched_formulas_col] = ""
-        annotated_df.value[matched_add_col] = ""
-        annotated_df.value[match_count_col] = ""
+    # Prepare columns
+    matched_ids_col = 'Matched IDs'
+    matched_names_col = 'Matched names'
+    matched_formulas_col = 'Matched formulas'
+    matched_add_col = 'Matched adducts'
+    matched_db_col = 'Matched DBs'
+    match_count_col = 'Match counts'
+    annotated_df.value[matched_ids_col] = ''
+    annotated_df.value[matched_names_col] = ""
+    annotated_df.value[matched_formulas_col] = ""
+    annotated_df.value[matched_add_col] = ""
+    annotated_df.value[matched_db_col] = [[] for i in range(len(annotated_df.value))]
+    if Final_Ann_DB.db['Kegg'].notnull().sum() > 0:
+        annotated_df.value['Matched KEGGs'] = [[] for i in range(len(annotated_df.value))]
+    annotated_df.value[match_count_col] = ""
 
-        # Update the page layout correctly, whether it is a repeat annotation or new one
-        if len(performing_annotation_arrangement) == i:
-            performing_annotation_arrangement.append(pn.Row(f'Annotating {DB_dict[db_to_use].abv} Database:',
-                                                            tqdm_database[i+1], verbose_annotated_compounds[i+1]))
-        # Unnecessary I believe
+    # Update the page layout correctly, whether it is a repeat annotation or new one
+    if len(performing_annotation_arrangement) == 0:
+        performing_annotation_arrangement.append(pn.Row(f'Annotating:', tqdm_database, verbose_annotated_compounds))
+
+    # Annotation for each metabolite
+    for a in tqdm_database(range(filtered_df.value.shape[0])):
+        # Information to store
+        matched_ids = []
+        matched_names = []
+        matched_formulas = []
+        matched_adds = []
+        matched_dbs = []
+        if 'Matched KEGGs' in annotated_df.value:
+            matched_keggs = []
+
+        candidates_for_annotation = pd.DataFrame()
+
+        # See candidates for annotation to add
+        # Option 1 - Based on maximum PPM Deviation
+        if annotation_margin_method_radio.value == 'PPM Deviation':
+            ppm_margin = annotation_ppm_deviation.value
+
+            # Through every selected adduct
+            for ad_col in RepGen.adducts_to_consider.keys():
+                # Calculate ppm deviation and select compounds within the margin
+                data_masses = filtered_df.value[radiobox_neutral_mass.value].iloc[a]
+                candidates_for_annotation_ad = abs((Final_Ann_DB.db[ad_col]-data_masses
+                                                    )/data_masses)*10**6
+                candidates_for_annotation_ad = candidates_for_annotation_ad[
+                    candidates_for_annotation_ad<ppm_margin]
+
+                # Join candidates to previous candidates
+                candidates_for_annotation = pd.concat((candidates_for_annotation, candidates_for_annotation_ad))
+                matched_adds.extend([ad_col,] * len(candidates_for_annotation_ad))
+
+        # Option 2 - Based on maximum Dalton Deviation
+        elif annotation_margin_method_radio.value == 'Absolute Dalton Deviation':
+            Da_margin = annotation_Da_deviation.value
+
+            # Through every selected adduct
+            for ad_col in RepGen.adducts_to_consider.keys():
+                # Calculate Da deviation and select compounds within the margin
+                data_masses = filtered_df.value[radiobox_neutral_mass.value].iloc[a]
+                candidates_for_annotation_ad = abs(Final_Ann_DB.db[ad_col]-data_masses)
+                candidates_for_annotation_ad = candidates_for_annotation_ad[
+                    candidates_for_annotation_ad<Da_margin]
+
+                # Join candidates to previous candidates
+                candidates_for_annotation = pd.concat((candidates_for_annotation, candidates_for_annotation_ad))
+                matched_adds.extend([ad_col,] * len(candidates_for_annotation_ad))
+
+        # Reduce candidates to those which have the minimum ppm deviation
+        if only_select_min_ppm_widget.value:
+            if len(candidates_for_annotation) > 0:
+                min_dev = candidates_for_annotation.min().values[0]
+                matched_adds = list(np.array(matched_adds)[candidates_for_annotation[0].values == min_dev])
+                candidates_for_annotation = candidates_for_annotation[candidates_for_annotation[0].values == min_dev]
+
+        # Store candidates
+        for m in candidates_for_annotation.index:
+            matched_ids.append(m)
+            matched_names.append(Final_Ann_DB.db['Name'][m])
+            matched_formulas.append(Final_Ann_DB.db['Formula'][m])
+            if 'Matched KEGGs' in annotated_df.value:
+                matched_keggs.append(Final_Ann_DB.db['Kegg'][m])
+            matched_dbs.append(Final_Ann_DB.db['DB'][m])
+
+        # Add the annotation candidates
+        if len(matched_ids) > 0:
+            annotated_df.value.at[annotated_df.value.index[a], matched_ids_col] = matched_ids
+            annotated_df.value.at[annotated_df.value.index[a], matched_names_col] = matched_names
+            annotated_df.value.at[annotated_df.value.index[a], matched_formulas_col] = matched_formulas
+            annotated_df.value.at[annotated_df.value.index[a], matched_add_col] = matched_adds
+            if 'Matched KEGGs' in annotated_df.value:
+                annotated_df.value.at[annotated_df.value.index[a], 'Matched KEGGs'].extend(matched_keggs)
+            annotated_df.value.at[annotated_df.value.index[a], matched_db_col].extend(matched_dbs)
+            annotated_df.value.at[annotated_df.value.index[a], match_count_col] = len(matched_ids)
         else:
-            performing_annotation_arrangement[i] = pn.Row(f'Annotating {DB_dict[db_to_use].abv} Database:',
-                                                            tqdm_database[i+1], verbose_annotated_compounds[i+1])
+            annotated_df.value.at[annotated_df.value.index[a], matched_ids_col] = np.nan
+            annotated_df.value.at[annotated_df.value.index[a], matched_names_col] = np.nan
+            annotated_df.value.at[annotated_df.value.index[a], matched_formulas_col] = np.nan
+            annotated_df.value.at[annotated_df.value.index[a], matched_add_col] = np.nan
+            if 'Matched KEGGs' in annotated_df.value:
+                annotated_df.value.at[annotated_df.value.index[a], 'Matched KEGGs'] = np.nan
+            annotated_df.value.at[annotated_df.value.index[a], matched_db_col] = np.nan
+            annotated_df.value.at[annotated_df.value.index[a], match_count_col] = np.nan
 
-        # Annotation for each metabolite
-        for a in tqdm_database[i+1](range(filtered_df.value.shape[0])):
-            matched_ids = []
-            matched_names = []
-            matched_formulas = []
-            matched_adds = []
-
-            candidates_for_annotation = pd.DataFrame()
-
-            # See candidates for annotation to add
-            # Option 1 - Based on maximum PPM Deviation
-            if annotation_margin_method_radio.value == 'PPM Deviation':
-                ppm_margin = annotation_ppm_deviation.value
-
-                # Through every selected adduct
-                for ad_col in RepGen.adducts_to_consider.keys():
-                    # Calculate ppm deviation and select compounds within the margin
-                    data_masses = filtered_df.value[radiobox_neutral_mass.value].iloc[a]
-                    candidates_for_annotation_ad = abs((DB_dict[db_to_use].db.value[ad_col]-data_masses
-                                                        )/data_masses)*10**6
-                    candidates_for_annotation_ad = candidates_for_annotation_ad[
-                        candidates_for_annotation_ad<ppm_margin]
-
-                    # Join candidates to previous candidates
-                    candidates_for_annotation = pd.concat((candidates_for_annotation, candidates_for_annotation_ad))
-                    matched_adds.extend([ad_col,] * len(candidates_for_annotation_ad))
-
-            # Option 2 - Based on maximum Dalton Deviation
-            elif annotation_margin_method_radio.value == 'Absolute Dalton Deviation':
-                Da_margin = annotation_Da_deviation.value
-
-                # Through every selected adduct
-                for ad_col in RepGen.adducts_to_consider.keys():
-                    # Calculate Da deviation and select compounds within the margin
-                    data_masses = filtered_df.value[radiobox_neutral_mass.value].iloc[a]
-                    candidates_for_annotation_ad = abs(DB_dict[db_to_use].db.value[ad_col]-data_masses)
-                    candidates_for_annotation_ad = candidates_for_annotation_ad[
-                        candidates_for_annotation_ad<Da_margin]
-
-                    # Join candidates to previous candidates
-                    candidates_for_annotation = pd.concat((candidates_for_annotation, candidates_for_annotation_ad))
-                    matched_adds.extend([ad_col,] * len(candidates_for_annotation_ad))
-
-            # Reduce candidates to those which have the minimum ppm deviation
-            if only_select_min_ppm_widget.value:
-                if len(candidates_for_annotation) > 0:
-                    min_dev = candidates_for_annotation.min().values[0]
-                    matched_adds = list(np.array(matched_adds)[candidates_for_annotation[0].values == min_dev])
-                    candidates_for_annotation = candidates_for_annotation[candidates_for_annotation[0].values == min_dev]
-
-            # Store candidates
-            for m in candidates_for_annotation.index:
-                matched_ids.append(m)
-                matched_names.append(DB_dict[db_to_use].db.value[DB_dict[db_to_use].annotation][m])
-                matched_formulas.append(DB_dict[db_to_use].db.value[DB_dict[db_to_use].formula][m])
-
-            # Add the annotation candidates
-            if len(matched_ids) > 0:
-                annotated_df.value.at[annotated_df.value.index[a], matched_ids_col] = matched_ids
-                annotated_df.value.at[annotated_df.value.index[a], matched_names_col] = matched_names
-                annotated_df.value.at[annotated_df.value.index[a], matched_formulas_col] = matched_formulas
-                annotated_df.value.at[annotated_df.value.index[a], matched_add_col] = matched_adds
-                annotated_df.value.at[annotated_df.value.index[a], match_count_col] = len(matched_ids)
-            else:
-                annotated_df.value.at[annotated_df.value.index[a], matched_ids_col] = np.nan
-                annotated_df.value.at[annotated_df.value.index[a], matched_names_col] = np.nan
-                annotated_df.value.at[annotated_df.value.index[a], matched_formulas_col] = np.nan
-                annotated_df.value.at[annotated_df.value.index[a], matched_add_col] = np.nan
-                annotated_df.value.at[annotated_df.value.index[a], match_count_col] = np.nan
-
-        verbose_annotated_compounds[
-            i+1].value = f'Annotated {annotated_df.value[matched_ids_col].notnull().sum()} compounds.'
-        # Erasing DB to alleviate memory usage
+    verbose_annotated_compounds.value = f'Annotated {annotated_df.value[matched_ids_col].notnull().sum()} compounds.'
+    # Erasing DBs to alleviate memory usage
+    for db_to_use in DB_dict:
         DB_dict[db_to_use].db.value = pd.DataFrame()
 
 # Perform annotation, update page layout
@@ -1562,164 +1626,188 @@ def _confirm_button_formula_assignment_perform(event):
     _disabling_stat_analysis_buttons()
 
     # Have an exception to escape formula assignment in case an error appears
-    try:
-        # Initialize Database reading
+    #try:
+    # Initialize Database reading
 
-        # Loading Widget while reading the databases
-        page2_1.append(pn.indicators.LoadingSpinner(value=True, size=90,
-                                                name='Initializing Formula Databases for Assignment...'))
+    # Loading Widget while reading the databases
+    page2_1.append(pn.indicators.LoadingSpinner(value=True, size=90,
+                                            name='Initializing Formula Databases for Assignment...'))
 
-        # Import the Formula Database
-        formulas = {}
-        for file in os.listdir():
-            if file.startswith('formulas_improved_dict'):
-                name = file.split('dict')[1].split('.')[0]
-                formulas[int(name)] = pd.read_csv(file).set_index('Unnamed: 0')
-        keys = list(formulas.keys())
-        keys.sort()
-        n_keys = len(keys)
+    # Import the Formula Database
+    formulas = {}
+    for file in os.listdir():
+        if file.startswith('formulas_improved_dict'):
+            name = file.split('dict')[1].split('.')[0]
+            formulas[int(name)] = pd.read_csv(file).set_index('Unnamed: 0')
+    keys = list(formulas.keys())
+    keys.sort()
+    n_keys = len(keys)
 
-        # Import the equation coefficients
-        with open('poly_coefs.json') as fp:
-            short_range_eq = json.load(fp)
-        # Details for the short range check
-        sr_ratios = {'H/C': [short_range_eq['H/C']['0.2'], short_range_eq['H/C']['0.99']],
-                    'O/C': [0, short_range_eq['O/C']['0.75']],
-                    'N/C': [0, short_range_eq['N/C']['0.7']],
-                    'P/C': [0, short_range_eq['P/C']['0.99']],
-                    'S/C': [0, short_range_eq['S/C']['0.7']],
-                    'F/C': [0, 0],
-                    'Cl/C': [0, 0]}
+    # Import the equation coefficients
+    with open('poly_coefs.json') as fp:
+        short_range_eq = json.load(fp)
+    # Details for the short range check
+    sr_ratios = {'H/C': [short_range_eq['H/C']['0.2'], short_range_eq['H/C']['0.99']],
+                'O/C': [0, short_range_eq['O/C']['0.75']],
+                'N/C': [0, short_range_eq['N/C']['0.7']],
+                'P/C': [0, short_range_eq['P/C']['0.99']],
+                'S/C': [0, short_range_eq['S/C']['0.7']],
+                'F/C': [0, 0],
+                'Cl/C': [0, 0]}
 
-        # Preparing the Formula Assignment
-        int_col = 'Mean Intensity'
-        # Get the file to be used for formula_assignment ready
-        ann_data_copy = DataFrame_Store.original_df.sort_values(by=radiobox_neutral_mass.value).copy()
-        # Create a column with mean intensities to judge for isotopes
-        ann_data_copy[int_col] = ann_data_copy.loc[:, target_list.sample_cols].mean(axis=1)
+    # Preparing the Formula Assignment
+    int_col = 'Mean Intensity'
+    # Get the file to be used for formula_assignment ready
+    ann_data_copy = DataFrame_Store.original_df.sort_values(by=radiobox_neutral_mass.value).copy()
+    # Create a column with mean intensities to judge for isotopes
+    ann_data_copy[int_col] = ann_data_copy.loc[:, target_list.sample_cols].mean(axis=1)
 
 
-        page2_1.pop(-1)
-        if len(formulas) > 0:
-            pn.state.notifications.success(f'Formula Database successfully read. Keys: {list(formulas.keys())}')
+    page2_1.pop(-1)
+    if len(formulas) > 0:
+        pn.state.notifications.success(f'Formula Database successfully read. Keys: {list(formulas.keys())}')
+    else:
+        pn.state.notifications.error('No Formula Database could be read.')
+        page2_1.append(confirm_button_next_step_2_2_without_formulas)
+        return
+
+    # Formula Assignment
+
+    # Progress bar
+    formula_assignment_progress_widget.value = 0
+    page2_1.append(pn.Row('#### Formula Assignment Progress:',
+                            formula_assignment_progress_widget))
+
+
+    # DataFrame to store the results
+    forma = pd.DataFrame(columns = ['Form_give','Theo_mass', 'Adduct', 'Score', 'All Scores'])
+
+    dict_iso = {} # Store the results from an Isotope Checker
+    scores = {}
+
+    # Maximum mass value in data
+    max_mass_in_data = ann_data_copy[radiobox_neutral_mass.value].iloc[-1]
+
+    # Seeing how the threshold for assignment is set
+    if annotation_margin_method_radio.value == 'PPM Deviation':
+        deviation_in_ppm = True
+        threshppm = annotation_ppm_deviation.value
+    else:
+        deviation_in_ppm = False
+        threshppm = annotation_Da_deviation.value
+
+    # Assign Formulas
+    i = 0
+    while i < n_keys:
+        # Seeing the distance this covers
+        if i + 1 != n_keys:
+            dif_to_next_key = keys[i+1] - keys[i]
         else:
-            pn.state.notifications.error('No Formula Database could be read.')
-            page2_1.append(confirm_button_next_step_2_2_without_formulas)
-            return
+            dif_to_next_key = max_mass_in_data - keys[i]
 
-        # Formula Assignment
+        # Split it into 50 Da chunks so it runs faster
+        for split in range(0,int(dif_to_next_key),50):
+            # Reducing the formula database to those 50 Da
+            #reduced_form = formulas[keys[i]].loc[formulas[keys[i]].index>=keys[i]+split-0.01]
+            #reduced_form = reduced_form.loc[reduced_form.index<=keys[i]+split+50+0.01]
 
-        # Progress bar
-        formula_assignment_progress_widget.value = 0
-        page2_1.append(pn.Row('#### Formula Assignment Progress:',
-                                formula_assignment_progress_widget))
+            # And the data to those 50 Da
+            teste = ann_data_copy[ann_data_copy[radiobox_neutral_mass.value] > keys[i]+split]
+            teste = teste[teste[radiobox_neutral_mass.value] <= keys[i]+split+50]
+
+            # Now for each metabolic feature in our data
+            for j in range(len(teste)):
+                mass = teste.iloc[j].loc[radiobox_neutral_mass.value]
+                if mass > 1250:
+                    forma.loc[idx] = np.nan, np.nan, np.nan, np.nan, np.nan
+                    continue
+                idx = teste.index[j]
+                # If there can be no assignment
+                #if len(reduced_form) == 0:
+                #    forma.loc[idx] = np.nan, np.nan, np.nan
+                #    continue
+
+                # Perform the assignment
+                tup = form_afunc.form_scoring(teste, idx, int_col, radiobox_neutral_mass.value, threshppm, formulas,
+                                        dict_iso=dict_iso, deviation_in_ppm=deviation_in_ppm,
+                                        adducts_to_consider=RepGen.adducts_to_consider,
+                                        isotope_check=FormAssign_store.isotope_check,
+                                        s34_check=True, common_range_check=True, in_pubchem_check=False,
+                                        valency_check=True, heteroatom_check=True, normalize_scores=True,
+                                        short_range_eq=sr_ratios)
 
 
-        # DataFrame to store the results
-        forma = pd.DataFrame(columns = ['Form_give','Theo_mass', 'Adduct'])
+                score_dict = {}
+                if len(tup[-1]) > 0:
+                    for f_mass in tup[-1]['Final Score'].sort_values(ascending=False).index[1:]:
+                        for a in range(250, 1251, 250):
+                            if f_mass < a:
+                                d  = a-250
+                                break
+                        f_df = formulas[d].loc[f_mass]
+                        formula = form_afunc.formulator(f_df.loc['C'], f_df.loc['H'], f_df.loc['O'], f_df.loc['N'],
+                                        f_df.loc['S'], f_df.loc['P'], f_df.loc['F'], f_df.loc['Cl'], False)
+                        score_dict[formula] = np.round(tup[-1].loc[f_mass, 'Final Score'], 4)
 
-        dict_iso = {} # Store the results from an Isotope Checker
+                scores[idx] = tup[-1]
 
-        # Maximum mass value in data
-        max_mass_in_data = ann_data_copy[radiobox_neutral_mass.value].iloc[-1]
+                dict_iso = tup[-2]
 
-        # Seeing how the threshold for assignment is set
-        if annotation_margin_method_radio.value == 'PPM Deviation':
-            deviation_in_ppm = True
-            threshppm = annotation_ppm_deviation.value
-        else:
-            deviation_in_ppm = False
-            threshppm = annotation_Da_deviation.value
+                # Store results
+                forma.loc[idx] = tup[1], tup[2], tup[3], tup[4], score_dict
 
-        # Assign Formulas
-        i = 0
-        while i < n_keys:
-            # Seeing the distance this covers
-            if i + 1 != n_keys:
-                dif_to_next_key = keys[i+1] - keys[i]
+            # Updating the progress bar
+            new_value = formula_assignment_progress_widget.value + int(
+                50/max_mass_in_data*10000)
+            if new_value < 10000:
+                formula_assignment_progress_widget.value = new_value
             else:
-                dif_to_next_key = max_mass_in_data - keys[i]
+                formula_assignment_progress_widget.value = 10000
+        i+=1
 
-            # Split it into 50 Da chunks so it runs faster
-            for split in range(0,int(dif_to_next_key),50):
-                # Reducing the formula database to those 50 Da
-                #reduced_form = formulas[keys[i]].loc[formulas[keys[i]].index>=keys[i]+split-0.01]
-                #reduced_form = reduced_form.loc[reduced_form.index<=keys[i]+split+50+0.01]
+    # Storing the results of formula assignment
+    FormAssign_store.forma = forma
+    DataFrame_Store.original_df[FormAssign_store.form_col] = forma['Form_give']
+    DataFrame_Store.original_df[FormAssign_store.form_col + ' Adduct'] = forma['Adduct']
+    DataFrame_Store.original_df[FormAssign_store.form_col + ' Score'] = forma['Score']
+    DataFrame_Store.original_df[FormAssign_store.form_col + ' Other Opt.'] = forma['All Scores']
+    # Put Has Match Column at the end
+    hasmatch_col = DataFrame_Store.original_df.pop('Has Match?')
+    DataFrame_Store.original_df['Has Match?'] = hasmatch_col
 
-                # And the data to those 50 Da
-                teste = ann_data_copy[ann_data_copy[radiobox_neutral_mass.value] > keys[i]+split]
-                teste = teste[teste[radiobox_neutral_mass.value] <= keys[i]+split+50]
+    # Complete the progress bar
+    formula_assignment_progress_widget.value = 10000
 
-                # Now for each metabolic feature in our data
-                for j in range(len(teste)):
-                    mass = teste.iloc[j].loc[radiobox_neutral_mass.value]
-                    idx = teste.index[j]
-                    # If there can be no assignment
-                    #if len(reduced_form) == 0:
-                    #    forma.loc[idx] = np.nan, np.nan, np.nan
-                    #    continue
+    pn.state.notifications.warning(f'Formula Assignment Completed.')
 
-                    # Perform the assignment
-                    tup = form_afunc.form_checker_ratios_adducts(teste, idx, int_col, threshppm, formulas,
-                                            dict_iso=dict_iso, mass_column=radiobox_neutral_mass.value,
-                                            isotope_check=FormAssign_store.isotope_check,
-                                            adducts_to_consider=RepGen.adducts_to_consider,
-                                            deviation_in_ppm=deviation_in_ppm,
-                                            short_range_eq=sr_ratios)
-                    dict_iso = tup[-3]
+    # Save parameters of formula assignment
+    FormAssign_store.current_parameters = {'form_col': FormAssign_store.form_col,
+                                        'isotope_check': FormAssign_store.isotope_check}
 
-                    # Store results
-                    forma.loc[idx] = tup[1], tup[2], tup[3]
+    # Build a description of the procedure
+    iso_count = forma.loc[[i for i in forma.dropna().index if 'iso.' in forma.dropna().loc[i,'Form_give']]].shape[0]
+    unique_candidates = len([i for i in forma.dropna().index if len(forma.loc[i,'All Scores']) == 0])
+    adduct_counts = forma['Adduct'].value_counts()
+    assign_desc = ['Formula Assignment was sucessfully performed.', '',
+                f'<strong>{len(forma.dropna())} formulas</strong> were assigned to the dataset.']
+    FormAssign_store.current_results = {'Total': len(forma.dropna()), 'Isotopes': iso_count, 'Uniques': unique_candidates}
+    if FormAssign_store.isotope_check:
+        assign_desc.append(f'<strong>{iso_count}</strong> of these are isotopic feature assignments.')
+    assign_desc.append(f'')
+    for ad in adduct_counts.index:
+        assign_desc.append(f'<strong>{adduct_counts.loc[ad]} {ad}</strong> adduct formula assignments were made.')
+        FormAssign_store.current_results[ad] = adduct_counts.loc[ad]
+    page2_1.append(pn.pane.HTML('<br>'.join(assign_desc)))
 
-                # Updating the progress bar
-                new_value = formula_assignment_progress_widget.value + int(
-                    50/max_mass_in_data*10000)
-                if new_value < 10000:
-                    formula_assignment_progress_widget.value = new_value
-                else:
-                    formula_assignment_progress_widget.value = 10000
-            i+=1
-
-        # Storing the results of formula assignment
-        FormAssign_store.forma = forma
-        DataFrame_Store.original_df[FormAssign_store.form_col] = forma['Form_give']
-        DataFrame_Store.original_df[FormAssign_store.form_col + ' Adduct'] = forma['Adduct']
-        # Put Has Match Column at the end
-        hasmatch_col = DataFrame_Store.original_df.pop('Has Match?')
-        DataFrame_Store.original_df['Has Match?'] = hasmatch_col
-
-        # Complete the progress bar
-        formula_assignment_progress_widget.value = 10000
-
-        pn.state.notifications.warning(f'Formula Assignment Completed.')
-
-        # Save parameters of formula assignment
-        FormAssign_store.current_parameters = {'form_col': FormAssign_store.form_col,
-                                            'isotope_check': FormAssign_store.isotope_check}
-
-        # Build a description of the procedure
-        iso_count = forma.loc[[i for i in forma.dropna().index if 'iso.' in forma.dropna().loc[i,'Form_give']]].shape[0]
-        adduct_counts = forma['Adduct'].value_counts()
-        assign_desc = ['Formula Assignment was sucessfully performed.', '',
-                    f'<strong>{len(forma.dropna())} formulas</strong> were assigned to the dataset.']
-        FormAssign_store.current_results = {'Total': len(forma.dropna()), 'Isotopes': iso_count}
-        if FormAssign_store.isotope_check:
-            assign_desc.append(f'<strong>{iso_count}</strong> of these are isotopic feature assignments.')
-        assign_desc.append(f'')
-        for ad in adduct_counts.index:
-            assign_desc.append(f'<strong>{adduct_counts.loc[ad]} {ad}</strong> adduct formula assignments were made.')
-            FormAssign_store.current_results[ad] = adduct_counts.loc[ad]
-        page2_1.append(pn.pane.HTML('<br>'.join(assign_desc)))
-
-        # Append the button to move the page
-        confirm_button_next_step_2_2.disabled = False
-        page2_1.append(confirm_button_next_step_2_2)
+    # Append the button to move the page
+    confirm_button_next_step_2_2.disabled = False
+    page2_1.append(confirm_button_next_step_2_2)
 
 
     # In case formula assignment gives an error, have a way out
-    except:
-        pn.state.notifications.error(f'Formula Assignment could not be performed. An error has appeared.')
-        page2_1.append(confirm_button_next_step_2_2_without_formulas)
+    #except:
+    #    pn.state.notifications.error(f'Formula Assignment could not be performed. An error has appeared.')
+    #    page2_1.append(confirm_button_next_step_2_2_without_formulas)
 
 
 
@@ -1745,6 +1833,8 @@ def _confirm_button_next_step_2_2(event):
     # Add Formula Assignment Cols
     DataFrame_Store.original_df[FormAssign_store.form_col] = FormAssign_store.forma['Form_give']
     DataFrame_Store.original_df[FormAssign_store.form_col + ' Adduct'] = FormAssign_store.forma['Adduct']
+    DataFrame_Store.original_df[FormAssign_store.form_col + ' Score'] = FormAssign_store.forma['Score']
+    DataFrame_Store.original_df[FormAssign_store.form_col + ' Other Opt.'] = FormAssign_store.forma['All Scores']
     # Creates in the DataFrame a column ('Has Match?') that indicates if a feature was annotated either previously to being
     # inputted in this software or using the data annotation of this software
     iaf.creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation, DB_dict)
@@ -1906,7 +1996,6 @@ class AnnDeDuplication_Storage(param.Parameterized):
         "Performs Multiple Annotation peak merging, updates layout and returns results."
 
         # Performing deduplication
-        # TODO: See deduplication function better
         annotated_data, mergings_performed, merging_situations, merge_description, mp = iaf.duplicate_disambiguator(
             self, ann_df, sample_cols, neutral_mass_col, multiple_adds=multiple_adds)
         merge_df = pd.DataFrame(merge_description).T
@@ -2513,6 +2602,7 @@ def _save_data_dataframes_button(event):
         f.write('\n'.join(target_list.target))
 
     DataFrame_Store.processed_df.to_pickle('Export_ProcData.pickle')
+    DataFrame_Store.treated_df.to_pickle('Export_TreatedData.pickle')
 
     pn.state.notifications.success(f'DataFrames successfully saved.')
 
@@ -4944,6 +5034,17 @@ class UnivariateAnalysis_Store(param.Parameterized):
     # Extra Attribute to see if figures should be computed automatically
     compute_fig = param.Boolean(default=True)
 
+    # Multiclass Univariate Test
+    p_value_threshold = param.Number(default=0.05)
+    kw_test = param.Boolean(default='False')
+    
+    # Store Multiclass Univariate Test Parameters
+    current_multiclass_univ_params = param.Dict({})
+
+    # Store Univariate results
+    multiclass_univariate_results = param.DataFrame()
+    multiclass_univariate_results_non_filt = param.DataFrame()
+
 
     def locking_filtering_params(self, data_filtering):
         "Locking in parameters regarding to the data filtering made."
@@ -5736,10 +5837,11 @@ class PathAssignment_Storage(param.Parameterized):
         # Obtain the list of every HMDB ID annotated in the columns given
         HMDB_list = [] # To store
         error_cols = []
+        masses_HMDB_list = {}
 
         # Go through every hmdb_id_cols provided
         for id_cols in self.hmdb_id_cols:
-            # Get the column and dropna null values
+            # Get the column and dropna null values~
             filt_df = metadata_df[id_cols].dropna()
 
             # Every idx
@@ -5750,6 +5852,9 @@ class PathAssignment_Storage(param.Parameterized):
                     try:
                         if value not in HMDB_list: # Add if not already present
                             HMDB_list.append(value)
+                            masses_HMDB_list[value] = [idx,]
+                        else:
+                            masses_HMDB_list[value].append(idx)
                     except: # If not a string
                         if id_cols not in error_cols:
                             error_cols.append(id_cols)
@@ -5761,6 +5866,9 @@ class PathAssignment_Storage(param.Parameterized):
                             curr_id = filt_df.loc[idx][hmdb_idx]
                             if curr_id not in HMDB_list: # Add if not already present
                                 HMDB_list.append(curr_id)
+                                masses_HMDB_list[curr_id] = [idx,]
+                            else:
+                                masses_HMDB_list[curr_id].append(idx)
                     except: # If not a list-like or has non string values in the list
                         if id_cols not in error_cols:
                             error_cols.append(id_cols)
@@ -5774,6 +5882,8 @@ class PathAssignment_Storage(param.Parameterized):
         for idx in pathways_assignment.index:
             if idx in pathway_db.index:
                 pathways_assignment.loc[idx] = pathway_db.loc[idx]
+        pathways_assignment['indexes'] = masses_HMDB_list
+        pathways_assignment = pathways_assignment.explode('indexes')
         pathways_assignment.index.name = 'HMDB IDs'
 
         # Assign to attribute and store search made
@@ -5792,7 +5902,7 @@ class PathAssignment_Storage(param.Parameterized):
                 if idx.startswith('HMDB'):
                     hmdb_ids.append(idx)
 
-        path_filt = self.pathway_assignments.dropna()
+        path_filt = self.pathway_assignments.dropna(subset='Pathway ID')
         self.assign_desc = f'From the **{complete_len}** IDs provided, **{len(hmdb_ids)}** were HMDB-like IDs. From those, **{len(path_filt)}** were matched to the pathway database.'
 
 
@@ -5923,7 +6033,7 @@ def _pathway_assignments_df(pathassign_show_matched_only):
     "Update the layout based on if we are showing all annotated metabolites or only ones with matching pathways."
     # Select DataFrame
     if pathassign_show_matched_only:
-        df_to_show = PathAssign_store.pathway_assignments.dropna()
+        df_to_show = PathAssign_store.pathway_assignments.dropna(subset='Pathway IDs')
     else:
         df_to_show = PathAssign_store.pathway_assignments
 
@@ -6019,18 +6129,18 @@ class PathwayORA_Storage(param.Parameterized):
 
     # Parameters for ORAnalysis
     min_metabolites_for_pathway = param.Number(default=3)
-    background_set = param.String('All HMDB metabolites in the pathway database')
+    background_set = param.String('HMDB annotated metabolites in the dataset (with 1 or more associated pathways)')
     min_pathway_data_ann_metabolites_found = param.Number(default=2)
     static_text_type_of_ORA = param.String(default='')
-    type_of_ORA = param.String('All metabolites that appear in each class')
+    type_of_ORA = param.String('PLS-DA Feature Importance')
+    type_of_ORA_threshold = param.Number(default=0.25)
     confirm_button_ORA = param.Boolean(default=False)
 
     # Results of ORAnalysis
-    ora_dfs = param.Dict({})
+    ora_df = param.DataFrame()
     spec_path_dfs = param.Dict({})
 
     # Displaying Results
-    class_to_show = param.String('')
     pathway_searcher = param.String('')
     confirm_id_button = param.Boolean(default=False)
 
@@ -6045,8 +6155,8 @@ class PathwayORA_Storage(param.Parameterized):
         "Performs Pathway Over-Representation Analysis."
 
         # Check if annotation with HMDB was performed
-        if 'Matched HMDB IDs' not in DataFrame_Store.processed_df.columns:
-            pn.state.notifications.error(f"'Matched HMDB IDs' columns (annotation) not found. Cannot perform Pathway Over-Representation Analysis.")
+        if 'Matched IDs' not in DataFrame_Store.processed_df.columns:
+            pn.state.notifications.error(f"'Matched IDs' column (annotation) not found. Cannot perform Pathway Over-Representation Analysis.")
             return
 
         # Setting up the background set and the available pathways
@@ -6055,165 +6165,169 @@ class PathwayORA_Storage(param.Parameterized):
             'Pathway ID'].reset_index().drop_duplicates().set_index('index')['Pathway ID'].value_counts()
         pathways_counts = pathways_counts[pathways_counts >= self.min_metabolites_for_pathway]
 
+        # Obtain for each mass associated pathways
+        # Pathways that appear for multiple compounds annotated to the same peak only count as 1
+        path_per_mass = PathAssign_store.pathway_assignments.dropna().explode(['Pathway Name', 'Pathway ID']).reset_index()[
+                ['Pathway Name', 'Pathway ID', 'indexes']].drop_duplicates()
+
+        # See pathways with at least min_pathway_data_ann_metabolites_found metabolites detected in the dataset
+        seen_paths = path_per_mass['Pathway ID'].value_counts()[
+            path_per_mass['Pathway ID'].value_counts()>=self.min_pathway_data_ann_metabolites_found].index
+
+        keep_idx = []
+        for i in path_per_mass.index:
+            if path_per_mass.loc[i, 'Pathway ID'] in pathways_counts.index:
+                if path_per_mass.loc[i, 'Pathway ID'] in seen_paths:
+                    keep_idx.append(i)
+        path_per_mass = path_per_mass.loc[keep_idx]
+
+        unique_masses_with_paths = pd.unique(path_per_mass['indexes'])
+
         # Keep only metabolites that belong to relevant pathways in the background set
         keep_idxs = []
         for i in PathAssign_store.pathway_db.index:
             for path_id in PathAssign_store.pathway_db.loc[i, 'Pathway ID']:
                 if path_id in pathways_counts.index:
-                    keep_idxs.append(i)
-                    break
+                    if path_id in seen_paths:
+                        keep_idxs.append(i)
+                        break
         filtered_pathways_db = PathAssign_store.pathway_db.loc[keep_idxs]
 
         if self.background_set == 'All HMDB metabolites in the pathway database':
             total_metabolites_with_pathways = len(filtered_pathways_db) # Number of metabolites with at least 1 annotation
         else:
             # Get the counts of metabolites of each pathway
-            path_metabolites = PathAssign_store.pathway_assignments.dropna()
-            total_metabolites_with_pathways = len(path_metabolites)
-            filtered_pathways_db = path_metabolites
-
-            # Get the new background set counts
-            path_assign_hmdb_c = path_metabolites.explode(['Pathway Name', 'Pathway ID'])[
-                ['Pathway Name', 'Pathway ID']].reset_index().drop_duplicates().set_index('HMDB IDs')
-            path_assign_hmdb = path_assign_hmdb_c['Pathway ID'].value_counts()
-            # Only include pathways that were included in the database set
-            path_assign_hmdb = path_assign_hmdb.loc[[i for i in path_assign_hmdb.index if i in pathways_counts.index]]
-            pathways_counts = path_assign_hmdb
+            #path_metabolites = PathAssign_store.pathway_assignments.dropna()
+            total_metabolites_with_pathways = len(unique_masses_with_paths)
+            filtered_pathways_db = path_per_mass
 
 
-        # Store Results
-        ora_dfs = {}
-        spec_path_dfs = {}
+        # Get the significant metabolites with associated pathway information
 
-        # Setting up the correct dfs
-        dfs_to_use = {}
-        if self.type_of_ORA == 'All metabolites that appear in each class':
-            if com_exc_compounds.groups_description == '':
-                iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store)
-            dfs_to_use = com_exc_compounds.group_dfs
-        elif self.type_of_ORA == 'Only the exclusive metabolites for each class':
-            if com_exc_compounds.com_exc_desc == '':
-                pn.state.notifications.error('Exclusive Compound Analysis was not performed/found to select metabolites from.')
+        # RF Gini Importance
+        if self.type_of_ORA == 'RF Feature Importance':
+            if len(RF_store.current_rf_params) == 0:
+                pn.state.notifications.error('Random Forest Model Fitting was not performed/found to select metabolites from.')
                 return
-            else:
-                dfs_to_use = com_exc_compounds.exclusives_id
-        elif self.type_of_ORA == 'Only the significant metabolites of a 1v1 univariate analysis':
-            if len(UnivarA_Store.current_univ_params) > 0:
-                univ_parameters = UnivarA_Store.current_univ_params
-                u_df = UnivarA_Store.univariate_results
-                control_class = univ_parameters['Control Class']
-                test_class = univ_parameters['Test Class']
-                dfs_to_use = {control_class: u_df.loc[u_df['log2FC'] < 0],
-                              test_class: u_df.loc[u_df['log2FC'] > 0]}
-            else:
+            sig_mets = RF_store.feat_impor.iloc[:int(len(RF_store.feat_impor) * self.type_of_ORA_threshold),0].values
+            sig_mets_w_paths = [i for i in sig_mets if i in unique_masses_with_paths]
+
+        # PLS-DA Feat. Importance
+        elif self.type_of_ORA  == 'PLS-DA Feature Importance':
+            if len(PLSDA_store.current_plsda_params) == 0:
+                pn.state.notifications.error('PLS-DA Model Fitting was not performed/found to select metabolites from.')
+                return
+            sig_mets = PLSDA_store.feat_impor.iloc[:int(len(PLSDA_store.feat_impor) * self.type_of_ORA_threshold),0].values
+            sig_mets_w_paths = [i for i in sig_mets if i in unique_masses_with_paths]
+
+        # 1v1 Univariate Analysis
+        elif self.type_of_ORA == '1v1 Univariate Analysis':
+            if len(UnivarA_Store.current_univ_params) == 0:
                 pn.state.notifications.error('No Univariate Analysis was performed to select significant metabolites from.')
                 return
+            sig_mets = UnivarA_Store.univariate_results_non_filt[UnivarA_Store.univariate_results_non_filt['FDR adjusted p-value'] < self.type_of_ORA_threshold].index
+            sig_mets_w_paths = [i for i in sig_mets if i in unique_masses_with_paths]
+
+        # TODO: ADD
+        # Multiclass Univariate Analysis
+        elif self.type_of_ORA == 'Multiclass Univariate Analysis':
+            sig_mets = UnivarA_Store.univariate_results_non_filt[
+                UnivarA_Store.univariate_results_non_filt['FDR adjusted p-value'] < self.type_of_ORA_threshold].index
+
+            sig_mets_w_paths = [i for i in sig_mets if i in unique_masses_with_paths]
+
         else:
             pn.state.notifications.error('Type of ORA selected not found.')
             return
 
-        # Going through the dfs and performing over-representation analysis on each one
-        for cl, df in dfs_to_use.items():
-            spec_path_dfs[cl] = {}
-            # List of HMDB annotated features in the provided dataset
-            hmdb_list_c = df['Matched HMDB IDs'].dropna().explode()
-            hmdb_list = hmdb_list_c.drop_duplicates().values # Dropping duplicates
+        # Store Results
+        #ora_dfs = {}
+        spec_path_dfs = {}
 
-            # Get the counts of metabolites of each pathway
-            path_metabolites = PathAssign_store.pathway_assignments.loc[hmdb_list].dropna()
-            path_assign_hmdb_c = path_metabolites.explode(['Pathway Name', 'Pathway ID'])[
-                ['Pathway Name', 'Pathway ID']].reset_index().drop_duplicates().set_index('HMDB IDs')
-            path_to_ID = path_assign_hmdb_c.set_index('Pathway ID')['Pathway Name']
-            path_to_ID = path_to_ID[~path_to_ID.index.duplicated(keep='first')]
-            path_assign_hmdb = path_assign_hmdb_c['Pathway ID'].value_counts()
-            # Only include pathways that were included in the background set
-            path_assign_hmdb = path_assign_hmdb.loc[[i for i in path_assign_hmdb.index if i in pathways_counts.index]]
-            # Exclude pathwways where less than the defined number of metabolites were found
-            path_assign_hmdb = path_assign_hmdb[path_assign_hmdb>=self.min_pathway_data_ann_metabolites_found]
+        # Get the counts of metabolites of each pathway
+        path_metabolites = path_per_mass['Pathway ID'].value_counts()
 
-            # Number of metabolites with pathways
-            annotated_metabolites_w_path = len(path_metabolites)
+        # Get the counts of sig. metabolites of each pathway
+        sig_metabolites = path_per_mass.set_index('indexes').loc[sig_mets_w_paths, 'Pathway ID']
+        path_sig_metabolites = sig_metabolites.value_counts()
 
-            # Preparing DF
-            over_representation_df = pd.DataFrame(columns=['Pathway Name',
-                'Nº of Met. in Dataset', 'Nº of Met. in Pathway', '% of Met. In Set',
-                'Nº of Associated Metabolic Features','Probability'], dtype='object')
+        # Number of metabolites with pathways
+        annotated_metabolites_w_path = len(sig_mets_w_paths)
 
-            for pathway in path_assign_hmdb.index:
-                # Pathway Name
-                p_name = path_to_ID.loc[pathway]
-                # Metabolites related to the current pathway
-                total_met_in_path = pathways_counts.loc[pathway]
-                # Number of annotated metabolites related to the current pathway
-                ann_met_in_path = path_assign_hmdb.loc[pathway]
+        path_to_ID = PathAssign_store.pathway_assignments.explode(['Pathway Name','Pathway ID']).set_index('Pathway ID')[
+            'Pathway Name'].reset_index().drop_duplicates().set_index('Pathway ID')
 
-                # Calculating probability to find ann_met_in_path or more metabolites in annotated_metabolites_w_path
-                prob = stats.hypergeom(M=total_metabolites_with_pathways,
-                                        n=total_met_in_path,
-                                        N=annotated_metabolites_w_path).sf(ann_met_in_path-1)
+        met_per_path = PathAssign_store.pathway_db.explode(['Pathway Name', 'Pathway ID'])['Pathway ID'].value_counts()
 
-                # Getting the HMDB IDs of the compounds found in the pathway
-                spec_path_dfs[cl][pathway] = path_assign_hmdb_c[path_assign_hmdb_c['Pathway ID'] == pathway].index
-                # Getting the mass peaks that were annotated with those HMDB IDs
-                spec_path_dfs[cl][pathway] = hmdb_list_c.loc[
-                    [True if i in spec_path_dfs[cl][pathway] else False for i in hmdb_list_c.values]]
-                spec_path_dfs[cl][pathway] = DataFrame_Store.processed_df.loc[list(set(spec_path_dfs[cl][pathway].index))]
+        # Preparing DF
+        over_representation_df = pd.DataFrame(index = path_sig_metabolites.index, columns=['Pathway Name',
+            'Nº of Sig. Met. in Dataset', 'Nº of Det. Met. in Pathway', 'Nº of Met. in Pathway',
+            'Nº of Associated Metabolic Features','% of Met. In Set', 'Probability'], dtype='object')
 
-                # Adding the line to the DF
-                over_representation_df.loc[pathway] = [p_name, ann_met_in_path, total_met_in_path,
-                                                       ann_met_in_path/total_met_in_path*100,
-                                                       len(spec_path_dfs[cl][pathway]), prob]
+        for pathway in path_sig_metabolites.index:
+            # Pathway Name
+            p_name = path_to_ID.loc[pathway, 'Pathway Name']
+            # Metabolites related to the current pathway
+            total_met_in_path = path_metabolites.loc[pathway]
+            # Number of annotated metabolites related to the current pathway
+            ann_met_in_path = path_sig_metabolites.loc[pathway]
 
-            # Sorting DataFrame from least probable to more probable and adding adjusted probability
-            # with Benjamini-Hochberg multiple test correction
-            over_representation_df = over_representation_df.sort_values(by='Probability')
-            over_representation_df['Adjusted (BH) Probability'] = metsta.p_adjust_bh(over_representation_df['Probability'])
+            # Calculating probability to find ann_met_in_path or more metabolites in annotated_metabolites_w_path
+            prob = stats.hypergeom(M=total_metabolites_with_pathways,
+                                    n=total_met_in_path,
+                                    N=annotated_metabolites_w_path).sf(ann_met_in_path-1)
 
-            ora_dfs[cl] = over_representation_df
+            # Getting the masss of the compounds found in the pathway
+            spec_path_dfs[pathway] = DataFrame_Store.processed_df.loc[list(sig_metabolites[sig_metabolites == pathway].index)]
 
-        self.ora_dfs = ora_dfs
+            # Adding the line to the DF
+            over_representation_df.loc[pathway] = [p_name, ann_met_in_path, total_met_in_path, met_per_path.loc[pathway],
+                                                    len(spec_path_dfs[pathway]), ann_met_in_path/total_met_in_path*100, prob]
+
+        # Sorting DataFrame from least probable to more probable and adding adjusted probability
+        # with Benjamini-Hochberg multiple test correction
+        over_representation_df = over_representation_df.sort_values(by='Probability')
+        over_representation_df['Adjusted (BH) Probability'] = metsta.p_adjust_bh(over_representation_df['Probability'])
+
+        self.ora_df = over_representation_df
         self.spec_path_dfs = spec_path_dfs
 
         # Saving paramters used
         self.curr_ora_parameters = {'min_metabolites_for_pathway': self.min_metabolites_for_pathway,
                                    'background_set': self.background_set,
                                    'min_pathway_data_ann_metabolites_found': self.min_pathway_data_ann_metabolites_found,
-                                   'type_of_ORA': self.type_of_ORA}
+                                   'type_of_ORA': self.type_of_ORA,
+                                   'type_of_ORA_threshold': self.type_of_ORA_threshold}
 
-        self.controls_results.widgets['class_to_show'].options = list(ora_dfs.keys())
-        if self.class_to_show == '':
-            self.class_to_show = list(ora_dfs.keys())[0]
-        else:
-            self._update_ora_results_df()
+        self._update_ora_results_df()
 
 
     # Update the df based on specifications chosen
-    @param.depends('class_to_show', watch=True)
     def _update_ora_results_df(self):
         "Update the DataFrame shown in Pathway ORA results based on inputs given."
-        # For Reset purposes
-        if self.class_to_show == '':
-            return
-
         # Updating results
-        path_results[:2, 1:4] = pn.pane.DataFrame(self.ora_dfs[self.class_to_show], height=400)
+        path_results[0, 1:4] = pn.pane.DataFrame(self.ora_df, height=400)
         # Getting the plot and its corresponding filename
         self.ora_fig[0] = iaf._plot_pathwayORA_class(self)
         if self.curr_ora_parameters["background_set"] == 'All HMDB metabolites in the pathway database':
             b_set = 'AllHMDBMets'
         else:
             b_set = 'OnlyAnnHMDBMets'
-        if self.curr_ora_parameters["type_of_ORA"] == 'All metabolites that appear in each class':
-            t_ora = 'AllClassMets'
-        elif self.curr_ora_parameters["type_of_ORA"] == 'Only the exclusive metabolites for each class':
-            t_ora = 'ExclusiveClassMets'
+        if self.curr_ora_parameters["type_of_ORA"] == 'PLS-DA Feature Importance':
+            t_ora = 'PLSDAFeatImp'
+        elif self.curr_ora_parameters["type_of_ORA"] == 'RF Feature Importance':
+            t_ora = 'RFFeatImp'
+        elif self.curr_ora_parameters["type_of_ORA"] == '1v1 Univariate Analysis':
+            t_ora = '1v1UnivAnalysis'
         else:
-            t_ora = 'SignificantClassMets'
-        filename = f'PathwayORAnalysis_{self.class_to_show}_MinMetPathDB'
+            t_ora = 'MultiUnivAnalysis'
+        filename = f'PathwayORAnalysis_MinMetPathDB'
         filename = filename + f'{self.curr_ora_parameters["min_metabolites_for_pathway"]}_Background{b_set}'
         filename = filename + f'_MinMetData{self.curr_ora_parameters["min_pathway_data_ann_metabolites_found"]}'
-        filename = filename + f'_MetConsidered{t_ora}_Plot'
-        path_results[2:4,:] = pn.pane.Plotly(self.ora_fig[0], height=400,
+        filename = filename + f'_MetConsidered{t_ora}_Threshold{self.curr_ora_parameters["type_of_ORA_threshold"]}_Plot'
+        if t_ora == '1v1UnivAnalysis':
+            filename = filename + f'_{UnivarA_Store.current_univ_params["Test Class"]}vs{UnivarA_Store.current_univ_params["Control Class"]}'
+        path_results[1:3,:] = pn.pane.Plotly(self.ora_fig[0], height=400,
                                 config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
 
         if len(pathway_ora_page) <= 3:
@@ -6224,14 +6338,14 @@ class PathwayORA_Storage(param.Parameterized):
         else:
             pathway_ora_page[3] = path_results
             pathway_ora_page[4] = path_searcher_section
-        self.controls_searcher.widgets['pathway_searcher'].options = list(self.spec_path_dfs[self.class_to_show].keys())
-        self.controls_searcher.widgets['pathway_searcher'].placeholder = list(self.spec_path_dfs[self.class_to_show].keys())[0]
+        self.controls_searcher.widgets['pathway_searcher'].options = list(self.spec_path_dfs.keys())
+        self.controls_searcher.widgets['pathway_searcher'].placeholder = list(self.spec_path_dfs.keys())[0]
 
 
     # Update the searched pathway df
     def _confirm_id_button(self, event):
         "Update the DataFrame shown in Pathway ORA search results based on inputs given."
-        df_to_show = self.spec_path_dfs[self.class_to_show][self.pathway_searcher]
+        df_to_show = self.spec_path_dfs[self.pathway_searcher]
         if len(df_to_show) < 10:
             path_searcher_section[1] = pn.pane.DataFrame(df_to_show)
         else:
@@ -6254,23 +6368,20 @@ class PathwayORA_Storage(param.Parameterized):
             'min_metabolites_for_pathway': pn.widgets.IntInput(name='Minimum number of metabolites in a pathway to consider as a pathway (Database):',
                                            value=3, step=1, start=1, description='This parameter regards the database of pathways (not the metabolites found).'),
             'background_set': pn.widgets.Select(name="Background Set to use for Pathway Over-Representation Analysis:",
-                            value = 'All HMDB metabolites in the pathway database',
+                            value = 'HMDB annotated metabolites in the dataset (with 1 or more associated pathways)',
                             options=['HMDB annotated metabolites in the dataset (with 1 or more associated pathways)',
-                                     'All HMDB metabolites in the pathway database'],
+                                     'All HMDB metabolites in the pathway database'], disabled_options = ['All HMDB metabolites in the pathway database'],
                 description="This background set is used as the full metabolite list universe. You can choose whether this 'universe' is your dataset or the database."),
             'min_pathway_data_ann_metabolites_found': pn.widgets.IntInput(name='Minimum number of detected metabolites in a pathway to consider it possibly significant:',
                                            value=2, step=1, start=1, description='This parameter regards the annotated metabolites in your dataset.'),
             'static_text_type_of_ORA': pn.widgets.StaticText(name='For ORA analysis, consider', value=''),
             'type_of_ORA': pn.widgets.RadioBoxGroup(name='Type of Pathway ORA',
-                        options=['All metabolites that appear in each class',
-                                 'Only the exclusive metabolites for each class',
-                                 'Only the significant metabolites of a 1v1 univariate analysis'],
+                        options=['PLS-DA Feature Importance', 'RF Feature Importance',
+                                 '1v1 Univariate Analysis', 'Multiclass Univariate Analysis'],
                        inline=False),
+            'type_of_ORA_threshold': pn.widgets.FloatInput(name='FloatInput', value=0.25, step=1e-1, start=0, end=1,
+                       description="For RF and PLS-DA, the % of important features to consider, for Univ. analysis, the maximum adjusted p-value accepted."),
             'confirm_button_ORA': pn.widgets.Button(name="Perform Over-Representation Analysis", button_type='primary', disabled=True),
-        }
-
-        widgets2 = {
-            'class_to_show': pn.widgets.RadioBoxGroup(name='DataFrame to Show', options=[], inline=False),
         }
 
         widgets3 = {
@@ -6288,11 +6399,9 @@ class PathwayORA_Storage(param.Parameterized):
                                                    'min_pathway_data_ann_metabolites_found',
                                                    'static_text_type_of_ORA',
                                                    'type_of_ORA',
+                                                   'type_of_ORA_threshold',
                                                   'confirm_button_ORA'],
                                  widgets=widgets, name='Pathway Over-Representation Analysis Parameters')
-
-        self.controls_results = pn.Param(self, parameters=['class_to_show',],
-                                 widgets=widgets2, name='Choose Class to see OR Pathways Table')
 
         self.controls_searcher = pn.Param(self, parameters=['pathway_searcher', 'confirm_id_button'],
                                  widgets=widgets3, name='Searching for Metabolic Features from a Metabolic Pathway')
@@ -6321,14 +6430,16 @@ def _confirm_button_ORA(event):
         pathway_ora_page.pop(-1)
 
     # Setting the results section
-    pathora_store.class_to_show = list(pathora_store.ora_dfs.keys())[0]
-    path_results[:2, 1:4] = pn.pane.DataFrame(pathora_store.ora_dfs[pathora_store.class_to_show], height=400)
-    filename = f'HMDB_IDs_PathwayORAnalysis_{pathora_store.class_to_show}_MinMetPathDB'
+    path_results[0, 1:4] = pn.pane.DataFrame(pathora_store.ora_df, height=400)
+    filename = f'HMDB_IDs_PathwayORAnalysis_MinMetPathDB'
     filename = filename + f'{pathora_store.curr_ora_parameters["min_metabolites_for_pathway"]}_Background'
     filename = filename + f'{pathora_store.curr_ora_parameters["background_set"]}_MinMetData'
     filename = filename + f'{pathora_store.curr_ora_parameters["min_pathway_data_ann_metabolites_found"]}_MetConsidered'
-    filename = filename + f'{pathora_store.curr_ora_parameters["type_of_ORA"]}_Plot'
-    path_results[2:4,:] = pn.pane.Plotly(pathora_store.ora_fig[0], height=400,
+    filename = filename + f'{pathora_store.curr_ora_parameters["type_of_ORA"]}_Threshold'
+    filename = filename + f'{pathora_store.curr_ora_parameters["type_of_ORA_threshold"]}_Plot'
+    if pathora_store.curr_ora_parameters["type_of_ORA"] == '1v1UnivAnalysis':
+        filename = filename + f'_{UnivarA_Store.current_univ_params["Test Class"]}vs{UnivarA_Store.current_univ_params["Control Class"]}'
+    path_results[1:3,:] = pn.pane.Plotly(pathora_store.ora_fig[0], height=400,
                             config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
 
     if len(pathway_ora_page) <= 3:
@@ -6361,19 +6472,23 @@ def _save_pathway_oranalysis_button(event):
         b_set = 'AllHMDBMets'
     else:
         b_set = 'OnlyAnnHMDBMets'
-    if curr_params["type_of_ORA"] == 'All metabolites that appear in each class':
-        t_ora = 'AllClassMets'
-    elif curr_params["type_of_ORA"] == 'Only the exclusive metabolites for each class':
-        t_ora = 'ExclusiveClassMets'
+    if curr_params["type_of_ORA"] == 'PLS-DA Feature Importance':
+        t_ora = 'PLSDAFeatImp'
+    elif curr_params["type_of_ORA"] == 'RF Feature Importance':
+        t_ora = 'RFFeatImp'
+    elif curr_params["type_of_ORA"] == '1v1 Univariate Analysis':
+        t_ora = '1v1UnivAnalysis'
     else:
-        t_ora = 'SignificantClassMets'
+        t_ora = 'MultiUnivAnalysis'
     filename = f'HMDB_IDs_PathwayORAnalysis_MinMetPathDB{curr_params["min_metabolites_for_pathway"]}_Background{b_set}'
     filename = filename + f'_MinMetData{curr_params["min_pathway_data_ann_metabolites_found"]}_MetConsidered{t_ora}'
+    filename = filename + f'_Threshold{pathora_store.curr_ora_parameters["type_of_ORA_threshold"]}'
+    if t_ora == '1v1UnivAnalysis':
+        filename = filename + f'_{UnivarA_Store.current_univ_params["Test Class"]}vs{UnivarA_Store.current_univ_params["Control Class"]}'
 
     # Saving the file
     with pd.ExcelWriter(filename+'.xlsx') as writer:
-        for cl, df in pathora_store.ora_dfs.items():
-            df.to_excel(writer, sheet_name=cl)
+        pathora_store.ora_df.to_excel(writer)
     pn.state.notifications.success(f'{filename} successfully saved.')
 # Calling the function
 save_pathway_oranalysis_button.on_click(_save_pathway_oranalysis_button)
@@ -6381,9 +6496,8 @@ save_pathway_oranalysis_button.on_click(_save_pathway_oranalysis_button)
 
 # Part of the ORA page
 path_results = pn.GridSpec(mode='override')
-path_results[0,0] = pathora_store.controls_results
-path_results[1,0] = save_pathway_oranalysis_button
-path_results[2:4,:] = pathora_store.ora_fig[0]
+path_results[0,0] = save_pathway_oranalysis_button
+path_results[1:3,:] = pathora_store.ora_fig[0]
 
 # Part of the ORA page
 path_searcher_section = pn.Column(pathora_store.controls_searcher,

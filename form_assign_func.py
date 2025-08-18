@@ -1438,7 +1438,7 @@ def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, 
                 formula = formulator(winner.loc['C'], winner.loc['H'], winner.loc['O'], winner.loc['N'],
                                     winner.loc['S'], winner.loc['P'], winner.loc['F'], winner.loc['Cl'], False)
                 return (mass, iso + ' iso. - ' + formula,
-                        winner.name, winner['Adduct'], score, dict_iso, score_multiplier)
+                        winner.name, winner['Adduct'], score, dict_iso, pd.DataFrame(score_multiplier).T)
 
     # Select the formulas from the database dataframe that are within the ppm threshold for the different adducts to the mass given
     joined_df = pd.DataFrame()
@@ -1446,7 +1446,7 @@ def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, 
         neutral_mass = float(mass - mass_dev)
         for i in range(250, 1251, 250):
             if neutral_mass < i:
-                d  = i-250
+                d = i-250
                 break
         # Calculate mass difference allowed based on the mass and ppm thresholds given
         if deviation_in_ppm:

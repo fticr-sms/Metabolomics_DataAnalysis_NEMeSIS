@@ -232,9 +232,7 @@ def creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation,
     else:
         # Join columns with annotations not made by this software with the ones made by this software
         cols_to_see = checkbox_annotation.value.copy() #+ list(DataFrame_Store.original_df.columns[-n_databases.value*4:])
-        for db in range(n_databases.value):
-            db_info = DB_dict[str(db + 1)]
-            cols_to_see.append('Matched '+db_info.abv+' IDs')
+        cols_to_see.append('Matched IDs')
 
         DataFrame_Store.original_df['Has Match?'] = np.nan # Creating the column
         for i in DataFrame_Store.original_df.index:
@@ -245,7 +243,6 @@ def creating_has_match_column(DataFrame_Store, n_databases, checkbox_annotation,
 
 # TODO: Observe this function better and update and improve it for the graphical interface
 def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, neutral_mass_col, multiple_adds):
-    "Adapted function from metanalysis_standard.py"
     """Attempts to remove duplicate (or more) annotations of peaks by merging them when possible.
 
        1) See peaks that have the same metabolite annotation by other databases.
@@ -260,7 +257,8 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
         that be correct? Or should we merge with one of the two other peaks which have annotations by LOTUS. After all,
         they would normally be merged if not for the existence of two different LOTUS annotations. Hence, the problem.
        5) Then create the new peak, by keeping the highest intensity value in each sample from the different peaks (our
-        intensity values come from the maximum value in the peak and not peak area.
+        intensity values come from the maximum value in the peak and not peak area) if they come from the same adducts and
+        summing them if they come from different peaks.
        6) Situation 1: If all the highest intensity values come from one m/z peak, then that peak becomes the 'de facto'
         peak and all others are erased.
        7) Situation 2: The highest intensity comes from at least two different m/z peaks and ALL peaks come from the same
@@ -268,15 +266,13 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
         become the weighted average (based on the average intensity of the peaks) of all the peaks with the same annotation.
         If there is no m/z column, this is the situation used.
        8) Situation 3: Identical to Situation 2 but there is at least one peak that comes from a different adduct based on
-        m/z column. Then, the peak 'Bucket Label' and 'Mass' columns become identical to the peak which has the
-        highest average intensity of all the peaks with the same annotation.
-       9) This process is repeated for MetaboScape annotations and all databases first. And is then used for Smart Formula.
-        Usually the number of de-duplications made by each database should decrease since when you de-duplicate duplicate
-        assignments by one database, you are usually de-duplicating in others.
+        m/z column. Then, the metadata peaks become identical to the peak which has the highest average intensity of all the
+        peaks with the same annotation.
+       9) This process is repeated for DB first and then used for Formula Assignments. Usually the number of mergings made by
+        each DB should decrease since when you mergings duplicate assignments by one DB, you are usually mergings in others.
 
        The problem mentioned should be rare. However, check the merge_problems variable. If it is NOT empty, then those
-        merge problems issues might exist. We do not currently have an automatic answer for them. They should be seen on a
-        case by case basis.
+        merge problems issues might exist. They should be seen on a case by case basis.
 
        returns: annotated_data (pandas DataFrame with data after merging),
                 mergings_performed (dictionary with summary of mergings made),
@@ -318,6 +314,8 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
                 merge=True
                 saving_annotations = {} # To store the annotations to keep in the merged line
                 for col_alt in mcid: # All other databases
+                    if col_alt == col:
+                        saving_annotations[col_alt] = subset_df[col_alt].value_counts().index[0]
                     if col_alt != col:
                         # See if there are annotations in the other databases
                         subset_notnull = subset_df[col_alt][subset_df[col_alt].notnull()]
@@ -337,12 +335,14 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
                             # Merging will not happen
                             else:
                                 #if len(subset_df[col_alt]) > n_annotations:
-                                merge_problems[
-                                    n_problems] = {'DB': data_ann_deduplicator.mcid_alt[col],
-                                                                                'Annotation': name,
-                                                                                'Indexes': list(subset_df.index),
-                                                                                'Nº of peaks':len(subset_df),
-                                                                                'Reason': data_ann_deduplicator.mcid_alt[col_alt]}
+                                prob_idx = tuple(subset_df.index)
+                                if prob_idx not in merge_problems.keys():
+                                    merge_problems[
+                                        n_problems] = {'DB': data_ann_deduplicator.mcid_alt[col],
+                                                                                    'Annotation': name,
+                                                                                    'Indexes': list(subset_df.index),
+                                                                                    'Nº of peaks':len(subset_df),
+                                                                                    'Reason': data_ann_deduplicator.mcid_alt[col_alt]}
                                 n_problems += 1
                                 merge=False
 
@@ -359,8 +359,39 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
                     lost_idxs.extend(idxs) # Add the other to lost_idxs that will be removed when all this is over
 
                     overwrite = False #
+                    adducts_summed = False
 
-                    new_line = subset_df[sample_cols].max() # Get the intensity values for the new merged line
+                    # Get the intensity values for the new merged line
+                    if col == 'Matched IDs': # If not made in our software, it can't see
+                        add_series = subset_df['Matched adducts'].value_counts().index
+                        if len(add_series) == 1:
+                            new_line = subset_df[sample_cols].max()
+                        else:
+                            new_line = subset_df[sample_cols].copy()
+                            dif_ads = []
+                            for ad in add_series:
+                                idxs = [i for i in subset_df.index if subset_df.loc[i, 'Matched adducts'] == ad]
+                                new_df = new_line.loc[idxs].max()
+                                dif_ads.append(new_df)
+                            new_line = pd.concat(dif_ads, axis=1).sum(axis=1).replace({0:np.nan})
+                            adducts_summed = True
+                    elif col+' Adduct' in subset_df.columns:
+                        add_series = subset_df[col+' Adduct'].value_counts().index
+                        if len(add_series) == 1:
+                            new_line = subset_df[sample_cols].max()
+                        else:
+                            new_line = subset_df[sample_cols].copy()
+                            dif_ads = []
+                            for ad in add_series:
+                                idxs = [i for i in subset_df.index if subset_df.loc[i, col+' Adduct'] == ad]
+                                new_df = new_line.loc[idxs].max()
+                                dif_ads.append(new_df)
+                            new_line = pd.concat(dif_ads, axis=1).sum(axis=1).replace({0:np.nan})
+                            adducts_summed = True
+                    else: # If not made in our software, it can't see adducts
+                        new_line = subset_df[sample_cols].max()
+
+
                     # For each annotation, see if the highest intensity values all come from one line
                     # Probably a better way to do this
                     for i in range(len(subset_df)):
@@ -377,23 +408,22 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
                             temp_full_new_line = subset_df.iloc[i].copy()
 
                             # Filling the meta data of the new line with the data stored in saving annotations
+                            idx_max = subset_df.loc[:,sample_cols].mean(axis=1).idxmax()
                             for key in saving_annotations:
-                                if key.startswith('Matched') and key.endswith(' IDs'):
+                                if key == 'Matched IDs':
                                     # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
-                                    temp = annotated_data.loc[[
-                                        i for i in annotated_data.index if annotated_data.loc[i,
-                                                    key] == saving_annotations[key]]]
-                                    rel_cols = [key, 'Matched '+ key[8:-4] +' names', 'Matched '+ key[8:-4] +' formulas',
-                                                        'Matched '+ key[8:-4] +' adducts', key[8:-4] +' match count']
-                                    temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                                    rel_cols = ['Matched IDs', 'Matched names', 'Matched formulas',
+                                                'Matched adducts', 'Matched DBs', 'Match counts']
+                                    if 'Matched KEGGs' in annotated_data.columns:
+                                        rel_cols.append('Matched KEGGs')
+                                    temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
                                 else:
-                                    temp_full_new_line.loc[key] = saving_annotations[key]
-                                    # Column is our Formula Assignment column
-                                if key + ' Adduct' in annotated_data.columns:
-                                    temp = annotated_data.loc[[
-                                        i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
-                                    temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
+                                    if key + ' Adduct' in annotated_data.columns:
+                                        temp_full_new_line[[key, key+' Adduct', key+' Score', key+' Other Opt.']] = subset_df.loc[
+                                            idx_max, [key, key+' Adduct', key+' Score', key+' Other Opt.']]
+                                    else:
+                                        temp_full_new_line.loc[key] = subset_df.loc[idx_max, key]
 
                             merging_situations['Overwrite'] = merging_situations['Overwrite'] + 1
                             mergings_performed[data_ann_deduplicator.mcid_alt[col]] = mergings_performed[
@@ -419,23 +449,23 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
                     temp_full_new_line.loc[sample_cols] = new_line
 
                     # Filling the meta data of the new line with the data stored in saving annotations
+                    idx_max = subset_df.loc[:,sample_cols].mean(axis=1).idxmax()
                     for key in saving_annotations:
-                        if key.startswith('Matched') and key.endswith(' IDs'):
+                        if key == 'Matched IDs':
                             # Grab the rest of the columns with meta_data: IDs, names, formulas and match count
-                            temp = annotated_data.loc[[
-                                i for i in annotated_data.index if annotated_data.loc[i,
-                                            key] == saving_annotations[key]]]
-                            rel_cols = [key, 'Matched '+ key[8:-4] +' names', 'Matched '+ key[8:-4] +' formulas',
-                                                 'Matched '+ key[8:-4] +' adducts', key[8:-4] +' match count']
-                            temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
+                            rel_cols = ['Matched IDs', 'Matched names', 'Matched formulas',
+                                        'Matched adducts', 'Matched DBs', 'Match counts']
+                            if 'Matched KEGGs' in annotated_data.columns:
+                                rel_cols.append('Matched KEGGs')
+                            temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
                         else:
-                            temp_full_new_line.loc[key] = saving_annotations[key]
                             # Column is our Formula Assignment column
                             if key + ' Adduct' in annotated_data.columns:
-                                temp = annotated_data.loc[[
-                                    i for i in annotated_data.index if annotated_data.loc[i, key] == saving_annotations[key]]]
-                                temp_full_new_line[key + ' Adduct'] = temp.iloc[0][key + ' Adduct']
+                                temp_full_new_line[[key, key+' Adduct', key+' Score', key+' Other Opt.']] = subset_df.loc[
+                                    idx_max, [key, key+' Adduct', key+' Score', key+' Other Opt.']]
+                            else:
+                                temp_full_new_line.loc[key] = subset_df.loc[idx_max, key]
 
                     # All that's left is the Bucket Label and Neutral Mass
                     if multiple_adds:
@@ -587,7 +617,32 @@ def individually_merging(data_ann_deduplicator, given_idxs, sample_cols, annotat
     # Metadata
     temp_new_line[annotated_cols] = meta_vals
     # Intensities
-    new_line = intensities.max() # Get the intensity values for the new merged line
+    if col == 'Matched IDs': # If not made in our software, it can't see
+        add_series = subset_df['Matched adducts'].value_counts().index
+        if len(add_series) == 1:
+            new_line = intensities.max()
+        else:
+            new_line = intensities.copy()
+            dif_ads = []
+            for ad in add_series:
+                idxs = [i for i in subset_df.index if subset_df.loc[i, 'Matched adducts'] == ad]
+                new_df = new_line.loc[idxs].max()
+                dif_ads.append(new_df)
+            new_line = pd.concat(dif_ads, axis=1).sum(axis=1).replace({0:np.nan})
+    elif col+' Adduct' in subset_df.columns:
+        add_series = subset_df[col+' Adduct'].value_counts().index
+        if len(add_series) == 1:
+            new_line = intensities.max()
+        else:
+            new_line = intensities.copy()
+            dif_ads = []
+            for ad in add_series:
+                idxs = [i for i in subset_df.index if subset_df.loc[i, col+' Adduct'] == ad]
+                new_df = new_line.loc[idxs].max()
+                dif_ads.append(new_df)
+            new_line = pd.concat(dif_ads, axis=1).sum(axis=1).replace({0:np.nan})
+    else:
+        new_line = intensities.max()
     temp_new_line[sample_cols] = new_line
     # For each annotation, see if the highest intensity values all come from one line
     # Probably a better way to do this
@@ -2105,7 +2160,7 @@ def _plot_pathwayORA_class(pathora_store):
     "Plots pathway enrichment adjusted probability over the % of metabolites of the pathway found."
 
     # Selecting and preparing the DataFrame
-    df_to_plot = pathora_store.ora_dfs[pathora_store.class_to_show].copy()
+    df_to_plot = pathora_store.ora_df.copy()
     df_to_plot['- log10(Adjusted (BH) Probability)'] = -np.log10(df_to_plot['Adjusted (BH) Probability'])
     df_to_plot['Pathway ID'] = df_to_plot.index
 
@@ -2114,8 +2169,8 @@ def _plot_pathwayORA_class(pathora_store):
           hover_data={'Pathway ID': True, 'Pathway Name': True,
                       '- log10(Adjusted (BH) Probability)': False, 'Adjusted (BH) Probability': True,
                      '% of Met. In Set':':.3f',
-                     'Nº of Met. in Dataset': True, 'Nº of Associated Metabolic Features': True},
-          title=pathora_store.class_to_show + ' - Pathway Over-Representation Analysis Plot')
+                     'Nº of Sig. Met. in Dataset': True, 'Nº of Associated Metabolic Features': True},
+          title=pathora_store.type_of_ORA + f' ({pathora_store.type_of_ORA_threshold} threshold) - Pathway Over-Representation Analysis Plot')
 
     return fig
 

@@ -210,7 +210,7 @@ formula_assignment_opening_string = """Here Formula Assignment is made according
 of the criteria and steps the algorithm makes are detailed in the software documentation. It uses its default formula
 database unless it is changed with the FormulaDatabaseCreator.ipynb notebook (if changed make sure their name follows
 the convention 'formulas_improved_dict{lowest molecular mass allowed in file}.csv', for example 'formulas_improved_dict250.csv').
-It is mostly geared towards assignment up to 1250 Da.
+It is geared towards assignment up to 1250 Da.
 <br>
 <br>
 Parameters used that are shared with data annotation have to be changed in the data annotation page (even if it is not
@@ -230,23 +230,22 @@ annotated to the different metabolic features.</p>
 metabolic features that share compound annotations into one single metabolic feature</strong>. For example, there is no
 biological reason for multiple peaks being associated with a compound. Most of the time, there is one <em>&apos;main&apos;
 peak</em> with much higher intensities across the samples, although this is not always observed.</p>
-<p>This section is the least streamlined and automatized part of the data analysis pipeline we present. This is due to the
-multiple situations that can arise with different possible solutions, specifically a situation that warrants individual
-attention that can arise when multiple annotations are performed on the data. When finding different metabolic features
-with the same annotation in a database used, featuress are <strong>merged by keeping the highest intensity value in each
-sample </strong>of the features with the same annotations. Thus, there is a total of 4 possible situations:</p>
+<p>Multiple situations can arise with different possible solutions, specifically a situation that warrants individual
+attention that can arise when multiple annotations are performed on the data (to be avoided). When finding different
+metabolic features with the same annotation in a database used, features are <strong>merged by keeping the highest
+intensity value in each sample if representing the same adduct and summed if they correspond to different adducts</strong>
+of the features with the same annotations. Thus, there is a total of 4 possible situations:</p>
 <p>- <strong>Situation 1 (Overwrite)</strong>: Multiple metabolic features have the same annotation for one annotation
 database (and no other database has different annotations for those features) with the highest intensity values coming all
 from one metabolic feature that becomes the <em>de facto</em> metabolic feature with others being erased.</p>
 <p>- <strong>Situation 2&nbsp;(Merge Same Adducts)</strong>: Multiple metabolic features have the same annotation for one
 annotation database (and no other database has different annotations for those features) with the highest intensity coming
-from at least two different metabolic features and <strong>ALL</strong> features come from the same adduct (<u>including
-ones that are not used for the merge</u>). &apos;Bucket Label&apos; and the &apos;Mass&apos; columns become the weighted
-average (based on the average intensity of the features) of all the features with the same annotation. Since this software
-does not yet allow for adduct information, this is the approach used always between situation 2 and 3.</p>
+from at least two different metabolic features and <strong>ALL</strong> features come from the same adduct.
+&apos;Bucket Label&apos; and the &apos;Mass&apos; columns become the weighted average (based on the average intensity of the
+features) of all the features with the same annotation. Since this software does not yet allow for adduct information, this
+is the approach used always between situation 2 and 3.</p>
 <p>&nbsp;- <strong>Situation 3&nbsp;(Merge Different Adducts)</strong>: Identical to Situation 2 but there is at least one
-metabolic feature that comes from a different adduct. Since this sofware does not yet allow for adduct information, this is
-the approach used always between situation 2 and 3.</p>
+metabolic feature that comes from a different adduct (intensities are summed).</p>
 <p>- <strong>Situation 4&nbsp;(Contradictions - Possible Problem Situation)</strong>: Multiple metabolic features have the
 same annotation for one annotation database and different for another annotation database. Most of the time there is no issue.
 For example, imagine a case where we have annotated with two databases: HMDB and LOTUS. <strong>Scenario 1:</strong> We find
@@ -259,7 +258,7 @@ compound for 4 features and LOTUS assigns to one of them one compound, to a seco
 ones does not assign a compound at all. What is the correct course of action? &nbsp;Perhaps merging the two peaks with no
 annotation by LOTUS, maybe merging those two peaks with one of those annotated by LOTUS since they would be normally merged
 if not for the existence of two different LOTUS annotations. Hence, the problem. We concluded that they should be seen on a
-<strong>case-by-case basis&nbsp;</strong>with the user deciding which (if any) peaks they prefer to merge.</p>
+<strong>case-by-case basis&nbsp;</strong> and are thus not merged.</p>
 <p><br></p>
 <p><h3>Initial report of the observable multiple annotations for each annotation (including formula
 annotation) performed</h3></p>'''
@@ -520,11 +519,32 @@ by the sheer number of metabolites in these pathways and the large background se
 on smaller pathways that have multiple annotated metabolites.
 <br>
 <br>
-A drawback of the approach is that each mass can have multiple annotations and those annotations could correspond to
-metabolites in the same pathway. Thus, it is possible that a good portion of detected metabolites in a pathway could
-correspond to a single metabolic feature, which would diminish the importance of that pathway. So, analysis of the
-relevant pathways should be performed. For each pathway (and each class), you may search for the corresponding
+Multiple peaks with the same annotation will all be considered as individual entries, however, peaks that have multiple
+that could correspond to multiple metabolites in the same pathway will be counted as a single metabolites. So, analysis
+of the relevant pathways should be performed. For each pathway (and each class), you may search for the corresponding
 relevant metabolic features associated.
+<br>
+<br>
+<strong>Select Method to Identify Significant Metabolites</strong>
+<br>
+Select through which method is desired to select the significant metabolites (`method_for_significant`) and the threshold
+used in each case (`threshold_for_significant`) explained next to them. The significant metabolites have to have associated
+at least 1 pathway. In each case it will only work if one of the methodologies has been previously ran.
+<br>
+- <strong>RF Gini Importance</strong> - Threshold is the top % of ranks considered significant (e.g. 0.20 for 20%).
+<br>
+- <strong>PLS-DA Feat. Importance</strong> - Threshold is the top % of ranks considered significant if below 1 (e.g. 0.20
+for 20%) or the threshold for importance if higher that should only be used for VIP Scores (e.g. 1 for VIP scores above
+1 - recommended) - <strong>Default</strong>.
+<br>
+- <strong>XGBoost Feat. Importance</strong> - Threshold is the top % of ranks considered significant (e.g. 0.20 for 20%).
+<br>
+- <strong>1v1 Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction) _p_-value from
+the univariate analysis (e.g. 0.05 for adjusted _p_-values under 0.05). It also has the `test_class_spec` specific parameter
+to select a specific test class against your control class in case you have more than 2 classes.
+<br>
+- <strong>Multiclass Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction) _p_-value
+from the univariate analysis (e.g. 0.05 for adjusted _p_-values under 0.05).
 """
 
 

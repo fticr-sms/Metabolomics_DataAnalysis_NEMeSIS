@@ -235,19 +235,20 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
         ann_pg.add_run(f' Within the deviation window allowed, only compounds with the minimum mass deviation found were kept. Others were removed.')
 
     # Information on Databases used
+    full_len = 0
     for db in range(n_databases.value):
         key = str(db + 1)
         db_info = DB_dict[key]
+        full_len += db_info.db_len
         document.add_paragraph(f"{db_info.abv}: Database read from '{db_info.file}' using {db_info.IDcol} column as IDs. It had {db_info.db_len} metabolites.",
                             style='List Bullet')
 
+    document.add_paragraph(f"In total, the databases had {full_len} metabolites.")
+
     # Information on the annotations made with each Database used
     if n_databases.value != 0:
-        document.add_paragraph(f'Annotation with these databases led to the annotation of (before annotation de-duplication):')
-        for db in range(n_databases.value):
-            db_info = DB_dict[str(db + 1)]
-            document.add_paragraph(f'{db_info.abv}: {verbose_annotated_compounds[db+1].value.split( )[1]} compounds',
-                                style='List Bullet')
+        document.add_paragraph(
+            f'Annotation with these databases led to the annotation of (before annotation de-duplication): {verbose_annotated_compounds.value.split( )[1]} compounds')
 
 
     # Formula Assignment Specific Section
@@ -264,8 +265,8 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
         # Results
         iso_count = DataFrame_Store.original_df.loc[[
-            i for i in DataFrame_Store.original_df.dropna().index if 'iso.' in DataFrame_Store.original_df.dropna().loc[
-                i, FormAssign_store.current_parameters['form_col']]]].shape[0]
+            i for i in DataFrame_Store.original_df.dropna(subset=FormAssign_store.current_parameters['form_col']
+                ).index if 'iso.' in DataFrame_Store.original_df.loc[i, FormAssign_store.current_parameters['form_col']]]].shape[0]
         adduct_counts = DataFrame_Store.original_df[FormAssign_store.current_parameters['form_col'] + ' Adduct'].value_counts()
         n_form = len(DataFrame_Store.original_df[FormAssign_store.current_parameters['form_col']].dropna())
 
@@ -285,6 +286,10 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
             old_ad_n = FormAssign_store.current_results[ad]
             document.add_paragraph(f'{ad} adduct: {old_ad_n} formula assignments were made, {adduct_counts.loc[ad]} remained after de-duplication.',
                                 style='List Bullet')
+
+        unique_counts = len([i for i in DataFrame_Store.original_df[FormAssign_store.current_parameters['form_col']].dropna().index if len(
+            DataFrame_Store.original_df.loc[i,FormAssign_store.current_parameters['form_col'] + ' Other Opt.']) == 0])
+        document.add_paragraph(f'{FormAssign_store.current_results["Uniques"]} formula assignments had a single candidate option, {unique_counts} remained after de-duplication.')
 
 
     # Annotation De-Duplication section
@@ -348,10 +353,10 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
         # If Scenario 1 of Case 4 of mergings was considered as potential problem
         if data_ann_deduplicator.current_params['problem_condition'] == 'Scenario 1 of Situation 4 like cases are not merged and are not shown.':
-            p7.add_run('Furthermore, Scenario 1 of Situation 4 like cases (see description in MetsTA software for further ')
+            p7.add_run('Furthermore, Scenario 1 of Situation 4 like cases (see description in software for further ')
             p7.add_run('details) were not merged and are not shown (not considered possible problems).')
         else:
-            p7.add_run('Furthermore, Scenario 1 of Situation 4 like cases (see description in MetsTA software for further ')
+            p7.add_run('Furthermore, Scenario 1 of Situation 4 like cases (see description in software for further ')
             p7.add_run('details) are shown as possible problems to individually decide.')
 
         # Describing Mergings
@@ -1246,7 +1251,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
             # Saving the file
             PathAssign_store.pathway_assignments.loc[considered_idxs].to_excel(folder+filename_string)
 
-            path_pg2.add_run(f"'{filename_string[1:]}' excel contains the results of the pathway matching made ")
+            path_pg2.add_run(f"' {filename_string[1:]}' excel contains the results of the pathway matching made ")
             path_pg2.add_run("only").bold = True
             path_pg2.add_run(f" showing the IDs considered HMDB-like found in the provided columns.")
 
@@ -1271,20 +1276,33 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                     path_pg3.add_run('only the annotated HMDB metabolites').bold = True
                     path_pg3.add_run(f' (with associated pathways) in the dataset analysed. ')
                     b_set = 'OnlyAnnHMDBMets'
+
                 path_pg3.add_run(f'The relevant set of metabolites passed for each biological class to study over-representation were: ')
-                if curr_ora_p["type_of_ORA"] == 'All metabolites that appear in each class':
-                    path_pg3.add_run('all metabolites').bold = True
-                    path_pg3.add_run(' detected for the corresponding class. ')
-                    t_ora = 'AllClassMets'
-                elif curr_ora_p["type_of_ORA"] == 'Only the exclusive metabolites for each class':
-                    path_pg3.add_run('only the exclusive metabolites').bold = True
-                    path_pg3.add_run(' detected for the corresponding class. ')
-                    t_ora = 'ExclusiveClassMets'
+                if curr_ora_p["type_of_ORA"] == 'PLS-DA Feature Importance':
+                    path_pg3.add_run('the')
+                    path_pg3.add_run(f'top {curr_ora_p["type_of_ORA_threshold"]}% of important features').bold = True
+                    path_pg3.add_run(' considered to build the ')
+                    path_pg3.add_run(f'PLS-DA model.').bold = True
+                    t_ora = 'PLSDAFeatImp'
+                elif curr_ora_p["type_of_ORA"] == 'RF Feature Importance':
+                    path_pg3.add_run('the')
+                    path_pg3.add_run(f'top {curr_ora_p["type_of_ORA_threshold"]}% of important features').bold = True
+                    path_pg3.add_run(' considered to build the ')
+                    path_pg3.add_run(f'RF model.').bold = True
+                    t_ora = 'RFFeatImp'
+                elif curr_ora_p["type_of_ORA"] == '1v1 Univariate Analysis':
+                    univ_parameters = UnivarA_Store.current_univ_params
+                    path_pg3.add_run(f'the significant metabolites (below {curr_ora_p["type_of_ORA_threshold"]} adjusted p-value)').bold = True
+                    path_pg3.add_run(' obtained from a ')
+                    path_pg3.add_run(f'1v1 Univariate Analysis {univ_parameters["Test Class"]}vs{univ_parameters["Control Class"]} classes.').bold = True
+                    t_ora = '1v1UnivAnalysis'
                 else:
-                    path_pg3.add_run('the significant metabolites').bold = True
-                    path_pg3.add_run(' obtained from a Univariate Analysis performed earlier comparing the ')
-                    path_pg3.add_run(f'{list(pathora_store.ora_dfs.keys())[0]} and the {list(pathora_store.ora_dfs.keys())[1]} classes. ')
-                    t_ora = 'SignificantClassMets'
+                    univ_parameters = UnivarA_Store.current_univ_params
+                    path_pg3.add_run(f'the significant metabolites (below {curr_ora_p["type_of_ORA_threshold"]} adjusted p-value)').bold = True
+                    path_pg3.add_run(' obtained from a ')
+                    path_pg3.add_run(f'Multiclass Univariate Analysis.').bold = True
+                    t_ora = 'MultiUnivAnalysis'
+
                 path_pg3.add_run(f'Pathways associated with these set of metabolites were only considered if there were at least ')
                 path_pg3.add_run(f'{curr_ora_p["min_pathway_data_ann_metabolites_found"]} metabolites').bold = True
                 path_pg3.add_run(f' associated with said pathway. ')
@@ -1295,12 +1313,13 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 filename_string = f'/Report_HMDB_IDs_PathwayORAnalysis_MinMetPathDB{curr_ora_p["min_metabolites_for_pathway"]}_Background'
                 filename_string = filename_string + f'{b_set}_MinMetData'
                 filename_string = filename_string + f'{curr_ora_p["min_pathway_data_ann_metabolites_found"]}_MetConsidered{t_ora}'
+                filename_string = filename_string + f'_Threshold{curr_ora_p["type_of_ORA_threshold"]}'
+                if t_ora == '1v1UnivAnalysis':
+                    filename_string = filename_string + f'_{univ_parameters["Test Class"]}vs{univ_parameters["Control Class"]}'
                 path_pg3.add_run(f'saved as {filename_string[1:]}.xlsx.')
 
                 # Saving the file
-                with pd.ExcelWriter(folder+filename_string+'.xlsx') as writer:
-                    for cl, df in pathora_store.ora_dfs.items():
-                        df.to_excel(writer, sheet_name=cl)
+                pathora_store.ora_df.to_excel(folder+filename_string+'.xlsx')
 
 
         # End of section
@@ -1905,12 +1924,14 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
             params_to_be_saved['Pathway Over-Representation Analysis'] = {'min_metabolites_for_pathway': pathora_store.curr_ora_parameters['min_metabolites_for_pathway'],
                                                                     'background_set': pathora_store.curr_ora_parameters['background_set'],
                                                                     'min_pathway_data_ann_metabolites_found': pathora_store.curr_ora_parameters['min_pathway_data_ann_metabolites_found'],
-                                                                    'type_of_ORA': pathora_store.curr_ora_parameters['type_of_ORA'],}
+                                                                    'type_of_ORA': pathora_store.curr_ora_parameters['type_of_ORA'],
+                                                                    'type_of_ORA_threshold': pathora_store.curr_ora_parameters['type_of_ORA_threshold'],}
         else:
             params_to_be_saved['Pathway Over-Representation Analysis'] = {'min_metabolites_for_pathway': pathora_store.min_metabolites_for_pathway,
                                                                     'background_set': pathora_store.background_set,
                                                                     'min_pathway_data_ann_metabolites_found': pathora_store.min_pathway_data_ann_metabolites_found,
-                                                                    'type_of_ORA': pathora_store.type_of_ORA,}
+                                                                    'type_of_ORA': pathora_store.type_of_ORA,
+                                                                    'type_of_ORA_threshold': pathora_store.type_of_ORA_threshold,}
 
 
         # Saving BinSim Analysis Related Parameters
@@ -2222,6 +2243,7 @@ def loading_parameters_in(params_to_load, data_filtering, n_databases_show, n_da
             pathora_store.background_set = params_to_load['Pathway Over-Representation Analysis']['background_set']
             pathora_store.min_pathway_data_ann_metabolites_found = params_to_load['Pathway Over-Representation Analysis']['min_pathway_data_ann_metabolites_found']
             pathora_store.type_of_ORA = params_to_load['Pathway Over-Representation Analysis']['type_of_ORA']
+            pathora_store.type_of_ORA_threshold = params_to_load['Pathway Over-Representation Analysis']['type_of_ORA_threshold']
 
         # Loading BinSim Analysis Related Parameters
         if 'BinSim Analysis' in params_to_load.keys():
