@@ -5036,7 +5036,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
 
     # Multiclass Univariate Test
     p_value_threshold = param.Number(default=0.05)
-    kw_test = param.Boolean(default='False')
+    kw_test = param.Boolean(default=False)
     
     # Store Multiclass Univariate Test Parameters
     current_multiclass_univ_params = param.Dict({})
@@ -7784,6 +7784,6 @@ sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing an
                     page11_button, page12_button, '## Report Generation', page13_button, '## To Reset', RESET_button)
 
 
-app = pn.template.BootstrapTemplate(title='Metabolomics Data Analysis Software', sidebar=[sidebar], main=[main_area])
+app = pn.template.BootstrapTemplate(title='NEMeSIS', sidebar=[sidebar], main=[main_area])
 
 app.show(websocket_max_message_size=100*1024*1024, http_server_kwargs={'max_buffer_size': 100*1024*1024})

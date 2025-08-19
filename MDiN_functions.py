@@ -32,16 +32,16 @@ chemdict = {'H':(1.0078250322, 0.999844),
 
 
 # Base Formula related functions
-def formula_process(formula):
+def formula_process(formula, elems=['C','H','O','N','S','P','Cl','F']):
     """Transforms a formula in string format into a dictionary."""
-
+    
     #results = pd.DataFrame(np.zeros((1,8)), columns = ['C','H','O','N','S','P','Cl','F'])
     # Empty dictionary to store the results
-    results = dict.fromkeys(['C','H','O','N','S','P','Cl','F'], 0)
+    results = dict.fromkeys(elems, 0)
     count = ''
     letter = None
     minus = False
-
+    
     # Run through the string
     for i in range(len(formula)):
         if formula[i].isupper(): # If i is an uppercase letter then it is an element
@@ -53,27 +53,27 @@ def formula_process(formula):
                 else:
                     results[letter] = int(count or 1)
                 count = ''
-
+                
             if i+1 < len(formula): # In case it's a two letter element such as Cl
                 if formula[i+1].islower(): # The second letter is always lower case
                     letter = formula[i] + formula[i+1] # Store new 2 letter element
                     continue
-
+                    
             letter = formula[i] # Store new 1 letter element
-
+            
         elif formula[i].isdigit():
             count = count + formula[i] # If number, add number to count
-
+        
         elif formula[i] == '-':
             minus = True
-
+    
     # Store results of the last letter
     if minus:
         results[letter] = - int(count or 1)
         minus = False
     else:
         results[letter] = int(count or 1)
-
+                    
     return results
 
 

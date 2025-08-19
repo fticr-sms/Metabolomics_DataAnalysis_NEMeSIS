@@ -2420,7 +2420,8 @@ def element_composition(formula, elements=None):
     return {e : composition.get(e, 0) for e in elements}
 
 def create_element_counts(data, formula_subset='Formula', compute_ratios=True, 
-                          series=('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP')):
+                          series=('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP'),
+                         drop_duplicates=True):
     """Create DataFrame from element counts and concat to original DataFrame.
 
        Optionally, the ratios of H/C and O/C and element composition series are also computed"""
@@ -2486,7 +2487,8 @@ def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
     result['Series'] = pd.Series(result_series, index=result.index)
     if type(formula_subset) != str:
         result = result.set_index('idxs')
-        result = result.drop_duplicates()
+        if drop_duplicates:
+            result = result.drop_duplicates()
 
     return result
 
