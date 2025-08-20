@@ -14,6 +14,7 @@ import scipy.cluster.hierarchy as hier
 import sklearn.model_selection
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import networkx as nx
 from upsetplot import from_contents
 from fractions import Fraction
 import pickle
@@ -56,7 +57,7 @@ pd.DataFrame.iteritems = pd.DataFrame.items
 # Initial Pages class building with barebones for each class
 class OpeningPage:
     def __init__(self):
-        self.content = pn.Column("# Welcome to MetsTA!", acronym_section,
+        self.content = pn.Column("# Welcome to NEMeSIS!", acronym_section,
                                  "# The Go-To place for your extreme-resolution metabolomics data analysis need.",
                                  pn.Row(homepage_page, pn.pane.Image('Picture_Test.png', height=400)))
     def view(self):
@@ -65,7 +66,7 @@ class OpeningPage:
 
 class InstructionPage:
     def __init__(self):
-        self.content = pn.Column("# Instructions and Considerations to keep in mind about MetsTA",
+        self.content = pn.Column("# Instructions and Considerations to keep in mind about NEMeSIS",
                                  instruction_page)
     def view(self):
         return self.content
@@ -2859,6 +2860,7 @@ def _confirm_button_next_step_5(event):
 
     # Updating Widgets for Pathway Assignment
     PathAssign_store._update_widgets(DataFrame_Store.metadata_df, pathway_db)
+    map_pathways._update_widgets(target_list)
 
     # BinSim page updating widgets
     HCA_params_binsim.controls.widgets['dist_metric'].options = ['dice', 'hamming', 'jaccard', 'kulczynski1', 'rogerstanimoto',
@@ -3305,7 +3307,7 @@ save_comexc_dfs_button.on_click(_save_comexc_dfs_button)
 
 
 # Widget to save dataframe (with characteristics chosen) in .csv format
-save_comexc_df_button = pn.widgets.Button(name='Save shown Dataframe as .csv (in current folder)',
+save_comexc_df_button = pn.widgets.Button(name='Save shown Dataframe as .csv',
                                                 button_type='warning', icon=iaf.download_icon)
 
 # When pressing the button, downloads the dataframe
@@ -3347,7 +3349,7 @@ subsetdf_comexc_section_page[0:4,1:3] = pn.pane.DataFrame(com_exc_compounds.spec
 
 
 # Widget to save Venn Diagram (needed since it is a matplotlib plot instead of a plotly plot)
-save_Venn_diag_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+save_Venn_diag_button = pn.widgets.Button(name='Save as a png', button_type='success',
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figure
 def _save_Venn_diag_button(event):
@@ -3366,9 +3368,9 @@ venn_page[0,1:3] = com_exc_compounds.Venn_plot[0]
 
 
 # Widgets to save Intersection Plots (needed since they are matplotlib plots instead of a plotly plots)
-save_IntersectionPlot_allmets_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+save_IntersectionPlot_allmets_button = pn.widgets.Button(name='Save as a png', button_type='success',
                                          icon=iaf.download_icon)
-save_IntersectionPlot_annotatedmets_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+save_IntersectionPlot_annotatedmets_button = pn.widgets.Button(name='Save as a png', button_type='success',
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figures
 def _save_IntersectionPlot_allmets_button(event):
@@ -3786,7 +3788,7 @@ HCA_params = HCA_Storage()
 
 
 # Widget to save HCA plot (needed since it is a matplotlib plot instead of a plotly plot)
-save_HCA_plot_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+save_HCA_plot_button = pn.widgets.Button(name='Save as a png', button_type='success',
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figure
 def _save_HCA_plot_button(event):
@@ -4350,7 +4352,7 @@ class PLSDA_Storage(param.Parameterized):
             'dpi': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
                                     description='Set the resolution of Permutation Test Figure'),
             'confirm_button_permutation': pn.widgets.Button(name="Perform Permutation Test (Slow)", button_type='primary', icon=iaf.hourglass_icon),
-            'save_figure_button_permutation': pn.widgets.Button(name="Save as a png (in current folder)",
+            'save_figure_button_permutation': pn.widgets.Button(name="Save as a png",
                 button_type='success', icon=iaf.download_icon, disabled=True),
         }
 
@@ -4449,7 +4451,7 @@ def _layout_plsda_feat_import_dataframe(plsda_feat_imp_show_annots_only):
     pls_results_section[3] = pn.pane.DataFrame(df_to_show, height=600)
 
 # Widget to save dataframe with features ordered by importance
-save_plsda_feat_imp_button = pn.widgets.Button(name='Save PLS-DA Feature Importance (full) table obtained as .xlsx (in current folder)',
+save_plsda_feat_imp_button = pn.widgets.Button(name='Save PLS-DA Feature Importance (full) table obtained as .xlsx',
                                                 button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -4839,7 +4841,7 @@ class RF_Storage(param.Parameterized):
             'dpi': pn.widgets.IntInput(name="DPI (Resolution)", value=200, step=10, start=100, disabled=False,
                                     description='Set the resolution of Permutation Test Figure'),
             'confirm_button_permutation': pn.widgets.Button(name="Perform Permutation Test (Slow)", button_type='primary', icon=iaf.hourglass_icon),
-            'save_figure_button_permutation': pn.widgets.Button(name="Save as a png (in current folder)",
+            'save_figure_button_permutation': pn.widgets.Button(name="Save as a png",
                 button_type='success', icon=iaf.download_icon, disabled=True),
         }
 
@@ -4928,7 +4930,7 @@ def _layout_rf_feat_import_dataframe(rf_feat_imp_show_annots_only):
     rf_results_section[3] = pn.pane.DataFrame(df_to_show, height=600)
 
 # Widget to save dataframe with features ordered by importance
-save_rf_feat_imp_button = pn.widgets.Button(name='Save Random Forest Feature Importance (full) table obtained as .xlsx (in current folder)',
+save_rf_feat_imp_button = pn.widgets.Button(name='Save Random Forest Feature Importance (full) table obtained as .xlsx',
                                                 button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -5253,7 +5255,7 @@ def _layout_df_dataframe(univar_results_show_annots_only):
         layout_df[2] = pn.pane.DataFrame(df_to_show, height=600)
 
 # Widget to save dataframe of univariate analysis performed in .csv format
-save_univariate_results_button = pn.widgets.Button(name='Save (full) univariate analysis results as .csv (in current folder)',
+save_univariate_results_button = pn.widgets.Button(name='Save (full) univariate analysis results as .csv',
                                                 button_type='warning', icon=iaf.download_icon)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -5280,7 +5282,7 @@ save_univariate_results_button.on_click(_save_univariate_results_button)
 
 # Widget button to save dataframe shown when seeing intersections of multiple univariate analysis of
 # different chosen test classes against a chosen control class
-save_multiple_univariate_button = pn.widgets.Button(name='Save shown Dataframe with int. values as .csv file (in current folder)',
+save_multiple_univariate_button = pn.widgets.Button(name='Save shown Dataframe with int. values as .csv file',
                                                 button_type='warning', icon=iaf.download_icon)
 
 # When pressing the button, downloads the dataframe (filename quite big)
@@ -5786,7 +5788,7 @@ kmd_page = pn.Column(pn.pane.HTML(kmd_opening_string))
 ccs_opening_string = desc_str.ccs_opening_string
 
 # Widget to save dataframe of chemical compositions series
-save_ccs_table_button = pn.widgets.Button(name='Save Chemical Composition Table obtained as .xlsx (in current folder)',
+save_ccs_table_button = pn.widgets.Button(name='Save Chemical Composition Table obtained as .xlsx',
                                                 button_type='warning', icon=iaf.download_icon, disabled=False)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -6051,7 +6053,7 @@ def _pathway_assignments_df(pathassign_show_matched_only):
             path_matching_section[5] = pn.pane.DataFrame(df_to_show, height=800)
 
 # Widget to save dataframe of pathway assignment in .csv format
-save_pathway_assignments_button = pn.widgets.Button(name='Save pathway matching DataFrame as .xlsx (in current folder)',
+save_pathway_assignments_button = pn.widgets.Button(name='Save pathway matching DataFrame as .xlsx',
                                                 button_type='warning', icon=iaf.download_icon)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -6333,7 +6335,7 @@ class PathwayORA_Storage(param.Parameterized):
         filename = filename + f'_MetConsidered{t_ora}_Threshold{self.curr_ora_parameters["type_of_ORA_threshold"]}_Plot'
         if t_ora == '1v1UnivAnalysis':
             filename = filename + f'_{UnivarA_Store.current_univ_params["Test Class"]}vs{UnivarA_Store.current_univ_params["Control Class"]}'
-        path_results[1:3,:] = pn.pane.Plotly(self.ora_fig[0], height=400,
+        path_results[1:3,:] = pn.pane.Plotly(self.ora_fig[0], height=200,
                                 config = {'toImageButtonOptions': {'filename': filename, 'scale':4,}})
 
         if len(pathway_ora_page) <= 3:
@@ -6346,6 +6348,9 @@ class PathwayORA_Storage(param.Parameterized):
             pathway_ora_page[4] = path_searcher_section
         self.controls_searcher.widgets['pathway_searcher'].options = list(self.spec_path_dfs.keys())
         self.controls_searcher.widgets['pathway_searcher'].placeholder = list(self.spec_path_dfs.keys())[0]
+
+        map_pathways.controls.widgets['chosen_pathway'].options = list(self.spec_path_dfs.keys())
+        map_pathways.controls.widgets['chosen_pathway'].placeholder = list(self.spec_path_dfs.keys())[0]
 
 
     # Update the searched pathway df
@@ -6450,6 +6455,7 @@ def _confirm_button_ORA(event):
 
     if len(pathway_ora_page) <= 3:
         pathway_ora_page.append(path_results)
+        pathway_ora_page.append(path_searcher_section)
     elif len(pathway_ora_page) <= 4:
         pathway_ora_page[3] = path_results
         pathway_ora_page.append(path_searcher_section)
@@ -6466,8 +6472,8 @@ pathora_store.controls_searcher.widgets['confirm_id_button'].on_click(pathora_st
 
 # Widget to save results of pathway ORAnalysis in .xlsx format
 save_pathway_oranalysis_button = pn.widgets.Button(
-    name='Save Pathway ORA DFs', button_type='warning', icon=iaf.download_icon,
-    description='Over-Representation Analysis Result DataFrames are saved as a .xlsx file (in current folder)')
+    name='Save Pathway ORA DF', button_type='warning', icon=iaf.download_icon,
+    description='Over-Representation Analysis Result DataFrames are saved as a .xlsx file')
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
 def _save_pathway_oranalysis_button(event):
@@ -6515,9 +6521,139 @@ pathway_ora_page = pn.Column('# Pathway Over-Representation Analysis (based on H
                             pathora_store.controls)
 
 
+# Class for the section of Pathway Over-Representation Analysis
+class MappingPathway(param.Parameterized):
+    "Class to contain parameters and relevant DataFrames to the Pathway Over-Representation Analysis."
+
+    # Parameters for choosing pathway to map
+    chosen_pathway = param.String(default='')
+    class1 = param.String('')
+    class2 = param.String('')
+    confirm_button_map = param.Boolean(default=False)
+
+    # Current Parameters
+    curr_path_parameters = param.Dict({})
+
+    # For Figures
+    pathway_fig = param.List(default=['To Plot a Pathway'])
+
+
+    def _map_pathway(self, event):
+        "Performs Pathway Over-Representation Analysis."
+
+        # Saving paramters used
+        self.curr_path_parameters = {'chosen_pathway': self.chosen_pathway,
+                                   'class1': self.class1,
+                                   'class2': self.class2}
+
+        # Calculate specific class DataFrames in case it has not been calculated before
+        if type(com_exc_compounds.group_dfs) != dict:
+            iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs
+
+        # Load in metabolic knowledge network
+        with open('SMPDB_MetaNetwork_compound.pickle', 'rb') as f:
+            FDiN_knowledge = pickle.load(f)
+
+        # Go get the nodes of the example pathway chosen
+        all_smpdb_paths = pd.Series(nx.get_node_attributes(FDiN_knowledge, 'SMPDB_ID')).explode()
+        # ID to Name Dict
+        path_ID_to_Name = pd.concat((pd.Series(nx.get_node_attributes(FDiN_knowledge, 'Pathway')).explode(), all_smpdb_paths),
+                                    axis=1).drop_duplicates().set_index(1).iloc[:,0].to_dict()
+
+        # See if the pathways is represented in the network
+        if 'SMP00' + self.chosen_pathway[3:] in all_smpdb_paths.values:
+            # If yes, got get the relevant nodes
+            nodes = all_smpdb_paths[all_smpdb_paths == 'SMP00' + self.chosen_pathway[3:]]
+            # Subgraph the big network with those nodes
+            pathway_graph = FDiN_knowledge.subgraph(nodes.index).copy()
+            # Remove edges representing reactions not associated with the chosen pathway
+            edges_to_remove = []
+            for edge in pathway_graph.edges():
+                if 'SMP00' + self.chosen_pathway[3:] not in pathway_graph.edges()[edge]['SMPDB_ID']:
+                    edges_to_remove.append(edge)
+            pathway_graph.remove_edges_from(edges_to_remove)
+
+            # Map and plot the figure
+            self.pathway_fig[0] = iaf._plot_mapped_pathway(self, pathway_graph, DataFrame_Store.treated_df,
+                                                           PathAssign_store.pathway_assignments, target_list, path_ID_to_Name)
+            pathway_map_page[2] = pn.pane.Matplotlib(map_pathways.pathway_fig[0], height=600)
+            save_mapping_button.disabled = False
+
+        else:
+            self.pathway_fig[0] = '''No Mapping was possible for the chosen pathway - Pathway not found in the SMPDB metabolic pathway database.
+Check if it is an SMPDB pathway and if it is a metabolic pathway (e.g. it may be a disease pathway).'''
+            pathway_map_page[2] = self.pathway_fig[0]
+            save_mapping_button.disabled = True
+
+
+    # Update the df based on specifications chosen
+    def _update_widgets(self, target_list):
+        "Update the class widgets to have the classes of the current dataset."
+        self.controls.widgets['class1'].options = target_list.classes
+        self.controls.widgets['class1'].value = target_list.classes[0]
+        self.controls.widgets['class2'].options = target_list.classes
+        self.controls.widgets['class2'].value = target_list.classes[1]
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name",]:
+                setattr(self, param, self.param[param].default)
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'chosen_pathway': pn.widgets.AutocompleteInput(
+                name="Type the SMPDB ID of the pathway to map metabolic features to",
+                    value = '', options=[''], search_strategy='includes', case_sensitive=False),
+            'class1': pn.widgets.Select(name='One of the Classes used to map intensities', value='', options=['']),
+            'class2': pn.widgets.Select(name='One of the Classes used to map intensities', value='', options=['']),
+            'confirm_button_map': pn.widgets.Button(name="Map Detected Metabolites to Selected Pathway", button_type='primary', disabled=False),
+        }
+
+        self.controls = pn.Param(self, parameters=['chosen_pathway',
+                                                   'class1',
+                                                   'class2',
+                                                   'confirm_button_map'],
+                                 widgets=widgets, name='Select a Metabolic SMPDB pathway to Map')
+
+
+# Initialize the Pathway ORA Class
+map_pathways = MappingPathway()
+
+# Click button to PERFORMING MAPPING
+map_pathways.controls.widgets['confirm_button_map'].on_click(map_pathways._map_pathway)
+
+save_mapping_button = pn.widgets.Button(name='Save as a png', button_type='success',
+                                        icon=iaf.download_icon, disabled=True)
+
+# Function to save the mapping pathway network as png
+def _save_mapping_button(event):
+    "Saves Random Forest permutation figure."
+    filename_string = f'{map_pathways.curr_path_parameters["chosen_pathway"]}_Mapping_Classes'
+    filename_string = filename_string + f'{map_pathways.curr_path_parameters["class1"]}vs'
+    filename_string = filename_string + f'{map_pathways.curr_path_parameters["class2"]}'
+
+    map_pathways.pathway_fig[0].savefig(path_dl + '/' + filename_string+'.png', dpi=400)
+    pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
+
+# Click button to save the aforementioned figure
+save_mapping_button.on_click(_save_mapping_button)
+
+
+# Pathway ORA page organization
+pathway_map_page = pn.Column('# Mapping SMPDB Pathways (based on HMDB IDs)',
+                            map_pathways.controls, map_pathways.pathway_fig[0],
+                            save_mapping_button)
+
 
 # Overall Page layout
-path_assign_page = pn.Column(path_matching_section, hmdb_id_searching_section, pathway_ora_page)
+path_assign_page = pn.Column(path_matching_section, hmdb_id_searching_section, pathway_ora_page,
+                             pathway_map_page)
 
 
 
@@ -6631,7 +6767,7 @@ HCA_params_binsim = HCA_Storage()
 HCA_params_binsim.binsim_flag = True # Setting the BinSim flag
 
 # Widget to save HCA plot binsim treated (needed since it is a matplotlib plot instead of a plotly plot)
-save_HCA_plot_binsim_button = pn.widgets.Button(name='Save as a png (in current folder)', button_type='success',
+save_HCA_plot_binsim_button = pn.widgets.Button(name='Save as a png', button_type='success',
                                          icon=iaf.download_icon)
 
 # When pressing the button, downloads the figure
@@ -6732,7 +6868,7 @@ def _layout_plsda_feat_import_dataframe_binsim(plsda_feat_imp_show_annots_only_b
 
 # Widget to save dataframe with features ordered by importance
 save_plsda_feat_imp_binsim_button = pn.widgets.Button(
-    name='Save PLS-DA Feature Importance (full) table (BinSim version) obtained as .xlsx (in current folder)',
+    name='Save PLS-DA Feature Importance (full) table (BinSim version) obtained as .xlsx',
     button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)
@@ -6848,7 +6984,7 @@ def _layout_rf_feat_import_dataframe_binsim(rf_feat_imp_show_annots_only_binsim)
 
 # Widget to save dataframe with features ordered by importance
 save_rf_feat_imp_binsim_button = pn.widgets.Button(
-    name='Save Random Forest Feature Importance (full) table (BinSim version) obtained as .xlsx (in current folder)',
+    name='Save Random Forest Feature Importance (full) table (BinSim version) obtained as .xlsx',
     button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframe (builds the appropriate filename)

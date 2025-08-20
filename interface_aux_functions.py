@@ -14,6 +14,7 @@ import matplotlib as mpl
 from matplotlib.colors import TwoSlopeNorm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np
+import networkx as nx
 import panel as pn
 import math
 import upsetplot
@@ -2154,7 +2155,7 @@ def _plot_KMD_plot_individual(filt_df, dataviz_store, group, neutral_mass_col):
 
 
 
-### Functions related to the Pathway Assignment, Matching and Over-Representation Analysis page of the graphical interface
+### Functions related to the Pathway Assignment, Matching, Over-Representation Analysis and Pathway Mapping page of the graphical interface
 
 def _plot_pathwayORA_class(pathora_store):
     "Plots pathway enrichment adjusted probability over the % of metabolites of the pathway found."
@@ -2173,6 +2174,77 @@ def _plot_pathwayORA_class(pathora_store):
           title=pathora_store.type_of_ORA + f' ({pathora_store.type_of_ORA_threshold} threshold) - Pathway Over-Representation Analysis Plot')
 
     return fig
+
+
+def _plot_mapped_pathway(map_pathways, pathway_graph, treated_data, pathway_assignments, target_list, path_ID_to_Name):
+    "Plots pathway enrichment adjusted probability over the % of metabolites of the pathway found."
+
+    # Chosen classes
+    chosen_classes = [map_pathways.class1, map_pathways.class2]
+
+    # Calculate average intensities for the chosen classes - requires common and exclusive compounds
+    gfinder = treated_data.T.copy()
+    for g in chosen_classes:
+        gfinder[g+' Average'] = gfinder.iloc[:,[i for i in range(len(target_list.target)) if target_list.target[i] == g]].mean(axis=1)
+
+    # Labels for each compound
+    label_dict = {}
+    for i in pathway_graph.nodes():
+        string_list = pathway_graph.nodes()[i]['Name']
+        f = r''
+        if pathway_graph.nodes()[i]['HMDB_i'] in pathway_assignments.index:
+            f += string_list
+        label_dict[i] = rf'{f}'
+
+    # Colors for the nodes
+    colors = [target_list.color_classes[map_pathways.class2],"white", target_list.color_classes[map_pathways.class1]]
+    cmp = mpl.colors.LinearSegmentedColormap.from_list("", colors)
+
+    # See difference between average treated intensities
+    node_colours = []
+    for i in pathway_graph.nodes():
+        if pathway_graph.nodes()[i]['HMDB_i'] in pathway_assignments.index:
+            names = pathway_assignments.loc[pathway_graph.nodes()[i]['HMDB_i'], 'indexes']
+            # If an HMDB ID was assigned to jsut one peak, make the value the average of them
+            if type(names) == str:
+                node_colours.append(gfinder.loc[names, chosen_classes[0]+' Average'] - gfinder.loc[names, chosen_classes[1]+' Average'])
+            # If an HMDB ID was assigned to multiple peaks, make the value the average of them
+            else:
+                names = names.values()
+                values = []
+                for n in names:
+                    values.append(gfinder.loc[n, chosen_classes[0]+' Average'] - gfinder.loc[n, chosen_classes[1]+' Average'])
+                node_colours.append(np.mean(values))
+        else:
+            # Not detected HMDB IDs will have a value of 0 (no color)
+            node_colours.append(0)
+
+    # Size of the different nodes - nodes detected size 800, nodes not detected 150
+    node_sizes_dict = {}
+    for i in pathway_graph.nodes():
+        if pathway_graph.nodes()[i]['HMDB_i'] in pathway_assignments.index:
+            node_sizes_dict[i] = 1000
+        else:
+            node_sizes_dict[i] = 150
+    node_sizes_ser = pd.Series(node_sizes_dict)
+
+    # Plot the figure
+    # Draw the mapped network
+    fig, ax = plt.subplots(1,1,figsize=(10,6), constrained_layout=True)
+
+    # Figure Details
+    limits = np.ceil(np.max([abs(np.min([-1, np.min(node_colours)])), np.max([1, np.max(node_colours)])]))
+    nx.draw_kamada_kawai(pathway_graph, labels=label_dict, with_labels=True, alpha=0.75, font_size=9,
+                         node_color=node_colours, vmin=-limits, vmax=limits, cmap=cmp, linewidths=1,
+                         edgecolors='black',node_size=node_sizes_ser)
+    plt.title(f'{path_ID_to_Name['SMP00' + map_pathways.chosen_pathway[3:]]} ({chosen_classes[0]} - {chosen_classes[1]})',
+              fontsize=16)
+    # Colorbar
+    plt.colorbar(mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(-limits,limits), cmap=cmp),ax=ax,
+                label=f'Treated Intensity ({chosen_classes[0]} - {chosen_classes[1]})')
+
+    return fig
+
 
 
 
