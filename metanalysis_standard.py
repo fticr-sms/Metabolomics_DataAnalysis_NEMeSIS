@@ -2419,53 +2419,45 @@ def element_composition(formula, elements=None):
 
     return {e : composition.get(e, 0) for e in elements}
 
-def create_element_counts(data, formula_subset='Formula', compute_ratios=True, 
-                          series=('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP'),
-                         drop_duplicates=True):
+default_series = ('CHO', 'CHOS', 'CHON', 'CHNS', 'CHONS', 'CHOP', 'CHONP','CHONSP')
+
+def create_element_counts(data, formula_subset=['Formula',],
+                          compute_ratios=True,
+                          series=default_series,
+                          drop_duplicates=True):
     """Create DataFrame from element counts and concat to original DataFrame.
 
        Optionally, the ratios of H/C and O/C and element composition series are also computed"""
 
     # safe guard: remove empty formulae
+    if isinstance(formula_subset, str):
+        formula_subset = [formula_subset]
+
     formulae = data[formula_subset]
 
-    # For SmartFormula
-    if type(formula_subset) == str:
-        # safe guard: remove empty formulae
-        formulae = data[formula_subset]
-        formulae = formulae[formulae.notnull()]
+    # count elements
+    forms_list = []
+    idxs_list = []
+    for col in formulae.columns:
+        formulae_col = formulae[[col]].dropna()
+        for indx in formulae_col.index:
+            fs = formulae_col.loc[indx].iloc[0]
+            if isinstance(fs, str): # For Smart Formula and str based annotations
+                forms_list.append(fs)
+                idxs_list.append(indx)
 
-        # count elements
-        ecounts_list = [element_composition(f) for f in formulae.values]
-        ecounts = pd.DataFrame(ecounts_list, index=formulae.index).fillna(0).astype(int)
-
-        # concat to data
-        result = pd.concat([data, ecounts], axis=1)
-
-    # For meta_cols_formula
-    else:
-        # safe guard: remove empty formulae
-        formulae = data[formula_subset]
-
-        # count elements
-        forms_list = []
-        idxs_list = []
-        for col in formulae.columns:
-            formulae_col = formulae[[col]].dropna()
-            for l in formulae_col.index:
-                #print(set(formulae_col.loc[l][0]))
-                #print(l)
-                l_unique = set(formulae_col.loc[l][0])
+            else: # For meta_cols and list based annotations
+                l_unique = set(fs)
                 for f in l_unique:
                     #print(f)
                     forms_list.append(f)
-                    idxs_list.append(l)
-        ecounts_list = []
-        for f in forms_list:
-            ecounts_list.append(element_composition(f))
+                    idxs_list.append(indx)
+    ecounts_list = []
+    for f in forms_list:
+        ecounts_list.append(element_composition(f))
 
-        result = pd.DataFrame(ecounts_list).fillna(0).astype(int)
-        result['idxs'] = idxs_list
+    result = pd.DataFrame(ecounts_list).fillna(0).astype(int)
+    result['idxs'] = idxs_list
 
     # compute ratios for VK plots
     if compute_ratios:
@@ -2473,6 +2465,7 @@ def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
         result['O/C'] = result['O'] / result['C']
 
     # compute series from compositions
+
     sorted_series = [''.join(sorted(list(s))) for s in series]
     result_series = []
 
@@ -2485,7 +2478,7 @@ def create_element_counts(data, formula_subset='Formula', compute_ratios=True,
             result_series.append('other')
 
     result['Series'] = pd.Series(result_series, index=result.index)
-    if type(formula_subset) != str:
+    if not isinstance(formula_subset, str):
         result = result.set_index('idxs')
         if drop_duplicates:
             result = result.drop_duplicates()
