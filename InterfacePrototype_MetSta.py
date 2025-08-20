@@ -39,6 +39,11 @@ pn.config.sizing_mode="stretch_width"
 pn.config.throttled = True
 mpl.use('agg')
 
+# Current Working directory
+cwd = os.getcwd()
+# Download path
+path_dl = os.path.expanduser('~/Downloads')
+
 # To allow the interaction of different packages
 pd.DataFrame.iteritems = pd.DataFrame.items
 
@@ -3292,7 +3297,7 @@ def _save_comexc_dfs_button(event):
     # Building the common and exclusive dataframes
     common_df, exclusive_dfs = iaf.build_common_exclusive_dfs_to_save(com_exc_compounds, target_list, checkbox_annotation,
                                                               checkbox_formula, radiobox_neutral_mass, checkbox_others)
-    iaf.common_exclusive_compound_excel_writer(common_df, exclusive_dfs)
+    iaf.common_exclusive_compound_excel_writer(common_df, exclusive_dfs, path_dl)
 
     pn.state.notifications.success(f'Common and Exclusive Ann. Compound Excel successfully saved.')
 
@@ -3327,7 +3332,7 @@ def _save_comexc_df_button(event):
     # Final name
     filename_string = annot_string + df_type_string + class_subset_string + '_classes.csv'
     # Saving the file
-    com_exc_compounds.specific_cl_df.to_csv(filename_string)
+    com_exc_compounds.specific_cl_df.to_csv(path_dl + '/' + filename_string)
     pn.state.notifications.success(f'{filename_string} successfully saved.')
 
 save_comexc_df_button.on_click(_save_comexc_df_button)
@@ -3350,7 +3355,7 @@ def _save_Venn_diag_button(event):
     filename_string = f'Venn_diagram_{com_exc_compounds.type_of_venn}_classes'
     for cl in com_exc_compounds.venn_class_subset:
         filename_string = filename_string + '_'+cl
-    com_exc_compounds.Venn_plot[0].savefig(filename_string, dpi=com_exc_compounds.dpi_venn)
+    com_exc_compounds.Venn_plot[0].savefig(path_dl + '/' + filename_string, dpi=com_exc_compounds.dpi_venn)
     pn.state.notifications.success(f'Venn Diagram successfully saved.')
 save_Venn_diag_button.on_click(_save_Venn_diag_button)
 
@@ -3371,7 +3376,7 @@ def _save_IntersectionPlot_allmets_button(event):
     filename_string = 'IntersectionPlot_all_metabolites_classes'
     for cl in com_exc_compounds.inter_class_subset:
         filename_string = filename_string + '_'+cl
-    com_exc_compounds.IntersectionPlot[0].savefig(filename_string + '.png', dpi=com_exc_compounds.dpi_inter)
+    com_exc_compounds.IntersectionPlot[0].savefig(path_dl + '/' + filename_string + '.png', dpi=com_exc_compounds.dpi_inter)
     pn.state.notifications.success(f'Intersection Plot (all metabolites) successfully saved.')
 save_IntersectionPlot_allmets_button.on_click(_save_IntersectionPlot_allmets_button)
 
@@ -3380,7 +3385,7 @@ def _save_IntersectionPlot_annotatedmets_button(event):
     filename_string = 'IntersectionPlot_annotated_metabolites_classes'
     for cl in com_exc_compounds.inter_class_subset:
         filename_string = filename_string + '_'+cl
-    com_exc_compounds.IntersectionPlot[1].savefig(filename_string + '.png', dpi=com_exc_compounds.dpi_inter)
+    com_exc_compounds.IntersectionPlot[1].savefig(path_dl + '/' + filename_string + '.png', dpi=com_exc_compounds.dpi_inter)
     pn.state.notifications.success(f'Intersection Plot (annotated metabolites) successfully saved.')
 save_IntersectionPlot_annotatedmets_button.on_click(_save_IntersectionPlot_annotatedmets_button)
 
@@ -3462,7 +3467,8 @@ class PCA_Storage(param.Parameterized):
                     filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
             if self.binsim_flag:
                 filename_string = filename_string + f'_BinSim'
-            self.current_pages_associated[0][0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
+            self.current_pages_associated[0][0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {
+                'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
 
     # Function to see if Z-axis can be edited (3D) or not (2D)
@@ -3786,7 +3792,7 @@ save_HCA_plot_button = pn.widgets.Button(name='Save as a png (in current folder)
 def _save_HCA_plot_button(event):
     "Saves HCA plot."
     filename = f'HCA_plot_{HCA_params.dist_metric}Dist_{HCA_params.link_metric}Linkage.png'
-    HCA_params.HCA_plot[0].savefig(filename, dpi=HCA_params.dpi)
+    HCA_params.HCA_plot[0].savefig(path_dl + '/' + filename, dpi=HCA_params.dpi)
     pn.state.notifications.success(f'Dendrogram successfully saved.')
 save_HCA_plot_button.on_click(_save_HCA_plot_button)
 
@@ -4404,7 +4410,7 @@ def _save_figure_button_permutation_PLSDA(event):
     filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["perm_metric"]}'
     if PLSDA_store.binsim_flag:
         filename_string = filename_string + '_BinSim'
-    PLSDA_store.perm_figure[0].savefig(filename_string+'.png', dpi=PLSDA_store.dpi)
+    PLSDA_store.perm_figure[0].savefig(path_dl + '/' + filename_string+'.png', dpi=PLSDA_store.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 
 # Click button to save the aforementioned figure
@@ -4460,7 +4466,7 @@ def _save_plsda_feat_imp_button(event):
         filename_string = filename_string + f'.xlsx'
 
         # Saving the file
-        PLSDA_store.feat_impor.to_excel(filename_string)
+        PLSDA_store.feat_impor.to_excel(path_dl + '/' + filename_string)
         pn.state.notifications.success(f'{filename_string} successfully saved.')
     except:
         pn.state.notifications.error(f'File could not be saved.')
@@ -4887,7 +4893,7 @@ def _save_figure_button_permutation_RF(event):
     filename_string = filename_string + f'{RF_store.current_rf_params_permutation["perm_metric"]}'
     if RF_store.binsim_flag:
         filename_string = filename_string + '_BinSim'
-    RF_store.perm_figure[0].savefig(filename_string+'.png', dpi=RF_store.dpi)
+    RF_store.perm_figure[0].savefig(path_dl + '/' + filename_string+'.png', dpi=RF_store.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 
 # Click button to save the aforementioned figure
@@ -4938,7 +4944,7 @@ def _save_rf_feat_imp_button(event):
         filename_string = filename_string + '.xlsx'
 
         # Saving the file
-        RF_store.feat_impor.to_excel(filename_string)
+        RF_store.feat_impor.to_excel(path_dl + '/' + filename_string)
         pn.state.notifications.success(f'{filename_string} successfully saved.')
     except:
         pn.state.notifications.error(f'File could not be saved.')
@@ -5267,7 +5273,7 @@ def _save_univariate_results_button(event):
         filename_string = filename_string + f'.csv'
 
     # Saving the file
-    UnivarA_Store.univariate_results.to_excel(filename_string)
+    UnivarA_Store.univariate_results.to_excel(path_dl + '/' + filename_string)
     pn.state.notifications.success(f'{filename_string} successfully saved.')
 
 save_univariate_results_button.on_click(_save_univariate_results_button)
@@ -5307,7 +5313,7 @@ def _save_multiple_univariate_button(event):
         filename_string = filename_string + f'.csv'
 
     # Saving the file
-    pd.concat((UnivarA_Store.specific_cl_df, DataFrame_Store.original_df[target_list.sample_cols]), join='inner', axis=1).to_csv(filename_string)
+    pd.concat((UnivarA_Store.specific_cl_df, DataFrame_Store.original_df[target_list.sample_cols]), join='inner', axis=1).to_csv(path_dl + '/' + filename_string)
     pn.state.notifications.success(f'{filename_string} successfully saved.')
 
 save_multiple_univariate_button.on_click(_save_multiple_univariate_button)
@@ -5794,7 +5800,7 @@ def _save_ccs_table_button(event):
             filename = filename + f'_{cl}'
 
         # Saving the file
-        dataviz_store.ccs_df.to_excel(filename + '.xlsx')
+        dataviz_store.ccs_df.to_excel(path_dl + '/' + filename + '.xlsx')
         pn.state.notifications.success(f'{filename}.xlsx successfully saved.')
     except:
         pn.state.notifications.error(f'File could not be saved.')
@@ -6058,7 +6064,7 @@ def _save_pathway_assignments_button(event):
     filename_string = filename_string + '.xlsx'
 
     # Saving the file
-    PathAssign_store.pathway_assignments.to_excel(filename_string)
+    PathAssign_store.pathway_assignments.to_excel(path_dl + '/' + filename_string)
     pn.state.notifications.success(f'{filename_string} successfully saved.')
 # Calling the function
 save_pathway_assignments_button.on_click(_save_pathway_assignments_button)
@@ -6487,7 +6493,7 @@ def _save_pathway_oranalysis_button(event):
         filename = filename + f'_{UnivarA_Store.current_univ_params["Test Class"]}vs{UnivarA_Store.current_univ_params["Control Class"]}'
 
     # Saving the file
-    with pd.ExcelWriter(filename+'.xlsx') as writer:
+    with pd.ExcelWriter(path_dl + '/' + filename+'.xlsx') as writer:
         pathora_store.ora_df.to_excel(writer)
     pn.state.notifications.success(f'{filename} successfully saved.')
 # Calling the function
@@ -6632,7 +6638,7 @@ save_HCA_plot_binsim_button = pn.widgets.Button(name='Save as a png (in current 
 def _save_HCA_plot_binsim_button(event):
     "Saves HCA plot (BinSim version)."
     filename = f'HCA_plot_{HCA_params_binsim.dist_metric}Dist_{HCA_params_binsim.link_metric}Linkage_BinSim.png'
-    HCA_params_binsim.HCA_plot[0].savefig(filename, dpi=HCA_params_binsim.dpi)
+    HCA_params_binsim.HCA_plot[0].savefig(path_dl + '/' + filename, dpi=HCA_params_binsim.dpi)
     pn.state.notifications.success(f'Dendrogram successfully saved.')
 
 save_HCA_plot_binsim_button.on_click(_save_HCA_plot_binsim_button)
@@ -6683,7 +6689,7 @@ def _save_figure_button_permutation_PLSDA_binsim(event):
     filename_string = filename_string + f'{PLSDA_store_binsim.current_plsda_params_permutation["perm_metric"]}'
     if PLSDA_store_binsim.binsim_flag:
         filename_string = filename_string + '_BinSim'
-    PLSDA_store_binsim.perm_figure[0].savefig(filename_string+'.png', dpi=PLSDA_store_binsim.dpi)
+    PLSDA_store_binsim.perm_figure[0].savefig(path_dl + '/' + filename_string+'.png', dpi=PLSDA_store_binsim.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 
 # Click button to save the aforementioned figure
@@ -6743,7 +6749,7 @@ def _save_plsda_feat_imp_binsim_button(event):
         filename_string = filename_string + f'.xlsx'
 
         # Saving the file
-        PLSDA_store_binsim.feat_impor.to_excel(filename_string)
+        PLSDA_store_binsim.feat_impor.to_excel(path_dl + '/' + filename_string)
         pn.state.notifications.success(f'{filename_string} successfully saved.')
     except:
         pn.state.notifications.error(f'File could not be saved.')
@@ -6804,7 +6810,7 @@ def _save_figure_button_permutation_RF_binsim(event):
     filename_string = filename_string + f'{RF_store_binsim.current_rf_params_permutation["perm_metric"]}'
     if RF_store_binsim.binsim_flag:
         filename_string = filename_string + '_BinSim'
-    RF_store_binsim.perm_figure[0].savefig(filename_string+'.png', dpi=RF_store_binsim.dpi)
+    RF_store_binsim.perm_figure[0].savefig(path_dl + '/' + filename_string+'.png', dpi=RF_store_binsim.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 
 
@@ -6858,7 +6864,7 @@ def _save_rf_feat_imp_binsim_button(event):
         filename_string = filename_string + '.xlsx'
 
         # Saving the file
-        RF_store_binsim.feat_impor.to_excel(filename_string)
+        RF_store_binsim.feat_impor.to_excel(path_dl + '/' + filename_string)
         pn.state.notifications.success(f'{filename_string} successfully saved.')
     except:
         pn.state.notifications.error(f'File could not be saved.')
@@ -7238,7 +7244,7 @@ def _save_correlation_table_button(event):
         filename_string = filename_string + '.xlsx'
 
         # Saving the file
-        comp_finder.corr_matrix.to_excel(filename_string)
+        comp_finder.corr_matrix.to_excel(path_dl + '/' + filename_string)
         pn.state.notifications.success(f'{filename_string} successfully saved.')
     except:
         pn.state.notifications.error(f'File could not be saved.')

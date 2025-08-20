@@ -937,11 +937,11 @@ def build_common_exclusive_dfs_to_save(com_exc_compounds, target_list, checkbox_
     return common_df, exclusive_dfs
 
 
-def common_exclusive_compound_excel_writer(common_df, exclusive_dfs):
+def common_exclusive_compound_excel_writer(common_df, exclusive_dfs, path_dl):
     "Writes to an excel the common and exclusive dataframes made with `build_common_exclusive_dfs_to_save`."
 
     # Initiate Excel File
-    writer = pd.ExcelWriter('Common_Exclusive_Compounds.xlsx', engine='xlsxwriter')
+    writer = pd.ExcelWriter(path_dl + '/' + 'Common_Exclusive_Compounds.xlsx', engine='xlsxwriter')
 
     # For the common compounds DataFrame
     common_df.to_excel(writer, sheet_name='Common')
