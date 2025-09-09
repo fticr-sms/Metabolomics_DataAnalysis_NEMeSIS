@@ -166,6 +166,18 @@ However, in the future, these databases will have corresponding python files tha
 - Fixed normalization by a reference feature.
 - Minor bugfixes.
 
+#### V2.8 - Raw Data Processing, Improved Data Annotation, Pathway Analysis and FDiGNN side module (09/09/2025)
+
+- Added raw data spectra processing as a side module to process mzML data.
+- Improved Data Annotation where chosen databases are merged together into a complete database before perfoming annotations (made associated changes).
+- Small improvement on allowed mass deviation calculation for formula assignment.
+- Improved intersection plot section and adding intersection plot colouring chemical compound classes.
+- Re-structured pathway analysis section to select more conservative background sets (metabolites detected in the data) and 'significant' metabolites based on univariate or multivariate analysis.
+- Added mapping formulas to pathway and pathway representation in pathways analysis section (only SMPDB pathways).
+- Added a side module with FDiGNN analysis as a standalone jupyter notebook as example of independent analysis modules.
+- Minor bugfixes and improvements in text.
+
+
 # Graphical Interface Version Patch Notes
 
 #### Version Alpha.0 (13/12/2023)
@@ -220,6 +232,16 @@ However, in the future, these databases will have corresponding python files tha
 - Fixed normalization by a reference feature.
 - Minor bugfixes.
 
+#### Version Beta.0 (09/09/2025)
+
+- Added raw data spectra processing section to the DataAlignment specific interface.
+- Improved Data Annotation where chosen databases are merged together into a complete database before perfoming annotations (made associated changes).
+- Changed Formula Assignment to the score-based Formula Assignment. Small improvement on allowed mass deviation calculation.
+- Re-structured pathway analysis section to select more conservative background sets (metabolites detected in the data) and 'significant' metabolites based on univariate or multivariate analysis.
+- Added mapping formulas to pathway and pathway representation in pathways analysis section (only SMPDB pathways).
+- Minor bugfixes and improvements in text.
+
+
 ### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
 
 - panel >= 1.3.4
@@ -253,7 +275,3 @@ The other packages mentioned at the begginning are also needed.
 
 - Run 'OpenGraphicalInterface.bat' (this will open a command line and the interface in a browser)
 - To close the program, go to the command line and press 'Ctrl+C'.
-
-## TODO:
-
-- Fix bug in Pathway ORA Analysis of Univariate Results Obtained (The selection of significant metabolites is not being performed correctly)

@@ -796,8 +796,8 @@ def formulator(c,h,o,n,s,p,f=0,cl=0,c13=0):
     return formula
 
 
-def form_checker_ratios_adducts(data, idx, int_col, threshppm, formula_db_dict, dict_iso={}, isotope_check=True, mass_column='NeutralMass',
-                        adducts_to_consider={'M':0}, deviation_in_ppm=True,
+def form_checker_ratios_adducts(data, idx, int_col, threshppm, formula_db_dict, dict_iso={}, isotope_check=True, in_pubchem_check=True,
+                        mass_column='NeutralMass', adducts_to_consider={'M':0}, deviation_in_ppm=True,
                        short_range_eq={'H/C': [None, None], 'O/C': [None, None], 'N/C': [None, None], 'P/C': [None, None], 'S/C': [None, None]}):
     """Assigning formulas to an m/z peak based on the distance of the m/z to the formulas present in a given database.
     
@@ -838,29 +838,29 @@ def form_checker_ratios_adducts(data, idx, int_col, threshppm, formula_db_dict, 
                 break
         # Calculate mass difference allowed based on the mass and ppm thresholds given
         if deviation_in_ppm:
-            mass_dif = neutral_mass - (neutral_mass*1000000/(1000000 + threshppm))
+            mass_dif_pos = -neutral_mass + (neutral_mass*1000000/(1000000 - threshppm))
+            mass_dif_neg = neutral_mass - (neutral_mass*1000000/(1000000 + threshppm))
         else:
-            mass_dif = threshppm
+            mass_dif_pos = threshppm
+            mass_dif_neg = threshppm
         # Select the formulas from the database dataframe that are within said mass difference to the mass given
         df2 = formula_db_dict[d].copy()
-        df2 = df2[df2.index<= (neutral_mass+mass_dif)]
-        df2 = df2[df2.index>= (neutral_mass-mass_dif)]
+        df2 = df2[df2.index<= (neutral_mass+mass_dif_pos)]
+        df2 = df2[df2.index>= (neutral_mass-mass_dif_neg)]
         df2['Adduct'] = adduct
         df2['Ad. Neutral Mass'] = neutral_mass
-        df2['Mass dif.'] = mass_dif
+        df2['Mass dif. pos'] = mass_dif_pos
+        df2['Mass dif. neg'] = mass_dif_neg
         # Add current adduct result to final df
         joined_df = pd.concat((joined_df, df2))
     # DataFrame with all possible candidates
     df2 = joined_df
 
-    contribution = {'Check 0: Only 1 Formula Candidate': False, 'Check 1: Short Range': False,
-                    'Check 2: Normal Valency Check': False, 'Check 3-1: No F and Cl': False,
+    contribution = {'Check 0: Only 1 Formula Candidate': False, 'Check 0.5: In Pubchem': True,
+                    'Check 1: Short Range': False, 'Check 2: Normal Valency Check': False, 'Check 3-1: No F and Cl': False,
                     'Check 3-2: Lowest F + Cl': False, 'Check 4: Lowest Heteroatom Count': False,
                     'Check 5: Lowest Mass error': False, 'Previous Isotope Assignment': False}
 
-    # No formula is within the mass interval - no formula assigned
-    if len(df2) == 0: 
-        return(mass, np.nan, np.nan, np.nan, dict_iso, 'No Assignment', contribution)
 
     # Isotope Checker
     if isotope_check == True:
@@ -881,6 +881,13 @@ def form_checker_ratios_adducts(data, idx, int_col, threshppm, formula_db_dict, 
                        dict_iso,
                       'Previous Isotope Assignment',
                       contribution)
+
+    # No formula is within the mass interval - no formula assigned
+    if len(df2) == 0:
+        return(mass, np.nan, np.nan, np.nan, dict_iso, 'No Assignment', contribution)
+
+    # Isotope Checker
+    if isotope_check == True:
 
         # Search for possible isotopes for each of the candidate formulas in df2
         # Get the minimum intensity in the dataset
@@ -907,13 +914,14 @@ def form_checker_ratios_adducts(data, idx, int_col, threshppm, formula_db_dict, 
                 # Get their masses
                 iso_masses = isotopic_masses(mass)
                 # Get maximum possible mass_dif from the adduct
-                mass_dif = df2.loc[el, 'Mass dif.']
+                mass_dif_pos = df2.loc[el, 'Mass dif. pos']
+                mass_dif_neg = df2.loc[el, 'Mass dif. neg']
 
                 poss_isotopic_peaks[el] = list(abuns_ratios.index)
                 for iso_type in abuns_ratios.index:
                     # See if their are candidates within those masses calculated
-                    iso_candidates = data[data.loc[:, mass_column] <= (iso_masses[iso_type] + mass_dif)]
-                    iso_candidates = iso_candidates[iso_candidates.loc[:, mass_column] >= (iso_masses[iso_type] - mass_dif)]
+                    iso_candidates = data[data.loc[:, mass_column] <= (iso_masses[iso_type] + mass_dif_pos)]
+                    iso_candidates = iso_candidates[iso_candidates.loc[:, mass_column] >= (iso_masses[iso_type] - mass_dif_neg)]
                     # An extra filter to remove possible peaks that have already been assigned as isotopes before
                     # First Come, First Serve type of logic
                     iso_candidates = iso_candidates.loc[[
@@ -970,6 +978,28 @@ def form_checker_ratios_adducts(data, idx, int_col, threshppm, formula_db_dict, 
     # Criteria for more than one possiblity: Check number of possible formulas, normal_valency allows formula, check formulas
     # with low amounts of different heteroatoms, check formulas with lowest amounts of heteroatoms, make smallest error check.
     #print(df2)
+
+    # Check nº 0.5: If more than one formula exists select formulas that are in the Pubchem database
+    if in_pubchem_check:
+        if len(df2) > 1:
+            # Select the formulaswhcih are in the Pubchem
+            df_pubchem = df2[df2['In Pubchem'] == True]
+            if len(df_pubchem) != 0:
+                if len(df_pubchem) != len(df2):
+                    contribution['Check 0.5: In Pubchem'] = True
+                df2 = df_pubchem
+                if len(df2) == 1:
+                    if isotope_check == True:
+                        dict_iso = isotope_decider(dict_iso, isotopic_peaks, df2, mass, intensity, int_col, mass_column)
+
+                    return(mass, formulator(df2['C'].values[0],df2['H'].values[0],df2['O'].values[0],df2['N'].values[0],
+                                            df2['S'].values[0],df2['P'].values[0],df2['F'].values[0],df2['Cl'].values[0],
+                                            False),
+                        df2.index[0],
+                        df2.iloc[0].loc['Adduct'],
+                        dict_iso,
+                        'Check 0.5: In Pubchem',
+                        contribution)#,
 
     # Check nº 1: If more than one formula exists:
     if len(df2) > 1:
@@ -1155,7 +1185,7 @@ def form_checker_ratios_adducts(data, idx, int_col, threshppm, formula_db_dict, 
                contribution)
 
 
-def check_adaptable_ranges(df2, short_range_eq, normalize=True):
+def check_adaptable_ranges(df2, short_range_eq, score_penalty_per_common_range=0.1, normalize=True):
     # Store ranges to avoid unnecessary calculations
     add_ranges = {}
     # Store results of checks
@@ -1185,12 +1215,12 @@ def check_adaptable_ranges(df2, short_range_eq, normalize=True):
             add_ranges[adduct] = short_range
 
         # Calculate the multi based on the number of ranges the formula fulfills
-        based_multi = 0.3
+        based_multi = 1 - 7*score_penalty_per_common_range
         for i in short_range:
             a = i.split('/')[0]
             if short_range[i][0] <= df2.loc[idx, a] / df2.loc[idx, 'C'] <= short_range[i][1]:
-                based_multi += 0.1
-        multiplier[idx] = np.round(based_multi, 1)
+                based_multi += score_penalty_per_common_range
+        multiplier[idx] = np.round(based_multi, 3)
 
     # Normalize the multipliers for the maximum multipler to have 1
     multiplier = pd.Series(multiplier)
@@ -1226,7 +1256,7 @@ def mass_deviation_check(df2, threshppm, lower_limit=0.8, normalize=True):
     dev_df = threshppm - dev_df
     dev_df = dev_df/threshppm*(1-lower_limit)+lower_limit
     if normalize:
-        dev_df = dev_df + (1-dev_df.max())
+        dev_df = dev_df/dev_df.max()
     return dev_df
 
 
@@ -1241,7 +1271,7 @@ def inv_normal_pdf(y, mean, std):
 def isotope_spotting_and_check(df2, data, curr_idx, ppm_max_deviation, adducts_to_consider,
                                mass_col, int_col, dict_iso,
                                no_isotope_score=0.2, min_isotope_score=0.6,
-                           mass_to_intensity_f=2, intensity_deviation = 0.4, normalize=True):
+                           mass_to_intensity_f=2, intensity_deviation = 0.6, normalize=True):
 
     # Normal Distribution to calculate the score factors based on its pdf (Probabibility Density Function)
     norm_dist_mass = stats.norm(loc=0, scale=1)
@@ -1297,13 +1327,14 @@ def isotope_spotting_and_check(df2, data, curr_idx, ppm_max_deviation, adducts_t
             # Get their masses
             iso_masses = pd.Series(isotopic_masses(el)) + adducts_to_consider[df2.loc[el, 'Adduct']]
             # Get maximum possible mass_dif from the adduct
-            mass_dif = df2.loc[el, 'Mass dif.']
+            mass_dif_pos = df2.loc[el, 'Mass dif. pos']
+            mass_dif_neg = df2.loc[el, 'Mass dif. neg']
 
             poss_isotopic_peaks[el] = list(abuns_ratios.index)
             for iso_type in abuns_ratios.index:
                 # See if their are candidates within those masses calculated
-                iso_candidates = data[data.loc[:, mass_col] <= (iso_masses[iso_type] + mass_dif)]
-                iso_candidates = iso_candidates[iso_candidates.loc[:, mass_col] >= (iso_masses[iso_type] - mass_dif)]
+                iso_candidates = data[data.loc[:, mass_col] <= (iso_masses[iso_type] + mass_dif_pos)]
+                iso_candidates = iso_candidates[iso_candidates.loc[:, mass_col] >= (iso_masses[iso_type] - mass_dif_neg)]
                 # An extra filter to remove possible peaks that have already been assigned as isotopes before
                 # First Come, First Serve type of logic
                 iso_candidates = iso_candidates.loc[[
@@ -1313,7 +1344,7 @@ def isotope_spotting_and_check(df2, data, curr_idx, ppm_max_deviation, adducts_t
                 # to account for the possible big variability in intensity
                 if len(iso_candidates) > 0:
                     theo_intensity = abuns_ratios[iso_type]*intensity
-                    intensity_error_margin = 0.6 * theo_intensity
+                    intensity_error_margin = intensity_deviation * theo_intensity
                     iso_candidates = iso_candidates[
                         iso_candidates.loc[:, int_col] <= (theo_intensity + intensity_error_margin)]
                     iso_candidates = iso_candidates[
@@ -1360,7 +1391,9 @@ def isotope_spotting_and_check(df2, data, curr_idx, ppm_max_deviation, adducts_t
         multiplier[el] = score_factor
 
     multiplier = pd.Series(multiplier)
-    return multiplier/multiplier.max(), isotopic_peaks, poss_isotopic_peaks
+    if normalize:
+        multiplier = multiplier/multiplier.max()
+    return multiplier, isotopic_peaks, poss_isotopic_peaks
 
 def S34_check(isotopic_peaks, poss_isotopic_peaks):
     # S34 Check
@@ -1420,8 +1453,10 @@ def isotope_decider_new(dict_iso, idx_winner, isotopic_peaks, df2, monoiso_int, 
 
 def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, adducts_to_consider={'M':0}, dict_iso={},
                 deviation_in_ppm=True,
-                 isotope_check=True, s34_check=True, common_range_check=True, in_pubchem_check=True, valency_check=True,
-                 heteroatom_check=True, normalize_scores=True,
+                 isotope_check=True, s34_check=True, min_isotope_score=0.6, no_isotope_score=0.2, common_range_check=True,
+                 score_penalty_per_common_range=0.1, in_pubchem_check=True, min_in_pubchem_score = 0.5, valency_check=True,
+                 min_valency_check_score = 0.5, heteroatom_check=True, min_heteroatom_score = 0.75, min_massdev_score=0.6,
+                 normalize_scores=True,
                 short_range_eq={'H/C': [None, None], 'O/C': [None, None], 'N/C': [None, None], 'P/C': [None, None],
                                 'S/C': [None, None]},):
 
@@ -1450,16 +1485,19 @@ def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, 
                 break
         # Calculate mass difference allowed based on the mass and ppm thresholds given
         if deviation_in_ppm:
-            mass_dif = neutral_mass - (neutral_mass*1000000/(1000000 + threshppm))
+            mass_dif_pos = -neutral_mass + (neutral_mass*1000000/(1000000 - threshppm))
+            mass_dif_neg = neutral_mass - (neutral_mass*1000000/(1000000 + threshppm))
         else:
-            mass_dif = threshppm
+            mass_dif_pos = threshppm
+            mass_dif_neg = threshppm
         # Select the formulas from the database dataframe that are within said mass difference to the mass given
         df2 = formula_db_dict[d].copy()
-        df2 = df2[df2.index<= (neutral_mass+mass_dif)]
-        df2 = df2[df2.index>= (neutral_mass-mass_dif)]
+        df2 = df2[df2.index<= (neutral_mass+mass_dif_pos)]
+        df2 = df2[df2.index>= (neutral_mass-mass_dif_neg)]
         df2['Adduct'] = adduct
         df2['Ad. Neutral Mass'] = neutral_mass
-        df2['Mass dif.'] = mass_dif
+        df2['Mass dif. pos'] = mass_dif_pos
+        df2['Mass dif. neg'] = mass_dif_neg
         # Add current adduct result to final df
         joined_df = pd.concat((joined_df, df2))
     # DataFrame with all possible candidates
@@ -1482,8 +1520,8 @@ def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, 
         if isotope_check:
             i_check, isotopic_peaks, poss_isotopic_peaks = isotope_spotting_and_check(
                 df2, data, curr_idx, threshppm, mass_col=mass_col, int_col=int_col, dict_iso=dict_iso,
-                adducts_to_consider = adducts_to_consider, no_isotope_score=0.2,
-                min_isotope_score=0.6, mass_to_intensity_f=2, intensity_deviation = 0.4, normalize=normalize_scores)
+                adducts_to_consider = adducts_to_consider, no_isotope_score=no_isotope_score,
+                min_isotope_score=min_isotope_score, mass_to_intensity_f=2, intensity_deviation = 0.4, normalize=normalize_scores)
             score_multiplier['Isotope Check'] = i_check
             if s34_check:
                 s34_check = S34_check(isotopic_peaks, poss_isotopic_peaks)
@@ -1492,22 +1530,23 @@ def form_scoring(data, curr_idx, int_col, mass_col, threshppm, formula_db_dict, 
             # Calculating all multipliers for all checks
             # In pubchem check
             if in_pubchem_check:
-                ipc_check = check_if_in_pubchem(df2, lower_limit=0.5)
+                ipc_check = check_if_in_pubchem(df2, lower_limit=min_in_pubchem_score)
                 score_multiplier['In Pubchem Check'] = ipc_check
             # Common Range Check
             if common_range_check:
-                cr_check = check_adaptable_ranges(df2, short_range_eq, normalize=normalize_scores)
+                cr_check = check_adaptable_ranges(df2, short_range_eq, score_penalty_per_common_range=score_penalty_per_common_range,
+                                                  normalize=normalize_scores)
                 score_multiplier['Common Ranges Check'] = cr_check
             # Valency Check
             if valency_check:
-                v_check = check_valency(df2, lower_limit=0.5)
+                v_check = check_valency(df2, lower_limit=min_valency_check_score)
                 score_multiplier['Valency Check'] = v_check
             # Fewer Heteroatom Check
             if heteroatom_check:
-                fha_check = fewer_heteroatom_check(df2, lower_limit=0.75)
+                fha_check = fewer_heteroatom_check(df2, lower_limit=min_heteroatom_score)
                 score_multiplier['Fewer Heteroatom Check'] = fha_check
             # Mass Deviation Check
-            md_check = mass_deviation_check(df2, threshppm, lower_limit=0.6, normalize=normalize_scores)
+            md_check = mass_deviation_check(df2, threshppm, lower_limit=min_massdev_score, normalize=normalize_scores)
             score_multiplier['Mass Deviation Check'] = md_check
 
             # Deciding which formula is chosen as the winner
