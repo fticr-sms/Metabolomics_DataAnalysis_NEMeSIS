@@ -1,7 +1,6 @@
 
 # Homepage HTML in string format
-acronym_string = '''Metabolomics Treatment and Data
-Analysis Software'''
+acronym_string = '''Novel Extreme-resolution Metabolomics Streamlined data analysis Integrated Software'''
 
 homepage_string = '''This software is geared towards FT-ICR-MS extreme-resolution <strong>mass spectrometry data</strong>.
 <br>

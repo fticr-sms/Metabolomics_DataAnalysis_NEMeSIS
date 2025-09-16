@@ -755,8 +755,16 @@ def isotope_decider(dict_iso, isotopic_peaks, df2, mass, monoiso_int, int_col, m
 def formulator(c,h,o,n,s,p,f=0,cl=0,c13=0):
     """Transforms element counts to a readable formula in string format. Element order: C, H, N, O, S, P, F, Cl (and C(13))."""
     
-    formula = "C"+str(c)+"H"+str(h)
-
+    #formula = "C"+str(c)+"H"+str(h)
+    formula = ""
+    if c > 1:
+            formula = formula + "C"+str(c)
+    else:
+        formula = formula + "C"
+    if h > 1:
+        formula = formula + "H" + str(h)
+    else:
+        formula = formula + "H"
     if cl > 0:
         if cl > 1:
             formula = formula + "Cl" + str(cl)
