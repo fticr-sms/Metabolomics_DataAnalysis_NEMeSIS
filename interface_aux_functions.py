@@ -1277,9 +1277,12 @@ def _scatter_PCA_plot(PCA_params, target_list):
 def _plot_HCA(HCA_params, target_list):
     "Plots HCA Dendrogram."
     f, ax = plt.subplots(1, 1, figsize=(HCA_params.fig_x, HCA_params.fig_y), constrained_layout=True)
+    col_dict = {}
+    for a, b in zip(target_list.target, target_list.sample_cols):
+        col_dict[b]  = target_list.color_classes[a]
     plot_dendogram(HCA_params.Z,
-                   target_list.target, ax=ax,
-                   label_colors=target_list.color_classes,
+                   target_list.sample_cols, ax=ax,
+                   label_colors=col_dict,
                    x_axis_len=HCA_params.fig_x,
                    color_threshold=HCA_params.col_threshold)
     return f
