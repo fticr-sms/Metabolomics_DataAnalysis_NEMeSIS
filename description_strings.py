@@ -73,11 +73,9 @@ forgot to re-apply posterior pre-treatment steps.</p>
 to build them in the name, it is a good practice to keep in mind what parameters were used to make these figures and tables,
 especially those that do not update with every parameter change to safeguard possible errors that may arise in the filenames
 generated.</p>
-<p>- All tables saved will be downloaded to your current working directory, that is the folder where you are running the
-interface from. As for figures, there are figures that were created using the Python package "Plotly" (interactive figures)
-and others created using the Python package "Matplotlib" (static figures). The former are saved in your downloads and are
-downloaded using the toolbar that appears at the top right of the figure when hovering over it. The latter are saved using
-an available button in the software and are downloaded to the current working directory identically to the tables.</p>
+<p>- All tables and figures the 'Downloads' folder. Interactive figures are downloaded using the toolbar that appears at the
+top right of the figure when hovering over it. Non-interactive figures are saved using an available button in the software. The
+generated report folder is put on the current working directory, that is, the folder where NEMeSIS is.</p>
 <p>- When you start running something there is not a way to stop the process. You can observe if the program is running by
 observing the little circle on the top right. If there is something currently running it will have this aspect:
 <img src="data:image/png;base64,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"
@@ -103,8 +101,7 @@ opened again.</p>
 is once again a problem fixed by refreshing.</p>
 <p>- Do not mash the buttons many times, it will buffer the clicks. See first on the upper right if the program is running or not.</p>
 <p>- Other known issues have smaller consequences and affect specific pages. When they exist, a little note in bold will
-indicate the problem at the beginning of the corresponding page. In general, there is in average 1 possible issue in each
-page of the analysis section.</p>
+indicate the problem at the beginning of the corresponding page.</p>
 <p><br></p>
 <p><strong>Performance of the Different Parts of the Program</strong></p>
 <p>- The program generally runs smoothly and quickly with low latency. The exceptions are the very first page
@@ -116,7 +113,7 @@ be analyzed, the slower the analysis is and vice-versa.</p>
 <p>We hope you find this software useful.</p>
 <p><br></p>
 <p>With our best regards,</p>
-<p>The FT-ICR-SMS Laboratory MetsTA Development Team</p>'''
+<p>The FT-ICR-SMS Laboratory NEMeSIS Development Team</p>'''
 
 
 # Data Reading Description HTML in string format
@@ -125,12 +122,12 @@ data_reading_opening_string ='''<strong>Input your Excel or csv MetaboScape file
 <br>
 This process can take a while for larger datasets.
 <br>
-If your file is not from MetaboScape, it should have the feature peak column be the first column in your data. This column
-should represent the metabolic features either their "neutral mass" or m/z values obtained in either positive or negative
-ionization mode (choose accordingly based on your data). If it is the former, a Neutral Mass column will be generated with
-those values; if it is the latter, a Probable m/z column will be generated with those values. Albeit not necessary, it will
-allow to perform annotation later on in the software. <strong>Avoid the existence of a column named "Neutral Mass" or
-'Probable m/z' on your data.</strong>
+The inputted file should have the feature peak column be the first column in your data. This column should represent the
+metabolic features either their "neutral mass" or <em>m/z</em> values obtained in either positive or negative ionization
+mode (choose accordingly based on your data). If it is the former, a Neutral Mass column will be generated with those
+values; if it is the latter, a Probable <em>m/z</em> column will be generated with those values. Albeit not necessary, it
+will allow to perform annotation later on in the software. <strong>Avoid the existence of a column named "Neutral Mass" or
+'Probable <em>m/z</em>' on your data.</strong>
 <br>
 <br>
 In general, your file should have your detected features in the rows and sample data and meta data in the columns. The
@@ -138,11 +135,11 @@ detected features should be in the first column which must be named 'Bucket Labe
 meta data columns to separate them from the remaining ones.
 <br>
 <br>
-If the 'Bucket Label' can be interpreted as a float (number), an extra column called either 'Neutral Mass' or 'Probable m/z'
-will be automatically added to your data.
+If the 'Bucket Label' can be interpreted as a float (number), an extra column called either 'Neutral Mass' or 'Probable
+<em>m/z</em>' will be automatically added to your data.
 <br>
 Otherwise, a notification will inform that this column could not be added. If it could not be created in this way, you will
-not be able to perform annotation using this software.
+not be able to perform annotation (database annotation or formula assignment) using this software.
 <br>
 Currently, after confirming your dataset and moving to the next page, you will not be able to change it unless you restart
 the program or reset every variable.
@@ -171,41 +168,44 @@ A full list of parameters loaded in can be viewed by opening the corresponding j
 
 
 # Data Filtering Opening Description HTML in string format
-data_filtering_opening_string="""Data Filtering can be performed here in 4 successive stages, each with their purpose and objective. Each stage
-can be skipped as well and we even recommend to skip some of them depending on the type of data you are utilizing.
+data_filtering_opening_string="""Data Filtering can be performed here in 4 successive stages, each with their purpose and
+objective. Each stage can be skipped as well and we even recommend to skip some of them depending on the type of data you
+are utilizing.
 <br>
 <br>
 The stages are:
 <br>
 <br>
-<strong>1) Filtering based on the number of samples each feature appears in.</strong> This will only include features that appear in a determined
-number of either the total samples of the dataset or of at least the samples of one class. (Filter experimental artifacts, for example).
+<strong>1) Filtering based on the number of samples each feature appears in.</strong> This will only include features that appear
+in a determined number of either the total samples of the dataset or of at least the samples of one class. (Filter experimental
+artifacts, for example).
 <br>
 <br>
-<strong>2) Filtering based on intensity values.</strong> This will filter metabolic features based on their intensity values as calculated by the
-mean or median over the samples they appear in, removing lower intensity features. A hard threshold with a set intensity value is used or a
-percentage based threshold where the percent lowest intensity of features are removed.
+<strong>2) Filtering based on intensity values.</strong> This will filter metabolic features based on their intensity values as
+calculated by the mean or median over the samples they appear in, removing lower intensity features. A hard threshold with a set
+intensity value is used or a percentage based threshold where the percent lowest intensity of features are removed.
 <br>
 <br>
-<strong>3) Filtering based on the feature variance of Quality Control samples.</strong> Only available if you have at least three QC samples as
-selected in the previous page. This will eliminate features that have the a variance in the quality control samples (where they should be
-equal) as estimated by relative standard deviation (standard deviation / mean) above a determined threshold, since that points that they are not
-reproducible. Features that do not appear in the QC samples are assumed to have 0 variance.
+<strong>3) Filtering based on the feature variance of Quality Control samples.</strong> Only available if you have at least three
+QC samples as selected in the previous page. This will eliminate features that have high variance in the quality control samples
+(where they should be equal) as estimated by relative standard deviation (standard deviation / mean) above a determined threshold,
+since that points that they are not reproducible. Features that do not appear in the QC samples are assumed to have 0 variance.
 <br>
 <br>
-<strong>4) Filtering based on the feature variance of analysed samples.</strong> This filtering is not recommended to use if you are looking for
-exclusive metabolic features in the classes of your datasets or if you aim to use feature occurrence data. It will filter out the lowest variance
-features across the samples since their intensity patterns would not be informative.
+<strong>4) Filtering based on the feature variance of analysed samples.</strong> This filtering is not recommended to use if you
+are looking for exclusive metabolic features in the classes of your datasets or if you aim to use feature occurrence data. It
+will filter out the lowest variance features across the samples since their intensity patterns would not be informative.
 """
 
 
 
 # Formula Assignment Opening Description HTML in string format
-formula_assignment_opening_string = """Here Formula Assignment is made according to our algorithm. In-depth description
-of the criteria and steps the algorithm makes are detailed in the software documentation. It uses its default formula
+formula_assignment_opening_string = """Here Formula Assignment is made according to our ScoreForm algorithm. In-depth
+description of the criteria and steps of ScoreForm are detailed in the **preprint**. It uses its default formula
 database unless it is changed with the FormulaDatabaseCreator.ipynb notebook (if changed make sure their name follows
 the convention 'formulas_improved_dict{lowest molecular mass allowed in file}.csv', for example 'formulas_improved_dict250.csv').
-It is geared towards assignment up to 1250 Da.
+It is geared towards assignment up to 1250 Da. To perform Formula Assignment, the FormulaDatabaseCreator.ipynb must be ran
+at least once before.
 <br>
 <br>
 Parameters used that are shared with data annotation have to be changed in the data annotation page (even if it is not
@@ -230,30 +230,29 @@ attention that can arise when multiple annotations are performed on the data (to
 metabolic features with the same annotation in a database used, features are <strong>merged by keeping the highest
 intensity value in each sample if representing the same adduct and summed if they correspond to different adducts</strong>
 of the features with the same annotations. Thus, there is a total of 4 possible situations:</p>
-<p>- <strong>Situation 1 (Overwrite)</strong>: Multiple metabolic features have the same annotation for one annotation
-database (and no other database has different annotations for those features) with the highest intensity values coming all
-from one metabolic feature that becomes the <em>de facto</em> metabolic feature with others being erased.</p>
-<p>- <strong>Situation 2&nbsp;(Merge Same Adducts)</strong>: Multiple metabolic features have the same annotation for one
-annotation database (and no other database has different annotations for those features) with the highest intensity coming
-from at least two different metabolic features and <strong>ALL</strong> features come from the same adduct.
-&apos;Bucket Label&apos; and the &apos;Mass&apos; columns become the weighted average (based on the average intensity of the
-features) of all the features with the same annotation. Since this software does not yet allow for adduct information, this
-is the approach used always between situation 2 and 3.</p>
+<p>- <strong>Situation 1 (Overwrite)</strong>: Multiple metabolic features have the same annotation for all annotation
+databases with the highest intensity values coming all from one metabolic feature that becomes the <em>de facto</em>
+metabolic feature with others being erased.</p>
+<p>- <strong>Situation 2&nbsp;(Merge Same Adducts)</strong>: Multiple metabolic features have the same annotation for all
+annotation databases (and no other database has different annotations for those features) with the highest intensity coming
+from at least two different metabolic features and <strong>ALL</strong> features come from the same adduct. For each sample,
+the highest intensity is kept. &apos;Bucket Label&apos; and the &apos;Mass&apos; columns become the weighted average (based
+on the average intensity of the features) of all the features with the same annotation.</p>
 <p>&nbsp;- <strong>Situation 3&nbsp;(Merge Different Adducts)</strong>: Identical to Situation 2 but there is at least one
-metabolic feature that comes from a different adduct (intensities are summed).</p>
+metabolic feature that comes from a different adduct. For each sample, the highest intensity of metabolic features from the
+same adduct are kept. Then, the intensities of metabolic features of different adducts are summed.</p>
 <p>- <strong>Situation 4&nbsp;(Contradictions - Possible Problem Situation)</strong>: Multiple metabolic features have the
-same annotation for one annotation database and different for another annotation database. Most of the time there is no issue.
-For example, imagine a case where we have annotated with two databases: HMDB and LOTUS. <strong>Scenario 1:</strong> We find
-that HMDB puts two different compounds for 2 metabolic features and LOTUS puts the same compound. Here, it is fair to treat
-them as different features and this is the default behaviour. However, if one annotation is less reliable, for example a
-formula annotation, you may prefer to merge the peaks despite this. <strong>Scenario 2:</strong> However, rarely, there can
+same annotation for one annotation database and different for another. Most of the time there is no issue. For example, imagine
+a case where we have annotated HMDB compounds and ScoreForm assigned formulas. <strong>Scenario 1:</strong> We find
+that HMDB puts two different compounds for 2 metabolic features and ScoreForm assigns the same formula. Here, it is fair to treat
+them as different features and this is the default behaviour. <strong>Scenario 2:</strong> However, rarely, there can
 be a case where there are <strong>more than 2 metabolic features</strong> with the same compound annotated in HMDB. This
 should <strong>be quite rare and it is from where the problem arises</strong>. A scenario can arise where HMDB puts the same
-compound for 4 features and LOTUS assigns to one of them one compound, to a second one a different compound and the last two
-ones does not assign a compound at all. What is the correct course of action? &nbsp;Perhaps merging the two peaks with no
-annotation by LOTUS, maybe merging those two peaks with one of those annotated by LOTUS since they would be normally merged
-if not for the existence of two different LOTUS annotations. Hence, the problem. We concluded that they should be seen on a
-<strong>case-by-case basis&nbsp;</strong> and are thus not merged.</p>
+compound for 4 features and ScoreForm assigns to one of them one formula, to a second one a different formula and the last two
+no formula at all. What is the correct course of action? &nbsp;Perhaps merging the two peaks with no annotation by ScoreForm,
+maybe merging those two peaks with one of those annotated by ScoreForm since they would be normally merged if not for the
+existence of two different ScoreForm annotations. Hence, the problem. They should be seen on a <strong>case-by-case
+basis&nbsp;</strong> and are thus not merged.</p>
 <p><br></p>
 <p><h3>Initial report of the observable multiple annotations for each annotation (including formula
 annotation) performed</h3></p>'''
@@ -281,7 +280,7 @@ As the number of components (Latent Variables) to use in a model such as this on
 start with an optimization of this number. This is performed by fitting a PLS model in your data from a chosen initial
 number of starting components to a chosen final number of components. The <strong>Q<sup>2</sup> and R<sup>2</sup></strong>
 scores are then estimated by stratified cross-validation (number of folds <strong>K</strong> is also chosen by the user).
-The chosen number of components should be the number <strong>where Q<sup>2</sup> specifically</strong> stops increasing. A
+The chosen number of components should be the number <strong>where Q<sup>2</sup></strong> stops increasing. A
 figure is provided to evaluate this. The maximum number of components chosen cannot be higher than the number of samples
 that will train a model minus 1. For example, if you have 15 samples and a 3-fold cross-validation each fold will have 5
 samples. A training set will be comprised of two of those folds thus it will have 10 samples, thus the number of components
@@ -295,7 +294,7 @@ it usually stabilizes but from a certain point it might start to decrease which 
 <br>
 - <strong>R<sup>2</sup></strong> - Mean squared error of PLS-DA predictions based on the training samples used to train
 the model (it will be higher than <strong>Q<sup>2</sup></strong> but it should not be used to choose the number of
-components. This metric always increases with more components (estimation errorss might lead to temporary decreases)
+components. This metric always increases with more components (estimation errors might lead to temporary decreases)
 which means it will overfit the model eventually.
 <br>
 <br>
@@ -322,12 +321,11 @@ Testing (<strong>slow</strong>) can be performed to observe if the model and res
 rf_opening_string = """Here, <strong>Random Forest (RF)</strong> models can be built.
 <br>
 <br>
-First, a focus on the optimization of the <strong>number of trees</strong> to use to build the Random Forest models is
-available. This will allow the user to choose an optimal number of trees by observing the estimated accuracy of Random
-Forest models (by stratified cross validation - number of folds <strong>K</strong> chosen by the user). The usual pattern
-is that the accuracy will increase until a certain number of trees and will then fluctuate around that accuracy. Since RF
-are somewhat resistant to overfitting, the value chosen will be one where the accuracy has stop increasing but not too high
-as to make the model training too slow.
+An optimization of the <strong>number of trees</strong> to use to build the Random Forest models is available. This will
+allow the user to choose an optimal number of trees by observing the estimated accuracy of Random Forest models (by
+stratified cross validation). The usual pattern is that the accuracy will increase until a certain number of trees and will
+then fluctuate around that accuracy. Since RF are somewhat resistant to overfitting, the value chosen will be one where the
+accuracy has stop increasing but not too high as to make the model training too slow.
 <br>
 <br>
 After this optimization, a RF model can be fitted with the chosen parameters and number of trees. Model performance
@@ -348,7 +346,7 @@ significative.
 permutation_test_description = '''Permutation tests permutate  the class labels of the samples, that is, all classes will
 be randomized while maintaining the same number of samples per class and classes. For each permutation, model performance is
 assessed by stratified cross-validation exactly as the previous sections. These performances are then compared with the
-performance of a single iteration of a model built based on the non-permutated model that appears with a red line. Thus,
+performance of a single iteration of a model built based on the non-permuted model that appears with a red line. Thus,
 this red line might not be exactly the same value as the average model performance obtained in the supervised model (PLS-DA
 or Random Forest) fitting section.
 <br>
@@ -360,7 +358,7 @@ then the remaining results from the important features give meaningful informati
 <strong>Note: Permutation tests are slow to be computed.</strong>
 <br>
 <br>
-P-value is calculated using the following equation:'''
+<em>P</em>-value is calculated using the following equation:'''
 
 
 # ROC Curve Description HTML in string format
@@ -370,7 +368,7 @@ ROC_curve_description = '''
 Rate by the False Positive Rate. Hence, one class has to be considered as the <strong><em>positive</em></strong> class.
 Thus, this methodology, although possible in multiclass cases, is more suited for when you have a dataset with 2 classes.
 When you have more than 2 classes, a ROC curve will be computed for each class considered as the positive by fitting a
-"1vsAll" model, that is the class of each sample is either the current positive class or "Other". Thus, there will likely
+"1vsAll" model, that is, the class of each sample is either the current positive class or "Other". Thus, there will likely
 be many more negative samples than positive samples in each case, greatly increasing the importance of the latter for the
 curve of each class.
 <br>
@@ -390,7 +388,7 @@ univ_opening_string = '''In this section, both Univariate Analysis and Fold-Chan
 <br>
 The Fold change is calculated in a dataset with missing values imputed and normalized after. <strong>This means that with
 our very high number of missing values in FT-ICR-MS data, it affects the calculation of the fold change a lot. Thus, take
-this fold changes values with a grain (or multiple grains that are actually more like rocks than grains) of salt.</strong>
+this fold change values with a grain (or multiple grains that are actually more like rocks than grains) of salt.</strong>
 It is thus more suited to when there are a low number of missing values in your data since calculation of the fold change
 between the classes is severely affected with missing values since it is calculated after missing values imputation and
 normalization.
@@ -477,10 +475,9 @@ This section plots a Chemical Composition Series bar plot indicating how many fo
 You can decide if you want to use formula annotations made previously, made in this software or a combination. <strong>If
 multiple formulas</strong> can be assigned to the same metabolic feature whether within the same formula annotation made or
 between different annotations, <strong>each one will be counted in this plot</strong>. That is, if a peak in a class has 3
-possible candidate formulas, 2 belonging to the 'CHO' series and another to the 'CHOP' series; then 2 formulas will be added
-to the 'CHO' series and 1 to the 'CHOP' series. Thus, we are considering that the 3 elementary formulas are represented by
-that feature (probably an overestimation). In all cases, it is rare to find multiple candidate formulas for the same feature,
-especially with extreme-resolution data. To provide an idea of how extensive this effect is, a description is also provided
+possible formulas, 2 belonging to the 'CHO' series and another to the 'CHOP' series; then 2 formulas will be added
+to the 'CHO' series and 1 to the 'CHOP' series. Thus, we are considering that the 3 elemental formulas are represented by
+that feature (probably an overestimation). To provide an idea of how extensive this effect is, a description is also provided
 detailing how many formulas are being considered for each class and from how many different features (<em>m/z</em> peaks)
 they came from.
 '''
@@ -514,32 +511,27 @@ by the sheer number of metabolites in these pathways and the large background se
 on smaller pathways that have multiple annotated metabolites.
 <br>
 <br>
-Multiple peaks with the same annotation will all be considered as individual entries, however, peaks that have multiple
-that could correspond to multiple metabolites in the same pathway will be counted as a single metabolites. So, analysis
-of the relevant pathways should be performed. For each pathway (and each class), you may search for the corresponding
-relevant metabolic features associated.
+Multiple peaks with the same annotation will all be considered as individual entries. Peaks that have multiple
+annotations that could correspond to multiple metabolites in the same pathway will be counted as a single metabolite.
+So, analysis of the relevant pathways should be performed. For each pathway (and each class), you may search for the
+corresponding relevant metabolic features associated.
 <br>
 <br>
-<strong>Select Method to Identify Significant Metabolites</strong>
-<br>
-Select through which method is desired to select the significant metabolites (`method_for_significant`) and the threshold
-used in each case (`threshold_for_significant`) explained next to them. The significant metabolites have to have associated
-at least 1 pathway. In each case it will only work if one of the methodologies has been previously ran.
+Select through which method is desired to select the significant metabolites and the threshold used in each case explained
+next to them. The significant metabolites have to have associated at least 1 pathway. In each case it will only work if one
+of the methodologies has been previously ran.
 <br>
 - <strong>RF Gini Importance</strong> - Threshold is the top % of ranks considered significant (e.g. 0.20 for 20%).
 <br>
 - <strong>PLS-DA Feat. Importance</strong> - Threshold is the top % of ranks considered significant if below 1 (e.g. 0.20
-for 20%) or the threshold for importance if higher that should only be used for VIP Scores (e.g. 1 for VIP scores above
-1 - recommended) - <strong>Default</strong>.
-<br>
-- <strong>XGBoost Feat. Importance</strong> - Threshold is the top % of ranks considered significant (e.g. 0.20 for 20%).
+for 20%) or the threshold for importance if higher that should only be used for VIP Scores - <strong>Default</strong>.
 <br>
 - <strong>1v1 Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction) _p_-value from
-the univariate analysis (e.g. 0.05 for adjusted _p_-values under 0.05). It also has the `test_class_spec` specific parameter
-to select a specific test class against your control class in case you have more than 2 classes.
+the univariate analysis (e.g. 0.05 for adjusted <em>p</em>-values under 0.05). It also has the `test_class_spec` specific
+parameter to select a specific test class against your control class in case you have more than 2 classes.
 <br>
 - <strong>Multiclass Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction) _p_-value
-from the univariate analysis (e.g. 0.05 for adjusted _p_-values under 0.05).
+from the univariate analysis (e.g. 0.05 for adjusted <em>p</em>-values under 0.05).
 """
 
 
@@ -558,7 +550,7 @@ have) as feature occurrence should be more robust and therefore reproducible. Fu
 to the usual intensity-focused analysis offering a complementary perspective.
 <br>
 <br>
-For more information on this methodology, check out our paper on it at: <strong><a data-fr-linked="true"
+For more information on this methodology, check out our paper on it: <strong><a data-fr-linked="true"
 href="https://www.mdpi.com/2218-1989/11/11/788">https://www.mdpi.com/2218-1989/11/11/788</a></strong>.
 <br>
 Citation: Traquete F, Luz J, Cordeiro C, Sousa Silva M, Ferreira AEN. Binary Simplification as an Effective Tool in
@@ -581,13 +573,13 @@ Furthermore, to perform the generation, <strong>all relevant figure and tables w
 right now.</strong>
 <br>
 <br>
-A folder with the chosen name will be created (or overwritten) in your working directory. The report as well as all images
+A folder with the chosen name will be created in your working directory. The report as well as all images
 and tables present or mentioned in said report will be downloaded and stored in this folder. Once again, figures will be
 shown <strong>exactly</strong> as they were left in the analysis. Please select a folder name that does not yet exist in
 your working directory.
 <br>
 <br>
-<strong>Note 1</strong>: An attempt is made to correctly describe the parameters that led to the results obtained in each
+<strong>Note</strong>: An attempt is made to correctly describe the parameters that led to the results obtained in each
 part but we cannot be sure that the figures shown are 100% represented by the parameters described since errors may arise
 in parameter saving.
 '''

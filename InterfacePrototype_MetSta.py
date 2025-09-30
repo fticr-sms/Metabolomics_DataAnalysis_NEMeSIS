@@ -6390,7 +6390,7 @@ class PathwayORA_Storage(param.Parameterized):
                         options=['PLS-DA Feature Importance', 'RF Feature Importance',
                                  '1v1 Univariate Analysis', 'Multiclass Univariate Analysis'],
                        inline=False),
-            'type_of_ORA_threshold': pn.widgets.FloatInput(name='FloatInput', value=0.25, step=1e-1, start=0, end=1,
+            'type_of_ORA_threshold': pn.widgets.FloatInput(name='Threshold', value=0.25, step=1e-1, start=0, end=1,
                        description="For RF and PLS-DA, the % of important features to consider, for Univ. analysis, the maximum adjusted p-value accepted."),
             'confirm_button_ORA': pn.widgets.Button(name="Perform Over-Representation Analysis", button_type='primary', disabled=True),
         }
