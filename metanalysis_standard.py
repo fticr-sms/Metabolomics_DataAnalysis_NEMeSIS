@@ -2517,3 +2517,59 @@ def calc_kmd(data, rounding='up', neutral_mass_col='Neutral Mass'):
             raise ValueError("Rounding method not accepted. Available methods are: 'nearest' or 'up'.")
 
     return nominal, fraction
+
+
+def plot_PCA_loading_arrows(series, principaldf, loadings, var_exp,
+                            n_components, top_features=None, method='top_variance', ax=None):
+    """Draw Loading arrows of top n features.
+
+     Based on idea and taken from St. Ovf. thread (Qiyun Zhu answer).
+     https://stackoverflow.com/questions/39216897/plot-pca-loadings-and-loading-in-biplot-in-sklearn-like-rs-autoplot."""
+
+    if ax is None:
+        ax = plt.gca()
+
+    # Taken from Stack Overflow
+    if top_features:
+        # Method 1: Find top arrows that appear the longest (i.e., furthest from the origin) in the visible plot
+        if method == 'top_longest':
+            tops = (loadings ** 2).sum(axis=1).argsort()[-top_features:]
+            loadings_to_plot = loadings[tops]
+            idxs = np.array(series.index)[tops]
+
+        # Method 2: Find top features that drive most variance in the visible PCs:
+        elif method == 'top_variance':
+            tops = (np.abs(loadings) * var_exp).sum(axis=1).argsort()[-top_features:]
+            loadings_to_plot = loadings[tops]
+            idxs = np.array(series.index)[tops]
+
+        else:
+            raise ValueError('Method is not accepted. It should be one of "top_longest" or "top_variance".')
+
+        # Scale the loadings so they are easier to interpret since their absolute values have no grand meaning
+        loadings_to_plot /= np.sqrt((loadings_to_plot ** 2).sum(axis=0))
+        loadings_to_plot = loadings_to_plot * np.array(np.abs(principaldf.iloc[:,:n_components]).max(axis=0))
+
+        # Empirical formula to determine arrow width (according to St. Ovf. Answer)
+        width = -0.005 * np.min([np.subtract(*plt.xlim()), np.subtract(*plt.ylim())])
+
+        # Draw arrows
+        for arrow in range(top_features):
+            ax.arrow(0,0, loadings_to_plot[arrow,0], loadings_to_plot[arrow,1], alpha=0.7, ec='none', width=width,
+                     color='grey', length_includes_head=True)
+            ax.text(loadings_to_plot[arrow,0]*1.04, loadings_to_plot[arrow,1]*1.04, idxs[arrow],
+                     ha='center', va='center')
+        return
+
+    # Scale the loadings so they are easier to interpret sicne their absolute values have no grand meaning
+    loadings_to_plot = loadings * np.array(np.abs(principaldf.iloc[:,:n_components]).max(axis=0))
+
+    # Empirical formula to determine arrow width (according to St. Ovf. Answer) but thinner
+    width = -0.005 * np.min([np.subtract(*plt.xlim()), np.subtract(*plt.ylim())])
+
+    # Draw arrows
+    for arrow in range(len(series)):
+        ax.arrow(0,0, loadings_to_plot[arrow,0], loadings_to_plot[arrow,1], alpha=0.7, ec='none', width=width,
+                 color='grey', length_includes_head=True)
+        ax.text(loadings_to_plot[arrow,0]*1.04, loadings_to_plot[arrow,1]*1.04, series.index[arrow],
+                 ha='center', va='center')
