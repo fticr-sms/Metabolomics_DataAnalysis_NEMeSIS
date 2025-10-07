@@ -1715,7 +1715,7 @@ def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list):
         filt_uni_results = filt_uni_results.drop(columns='abs_log2FC')
 
         # Returns results (for 2 classes, there is no comprehensive dictionary of results)
-        return univariate_df, {UnivarA_Store.test_class:univariate_df}, filt_uni_results, univariate_results, {UnivarA_Store.test_class:filt_uni_results}
+        return DataFrame_Store.treated_df, {UnivarA_Store.test_class:DataFrame_Store.treated_df}, filt_uni_results, univariate_results, {UnivarA_Store.test_class:filt_uni_results}
 
 
     # More than 2 classes
@@ -1813,6 +1813,27 @@ def _plot_Volcano_plot(results_df, UnivarA_Store):
         title_x=0.45)
 
     return fig
+
+
+def _plot_clustermap(UnivarA_Store, treated_data):
+    "Plots Clustermap with seaborn."
+    if UnivarA_Store.type_of_selection == 'Top Significant Features':
+        heat_index = list(UnivarA_Store.univariate_results_non_filt.index[:UnivarA_Store.n_sig_feats])
+    else:
+        filtered_df_plot = UnivarA_Store.univariate_results_non_filt
+        heat_index = list(filtered_df_plot[filtered_df_plot['FDR adjusted p-value'] < UnivarA_Store.alpha_threshold].index)
+    filtered_df_plot = treated_data.T.loc[heat_index].T
+
+    # Plot the clustermap
+    g = sns.clustermap(filtered_df_plot, cmap='RdBu_r', # Select colormap to use
+            figsize=(12, 6), xticklabels=1) # Make sure every ytick appears
+    # Adjust plot characteristics
+    g.ax_heatmap.set_xticklabels(g.ax_heatmap.get_xmajorticklabels(), fontsize=7)
+    g.ax_heatmap.set_xlabel('')
+    plt.setp(g.ax_heatmap.get_yticklabels(), rotation=0)
+    g.figure.tight_layout()
+
+    return g
 
 
 def _univariate_intersections(UnivarA_Store, DataFrame_Store):

@@ -984,11 +984,16 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
             univ_pg.add_run(f'{univ_parameters["Test"]}').bold = True
             univ_pg.add_run(f' considering the variance between classes ')
 
-            # Name of the string file to save tables and volcano plot as
+            # Name of the string file to save tables and volcano plot and clustermap as
             test_performed = univ_parameters["Test"].split(' ')[0]
             filename_string_abv = f'{univ_parameters["Test Class"]}_vs_{univ_parameters["Control Class"]}_{test_performed}'
+            filename_string_abv_cluster = f'Cluster_Univar_' + filename_string_abv
             filename_string_abv = filename_string_abv + f'_pvalue{univ_parameters["p-value"]}_FC'
             filename_string_abv = filename_string_abv + f'{univ_parameters["Fold Change Threshold"]}'
+            if univ_parameters["type_of_selection"] == 'Top Significant Features':
+                filename_string_abv_cluster = filename_string_abv_cluster + f'_{univ_parameters["n_sig_feats"]}TopSigFeats.png'
+            else:
+                filename_string_abv_cluster = filename_string_abv_cluster + f'_{univ_parameters["alpha_threshold"]}pvalueThreshold.png'
 
             # Continuing description and Filename
             if univ_parameters["Expected Equal Var."]:
@@ -1034,6 +1039,19 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
             UnivarA_Store.Volcano_fig[0].write_html(folder+'/Report_VolcanoPlot - '+filename_string_abv+".html")
             # Adding figure
             document.add_picture(folder+'/Report_VolcanoPlot - '+filename_string_abv+'.png', width=Cm(12))
+
+            univ_pg4 = document.add_paragraph('Clustermap comparing test Vs control class treated intensities is stored in ')
+            univ_pg4.add_run(f"'{filt_filename_string[1:]}' and shown below.")
+            if univ_parameters["type_of_selection"] == 'Top Significant Features':
+                univ_pg4.add_run(f" The clustermap shows the top {UnivarA_Store.n_sig_feats} significant features.")
+            else:
+                univ_pg4.add_run(f" The clustermap shows all metabolics features with adjusted p-values below ")
+                univ_pg4.add_run(f"{UnivarA_Store.alpha_threshold}.")
+
+            # Saving Volcano Plot figure and adding it to the document
+            UnivarA_Store.clustermap_fig[0].fig.savefig(folder+'/Report_'+filename_string_abv_cluster+'.png', dpi=400)
+            # Adding figure
+            document.add_picture(folder+'/Report_'+filename_string_abv_cluster+'.png', width=Cm(15))
 
         # End of section
         document.add_page_break()
@@ -1892,7 +1910,10 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
                                                     'fold_change_threshold': UnivarA_Store.fold_change_threshold,
                                                     'color_non_sig': UnivarA_Store.color_non_sig,
                                                     'color_down_sig': UnivarA_Store.color_down_sig,
-                                                    'color_up_sig': UnivarA_Store.color_up_sig,}
+                                                    'color_up_sig': UnivarA_Store.color_up_sig,
+                                                    'type_of_selection': UnivarA_Store.type_of_selection,
+                                                    'n_sig_feats': UnivarA_Store.n_sig_feats,
+                                                    'alpha_threshold': UnivarA_Store.alpha_threshold}
         # Update to actually used parameters if possible
         if 'Test' in UnivarA_Store.current_univ_params:
             params_to_be_saved['Univariate Analysis']['univariate_test'] = UnivarA_Store.current_univ_params['Test']
@@ -1901,6 +1922,10 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
             params_to_be_saved['Univariate Analysis']['p_value_threshold'] = UnivarA_Store.current_univ_params['p-value']
             params_to_be_saved['Univariate Analysis']['fold_change_threshold'] = UnivarA_Store.current_univ_params[
                 'Fold Change Threshold']
+            params_to_be_saved['Univariate Analysis']['type_of_selection'] = UnivarA_Store.current_univ_params['type_of_selection']
+            params_to_be_saved['Univariate Analysis']['n_sig_feats'] = UnivarA_Store.current_univ_params['n_sig_feats']
+            params_to_be_saved['Univariate Analysis']['alpha_threshold'] = UnivarA_Store.current_univ_params['alpha_threshold']
+
 
 
         # Saving Data Diversity Visualization Related Parameters
@@ -2216,6 +2241,9 @@ def loading_parameters_in(params_to_load, data_filtering, n_databases_show, n_da
             UnivarA_Store.color_non_sig = params_to_load['Univariate Analysis']['color_non_sig']
             UnivarA_Store.color_down_sig = params_to_load['Univariate Analysis']['color_down_sig']
             UnivarA_Store.color_up_sig = params_to_load['Univariate Analysis']['color_up_sig']
+            UnivarA_Store.type_of_selection = params_to_load['Univariate Analysis']['type_of_selection']
+            UnivarA_Store.n_sig_feats = params_to_load['Univariate Analysis']['n_sig_feats']
+            UnivarA_Store.alpha_threshold = params_to_load['Univariate Analysis']['alpha_threshold']
             UnivarA_Store.compute_fig = True
 
         # Loading Data Diversity Visualization Related Parameters:

@@ -50,7 +50,6 @@ pd.DataFrame.iteritems = pd.DataFrame.items
 
 # TODO: Make a way to choose folder where all figures and tables downloaded go to
 # TODO: Updating packages made a series of future deprecation warnings appear - adapt code to them
-# TODO: Make PCA and projection plots save the current components names in the filename
 
 
 # Define pages as classes
@@ -5033,6 +5032,13 @@ class UnivariateAnalysis_Store(param.Parameterized):
     color_up_sig = param.Color(default=mpl.colors.CSS4_COLORS['lightcoral'])
     Volcano_fig = param.List(default=['To Plot a Volcano Plot'])
 
+    # Clustermap Parameters
+    type_of_selection = param.String(default='Top Significant Features')
+    n_sig_feats = param.Number(default=50)
+    alpha_threshold = param.Number(default=0.05)
+    confirm_button_clustermap = param.Boolean(default=False)
+    clustermap_fig = param.List(default=['To Plot a Clustermap'])
+
     # Parameters and DataFrame of chosen sub-section of test_classes
     test_class_subset = param.List(default=list())
     show_annots_only = param.Boolean(default=False)
@@ -5049,7 +5055,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
     # Store Multiclass Univariate Test Parameters
     current_multiclass_univ_params = param.Dict({})
 
-    # Store Univariate results
+    # Store Multiclass Univariate results
     multiclass_univariate_results = param.DataFrame()
     multiclass_univariate_results_non_filt = param.DataFrame()
 
@@ -5139,6 +5145,19 @@ class UnivariateAnalysis_Store(param.Parameterized):
         _updating_univariate_analysis_page_layout()
 
 
+    # Function to confirm and perform Univariate Analysis
+    def _confirm_button_clustermap(self, event):
+        "Build Clustermap Figure."
+
+        fig = iaf._plot_clustermap(self, self.univariate_df)
+        self.clustermap_fig[0] = fig
+        layout_clustermap[1] = pn.pane.Matplotlib(self.clustermap_fig[0].fig, height=400)
+        UnivarA_Store.current_univ_params['type_of_selection'] = self.type_of_selection
+        UnivarA_Store.current_univ_params['n_sig_feats'] = self.n_sig_feats
+        UnivarA_Store.current_univ_params['alpha_threshold'] = self.alpha_threshold
+        save_clustermap_button.disabled = False
+
+
     # Update the Volcano plot
     @param.depends('color_non_sig', 'color_down_sig', 'color_up_sig', watch=True)
     def _update_Volcano_plot(self):
@@ -5176,6 +5195,17 @@ class UnivariateAnalysis_Store(param.Parameterized):
         iaf._univariate_intersections(self, DataFrame_Store)
         layout_final_section[0][1] = self.inter_description
         layout_final_section[1] = pn.pane.DataFrame(self.specific_cl_df, height=600)
+
+
+    @param.depends('type_of_selection', watch=True)
+    def _update_clustermap_widgets(self):
+        "Update the clustermap widgets."
+        if self.type_of_selection == 'Top Significant Features':
+            self.clustermap_controls.widgets['n_sig_feats'].disabled = False
+            self.clustermap_controls.widgets['alpha_threshold'].disabled = True
+        else:
+            self.clustermap_controls.widgets['n_sig_feats'].disabled = True
+            self.clustermap_controls.widgets['alpha_threshold'].disabled = False
 
 
     def reset(self):
@@ -5221,6 +5251,18 @@ class UnivariateAnalysis_Store(param.Parameterized):
                     'show_annots_only': pn.widgets.Checkbox(
                 name='Only show annotated metabolites from the analysis', value=False),}
 
+        widgets3 = {
+            'type_of_selection': pn.widgets.RadioBoxGroup(name='Selecting Metabolic Features for Clustermap',
+                value='Top Significant Features', options=['Top Significant Features', '(Adjusted) P-value threshold']),
+            'n_sig_feats': pn.widgets.IntSlider(name='Top Significant Metabolic Features to Include',
+                start=10, end=200, step=1, value=50),
+            'alpha_threshold': pn.widgets.FloatInput(
+                name='(Adjusted) P-value threshold to select significant features (features below threshold)',
+                start=0, end=1, step=0.0001, value=0.05, disabled=True),
+            'confirm_button_clustermap': pn.widgets.Button(name="Build Clustermap Figure", button_type='primary'),
+
+        }
+
         self.controls = pn.Param(self, parameters=['control_class', 'test_class', 'univariate_test_str', 'univariate_test',
                                 'expected_equal_variance', 'p_value_threshold','fold_change_threshold', 'univariate_test',
                                 'confirm_button_univariate'],
@@ -5229,6 +5271,9 @@ class UnivariateAnalysis_Store(param.Parameterized):
                                  widgets=widgets, name='Parameters for Volcano Plot')
         self.specific_df_controls = pn.Param(self, parameters=['test_class_subset', 'show_annots_only'],
                                  widgets=widgets2, name='Choose test classes to test against')
+        self.clustermap_controls = pn.Param(self, parameters=['type_of_selection', 'n_sig_feats', 'alpha_threshold',
+                                 'confirm_button_clustermap'],
+                                 widgets=widgets3, name='Characteristics of the Clustermap')
 
 
 # Initializing Store for Univariate Analysis
@@ -5236,6 +5281,35 @@ UnivarA_Store = UnivariateAnalysis_Store()
 
 # Click button to confirm Univariate Analysis
 UnivarA_Store.controls.widgets['confirm_button_univariate'].on_click(UnivarA_Store._confirm_button_univariate)
+
+# Click button to build Clustermap
+UnivarA_Store.clustermap_controls.widgets['confirm_button_clustermap'].on_click(UnivarA_Store._confirm_button_clustermap)
+
+# Widget to save Clustermap Figure
+save_clustermap_button = pn.widgets.Button(name='Save Clustermap Figure', button_type='warning', icon=iaf.download_icon)
+
+# When pressing the button, downloads the figure (builds the appropriate filename)
+def _save_clustermap_button(event):
+    "Save clustermap figure"
+    # Building the datafile name
+    univ_parameters = UnivarA_Store.current_univ_params
+    test_performed = univ_parameters["Test"].split(' ')[0]
+    filename_string = f'Cluster_Univar_{univ_parameters["Test Class"]}_vs_{univ_parameters["Control Class"]}_{test_performed}'
+    if test_performed == 'T-Test':
+        if univ_parameters["Expected Equal Var."]:
+            filename_string = filename_string + f'_equalvariance'
+        else:
+            filename_string = filename_string + f'_notequalvariance'
+    if univ_parameters["type_of_selection"] == 'Top Significant Features':
+        filename_string = filename_string + f'_{univ_parameters["n_sig_feats"]}TopSigFeats.png'
+    else:
+        filename_string = filename_string + f'_{univ_parameters["alpha_threshold"]}pvalueThreshold.png'
+
+    # Saving the file
+    UnivarA_Store.clustermap_fig[0].fig.savefig(path_dl + '/' + filename_string, dpi=400)
+    pn.state.notifications.success(f'{filename_string} successfully saved.')
+
+save_clustermap_button.on_click(_save_clustermap_button)
 
 # Specific Widget for middle section of the page, shows DataFrame with only annotated metabolites or all metabolites
 univar_results_show_annots_only = pn.widgets.Checkbox(name='Only show annotated metabolites from the analysis', value=False)
@@ -5272,7 +5346,7 @@ def _save_univariate_results_button(event):
         else:
             filename_string = filename_string + f'_notequalvariance.xlsx'
     else:
-        filename_string = filename_string + f'.csv'
+        filename_string = filename_string + f'.xlsx'
 
     # Saving the file
     UnivarA_Store.univariate_results.to_excel(path_dl + '/' + filename_string)
@@ -5327,6 +5401,8 @@ layout_df = pn.Column(univar_results_show_annots_only) # For DataFrame section
 layout_volcano = pn.GridSpec(mode='override')
 layout_volcano[0,0] = UnivarA_Store.volcano_colors
 layout_volcano[0,1:3] = UnivarA_Store.Volcano_fig[0]
+# For Clustermap section
+layout_clustermap = pn.Column(UnivarA_Store.clustermap_controls, UnivarA_Store.clustermap_fig[0], save_clustermap_button)
 # For intersection section
 layout_final_section = pn.Row(pn.Column(UnivarA_Store.specific_df_controls, UnivarA_Store.inter_description, save_multiple_univariate_button),
        pn.pane.DataFrame(UnivarA_Store.specific_cl_df, height=600))
@@ -5336,6 +5412,8 @@ middle_page_univar = pn.Column('## DataFrame from the Univariate Analysis:',
                               layout_df,
                               '## Volcano Plot of the Univariate Analysis:',
                               layout_volcano,
+                              '## Clustermap of Sig. Features of the Univariate Analysis',
+                              layout_clustermap,
                               '## Control Class versus all possible Test Classes (Intersections)',
                               layout_final_section)
 
@@ -5381,6 +5459,15 @@ def _updating_univariate_analysis_page_layout():
     filename_string = filename_string + f'{univ_parameters["Fold Change Threshold"]}'
     layout_volcano[0,1:3] = pn.pane.Plotly(UnivarA_Store.Volcano_fig[0], config={'toImageButtonOptions': {
                 'filename': filename_string, 'scale':4}})
+
+    # Update the Clustermap section of the layout
+    fig = iaf._plot_clustermap(UnivarA_Store, UnivarA_Store.univariate_df)
+    UnivarA_Store.clustermap_fig[0] = fig
+    layout_clustermap[1] = pn.pane.Matplotlib(UnivarA_Store.clustermap_fig[0].fig, height=400)
+    UnivarA_Store.current_univ_params['type_of_selection'] = UnivarA_Store.type_of_selection
+    UnivarA_Store.current_univ_params['n_sig_feats'] = UnivarA_Store.n_sig_feats
+    UnivarA_Store.current_univ_params['alpha_threshold'] = UnivarA_Store.alpha_threshold
+    save_clustermap_button.disabled = False
 
     # Update the specific DF section of the layout
     UnivarA_Store.specific_df_controls.widgets['test_class_subset'].options = [
