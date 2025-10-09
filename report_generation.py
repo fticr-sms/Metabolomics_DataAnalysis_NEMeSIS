@@ -969,14 +969,17 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
         # Heading
         document.add_heading('Univariate Analysis', level=2)
 
+        # 1v1 Univariate Analysis
+        document.add_heading('1v1 Univariate Analysis', level=3)
+
         # In case analysis was not performed
         if len(UnivarA_Store.current_univ_params) == 0:
-            document.add_paragraph('Univariate Analysis was not performed. Thus, this section will be skipped.')
+            document.add_paragraph('1v1 Univariate Analysis was not performed. Thus, this section will be skipped.')
 
         else:
             # Descriptions of Univariate Test Performed
             univ_parameters = UnivarA_Store.current_univ_params
-            univ_pg = document.add_paragraph('Univariate Analysis was performed comparing the ')
+            univ_pg = document.add_paragraph('1v1 Univariate Analysis was performed comparing the ')
             univ_pg.add_run(f'Test Class: {univ_parameters["Test Class"]}').bold = True
             univ_pg.add_run(f' against the ')
             univ_pg.add_run(f'Control Class: {univ_parameters["Control Class"]}.').bold = True
@@ -1030,7 +1033,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
             univ_pg3.add_run(f' metabolites were significant, ')
             univ_pg3.add_run(f'{sum(UnivarA_Store.univariate_results["Has Match?"])}').bold = True
             univ_pg3.add_run(f' of which are annotated. Volcano Plot of data shown below and univariate test results ')
-            univ_pg3.add_run(f"and metabolic feature metadata with only the significant metabolites and with all metabolites")
+            univ_pg3.add_run(f"and metabolic feature metadata with only the significant metabolites and with all metabolites ")
             univ_pg3.add_run(f'are respectively stored in ')
             univ_pg3.add_run(f"'{filt_filename_string[1:]}' and '{non_filt_filename_string[1:]}'.")
 
@@ -1041,17 +1044,86 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
             document.add_picture(folder+'/Report_VolcanoPlot - '+filename_string_abv+'.png', width=Cm(12))
 
             univ_pg4 = document.add_paragraph('Clustermap comparing test Vs control class treated intensities is stored in ')
-            univ_pg4.add_run(f"'{filt_filename_string[1:]}' and shown below.")
+            univ_pg4.add_run(f"'Report_{filename_string_abv_cluster}' and shown below.")
             if univ_parameters["type_of_selection"] == 'Top Significant Features':
-                univ_pg4.add_run(f" The clustermap shows the top {UnivarA_Store.n_sig_feats} significant features.")
+                univ_pg4.add_run(f" The clustermap shows the ")
+                univ_pg4.add_run(f"top {UnivarA_Store.n_sig_feats} significant features.").bold = True
             else:
-                univ_pg4.add_run(f" The clustermap shows all metabolics features with adjusted p-values below ")
-                univ_pg4.add_run(f"{UnivarA_Store.alpha_threshold}.")
+                univ_pg4.add_run(f" The clustermap shows all metabolics features with ")
+                univ_pg4.add_run(f"adjusted p-values below {UnivarA_Store.alpha_threshold}.").bold = True
 
             # Saving Volcano Plot figure and adding it to the document
-            UnivarA_Store.clustermap_fig[0].fig.savefig(folder+'/Report_'+filename_string_abv_cluster+'.png', dpi=400)
+            UnivarA_Store.clustermap_fig[0].fig.savefig(folder+'/Report_'+filename_string_abv_cluster, dpi=400)
             # Adding figure
-            document.add_picture(folder+'/Report_'+filename_string_abv_cluster+'.png', width=Cm(15))
+            document.add_picture(folder+'/Report_'+filename_string_abv_cluster, width=Cm(15))
+
+
+        if len(target_list.classes) > 2:
+            # Multiclass Univariate Analysis
+            document.add_heading('Multiclass Univariate Analysis', level=3)
+
+            # In case analysis was not performed
+            if len(UnivarA_Store.current_multiclass_univ_params) == 0:
+                document.add_paragraph('Multiclass Univariate Analysis was not performed. Thus, this section will be skipped.')
+
+            else:
+                # Descriptions of Univariate Test Performed
+                multi_univ_parameters = UnivarA_Store.current_multiclass_univ_params
+                multi_univ_pg = document.add_paragraph('Multiclass Univariate Analysis was performed using ')
+                if multi_univ_parameters["kw_test_multiclass"]:
+                    multi_univ_pg.add_run(f'a Kruskal-Wallis Test.').bold = True
+                else:
+                    multi_univ_pg.add_run(f'ANOVA.').bold = True
+
+                # Name of the string file to save tables and clustermap as
+                filename_string_abv = f'Multiclass_Univar_'
+                if multi_univ_parameters["kw_test_multiclass"]:
+                    filename_string_abv = filename_string_abv + f'KruskalWallis_'
+                else:
+                    filename_string_abv = filename_string_abv + f'ANOVA_'
+                filename_string_abv_cluster = f'Cluster_' + filename_string_abv
+                if multi_univ_parameters["type_of_selection_multiclass"] == 'Top Significant Features':
+                    filename_string_abv_cluster = filename_string_abv_cluster + f'{multi_univ_parameters["n_sig_feats_multiclass"]}'
+                    filename_string_abv_cluster = filename_string_abv_cluster + 'TopSigFeats.png'
+                else:
+                    filename_string_abv_cluster = filename_string_abv_cluster + f'{multi_univ_parameters["alpha_threshold_multiclass"]}'
+                    filename_string_abv_cluster = filename_string_abv_cluster + 'pvalueThreshold.png'
+                filename_string_abv = filename_string_abv + f'_pvalue{multi_univ_parameters["p_value_threshold_multiclass"]}.xlsx'
+
+                # Continuing description
+                multi_univ_pg.add_run(f' Features were considered significant if the univariate test p-value was below the chosen ')
+                multi_univ_pg.add_run(f'{multi_univ_parameters["p_value_threshold_multiclass"]}').bold = True
+
+                # Saving Multiclass Univariate Test Results
+                filt_filename_string = '/Report_Multiclass_Univar_res_' + filename_string_abv
+                non_filt_filename_string = '/Report_Multiclass_Univar_nonfilt_res_' + filename_string_abv
+                UnivarA_Store.multiclass_univariate_results.to_excel(folder + filt_filename_string)
+                pd.concat((UnivarA_Store.multiclass_univariate_results_non_filt,
+                    DataFrame_Store.metadata_df.loc[UnivarA_Store.multiclass_univariate_results_non_filt.index]),
+                    axis=1).to_excel(folder + non_filt_filename_string)
+
+                # Univariate Test results
+                multi_univ_pg2 = document.add_paragraph('Multiclass Univariate Analysis results: ')
+                multi_univ_pg2.add_run(f'{UnivarA_Store.multiclass_univariate_results.shape[0]}').bold = True
+                multi_univ_pg2.add_run(f' metabolites were significant, ')
+                multi_univ_pg2.add_run(f'{sum(UnivarA_Store.multiclass_univariate_results["Has Match?"])}').bold = True
+                multi_univ_pg2.add_run(f' of which are annotated. Multiclass univariate test results and metabolic feature metadata ')
+                multi_univ_pg2.add_run(f"with only the significant metabolites and with all metabolites are respectively stored in ")
+                multi_univ_pg2.add_run(f"'{filt_filename_string[1:]}' and '{non_filt_filename_string[1:]}'.")
+
+                multi_univ_pg3 = document.add_paragraph('Clustermap with treated intensities is stored in ')
+                multi_univ_pg3.add_run(f"'Report_{filename_string_abv_cluster}' and shown below.")
+                if multi_univ_parameters["type_of_selection_multiclass"] == 'Top Significant Features':
+                    multi_univ_pg3.add_run(f" The clustermap shows the ")
+                    multi_univ_pg.add_run(f'top {UnivarA_Store.n_sig_feats_multiclass} significant features.').bold = True
+                else:
+                    multi_univ_pg3.add_run(f" The clustermap shows all metabolics features with ")
+                    multi_univ_pg3.add_run(f"adjusted p-values below {UnivarA_Store.alpha_threshold_multiclass}.").bold = True
+
+                # Saving Volcano Plot figure and adding it to the document
+                UnivarA_Store.clustermap_fig_multiclass[0].fig.savefig(folder+'/Report_'+filename_string_abv_cluster, dpi=400)
+                # Adding figure
+                document.add_picture(folder+'/Report_'+filename_string_abv_cluster, width=Cm(15))
 
         # End of section
         document.add_page_break()
@@ -1913,7 +1985,12 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
                                                     'color_up_sig': UnivarA_Store.color_up_sig,
                                                     'type_of_selection': UnivarA_Store.type_of_selection,
                                                     'n_sig_feats': UnivarA_Store.n_sig_feats,
-                                                    'alpha_threshold': UnivarA_Store.alpha_threshold}
+                                                    'alpha_threshold': UnivarA_Store.alpha_threshold,
+                                                    'p_value_threshold_multiclass': UnivarA_Store.p_value_threshold_multiclass,
+                                                    'kw_test_multiclass': UnivarA_Store.kw_test_multiclass,
+                                                    'type_of_selection_multiclass': UnivarA_Store.type_of_selection_multiclass,
+                                                    'n_sig_feats_multiclass': UnivarA_Store.n_sig_feats_multiclass,
+                                                    'alpha_threshold_multiclass': UnivarA_Store.alpha_threshold_multiclass,}
         # Update to actually used parameters if possible
         if 'Test' in UnivarA_Store.current_univ_params:
             params_to_be_saved['Univariate Analysis']['univariate_test'] = UnivarA_Store.current_univ_params['Test']
@@ -1925,7 +2002,16 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
             params_to_be_saved['Univariate Analysis']['type_of_selection'] = UnivarA_Store.current_univ_params['type_of_selection']
             params_to_be_saved['Univariate Analysis']['n_sig_feats'] = UnivarA_Store.current_univ_params['n_sig_feats']
             params_to_be_saved['Univariate Analysis']['alpha_threshold'] = UnivarA_Store.current_univ_params['alpha_threshold']
-
+        if len(UnivarA_Store.current_multiclass_univ_params) > 0:
+            params_to_be_saved['Univariate Analysis']['p_value_threshold_multiclass'] = UnivarA_Store.current_multiclass_univ_params[
+                'p_value_threshold_multiclass']
+            params_to_be_saved['Univariate Analysis']['kw_test_multiclass'] = UnivarA_Store.current_multiclass_univ_params['kw_test_multiclass']
+            params_to_be_saved['Univariate Analysis']['type_of_selection_multiclass'] = UnivarA_Store.current_multiclass_univ_params[
+                'type_of_selection_multiclass']
+            params_to_be_saved['Univariate Analysis']['n_sig_feats_multiclass'] = UnivarA_Store.current_multiclass_univ_params[
+                'n_sig_feats_multiclass']
+            params_to_be_saved['Univariate Analysis']['alpha_threshold_multiclass'] = UnivarA_Store.current_multiclass_univ_params[
+                'alpha_threshold_multiclass']
 
 
         # Saving Data Diversity Visualization Related Parameters
@@ -2244,6 +2330,11 @@ def loading_parameters_in(params_to_load, data_filtering, n_databases_show, n_da
             UnivarA_Store.type_of_selection = params_to_load['Univariate Analysis']['type_of_selection']
             UnivarA_Store.n_sig_feats = params_to_load['Univariate Analysis']['n_sig_feats']
             UnivarA_Store.alpha_threshold = params_to_load['Univariate Analysis']['alpha_threshold']
+            UnivarA_Store.p_value_threshold_multiclass = params_to_load['Univariate Analysis']['p_value_threshold_multiclass']
+            UnivarA_Store.kw_test_multiclass = params_to_load['Univariate Analysis']['kw_test_multiclass']
+            UnivarA_Store.type_of_selection_multiclass = params_to_load['Univariate Analysis']['type_of_selection_multiclass']
+            UnivarA_Store.n_sig_feats_multiclass = params_to_load['Univariate Analysis']['n_sig_feats_multiclass']
+            UnivarA_Store.alpha_threshold_multiclass = params_to_load['Univariate Analysis']['alpha_threshold_multiclass']
             UnivarA_Store.compute_fig = True
 
         # Loading Data Diversity Visualization Related Parameters:

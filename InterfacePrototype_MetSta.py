@@ -214,10 +214,10 @@ class UnivariateAnalysisPage:
 
         self.content = pn.Column("# Performing Univariate Analysis",
                                  ("In Univariate Analysis, each metabolite (variable) in the experimental dataset is tested individually to observe "
-                                  'if there is a significant difference between a test and a control class. Thus, this does not take into account any '
-                                  'interaction between metabolites as multivariate analysis does (and is expected in metabolites within a biological system).\n'
-                                  'However, it provides the metabolites which are differentially expressed between 2 classes.'),
-                                 univar_analysis_page)
+                                  'if there is a significant difference between the tested classes. Thus, this does not take into account any '
+                                  'interaction between metabolites as multivariate analysis does (and is expected in metabolites within a biological system), '
+                                  'providing the metabolites which are differential intesnity patterns.'),
+                                 complete_univar_analysis_page)
 
     def view(self):
         return self.content
@@ -2728,6 +2728,8 @@ def _confirm_button_next_step_5(event):
             UnivarA_Store.reset()
             while len(univar_analysis_page) > 2:
                 univar_analysis_page.pop(-1)
+            while len(multiclass_univar_analysis_page) > 2:
+                multiclass_univar_analysis_page.pop(-1)
 
             # Data Diversity Visualization page
             iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add temporary compounds per class dfs
@@ -4979,6 +4981,7 @@ sup_analysis_page = pn.Tabs(('PLS-DA', page_PLSDA), ('RF ', page_RF))
 
 # Page for Univariate Analysis
 univ_opening_string = desc_str.univ_opening_string
+multiclass_univ_opening_string = desc_str.multiclass_univ_opening_string
 
 class UnivariateAnalysis_Store(param.Parameterized):
     """Class to store the unsupervised analysis and the locked in parameters used in data filtering and pre-treatment."""
@@ -5049,8 +5052,9 @@ class UnivariateAnalysis_Store(param.Parameterized):
     compute_fig = param.Boolean(default=True)
 
     # Multiclass Univariate Test
-    p_value_threshold = param.Number(default=0.05)
-    kw_test = param.Boolean(default=False)
+    p_value_threshold_multiclass = param.Number(default=0.05)
+    kw_test_multiclass = param.Boolean(default=False)
+    confirm_button_univariate_multiclass = param.Boolean(default=False)
     
     # Store Multiclass Univariate Test Parameters
     current_multiclass_univ_params = param.Dict({})
@@ -5058,6 +5062,13 @@ class UnivariateAnalysis_Store(param.Parameterized):
     # Store Multiclass Univariate results
     multiclass_univariate_results = param.DataFrame()
     multiclass_univariate_results_non_filt = param.DataFrame()
+
+    # Multiclass Clustermap Parameters
+    type_of_selection_multiclass = param.String(default='Top Significant Features')
+    n_sig_feats_multiclass = param.Number(default=50)
+    alpha_threshold_multiclass = param.Number(default=0.05)
+    confirm_button_clustermap_multiclass = param.Boolean(default=False)
+    clustermap_fig_multiclass = param.List(default=['To Plot a Clustermap'])
 
 
     def locking_filtering_params(self, data_filtering):
@@ -5127,7 +5138,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
 
         # Performing and storing results from Univariate Analysis
         # TODO: UNIVARIATE ANALYSIS AND DATA FILTERING
-        a,b,c,d,e = iaf._perform_univariate_analysis(self, DataFrame_Store, target_list)
+        a,b,c,d,e = iaf._perform_1v1_univariate_analysis(self, DataFrame_Store, target_list)
         self.univariate_df, self.univariate_df_set = a, b
         self.univariate_results, self.univariate_results_non_filt, self.univariate_results_set = c, d, e
 
@@ -5145,7 +5156,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
         _updating_univariate_analysis_page_layout()
 
 
-    # Function to confirm and perform Univariate Analysis
+    # Function to build a Clustermap
     def _confirm_button_clustermap(self, event):
         "Build Clustermap Figure."
 
@@ -5156,6 +5167,47 @@ class UnivariateAnalysis_Store(param.Parameterized):
         UnivarA_Store.current_univ_params['n_sig_feats'] = self.n_sig_feats
         UnivarA_Store.current_univ_params['alpha_threshold'] = self.alpha_threshold
         save_clustermap_button.disabled = False
+
+
+    # Function to confirm and perform Multiclass Univariate Analysis
+    def _confirm_button_multiclass_univariate(self, event):
+        "Perform Multiclass Univariate Analysis."
+
+        if len(target_list.classes) > 2:
+
+            # Performing and storing results from Multiclass Univariate Analysis
+            self.multiclass_univariate_results, self.multiclass_univariate_results_non_filt = iaf._perform_multiclass_univariate_analysis(
+                self, DataFrame_Store, target_list)
+
+            # Saving parameters
+            self.current_multiclass_univ_params = {'p_value_threshold_multiclass': self.p_value_threshold_multiclass,
+                                                   'kw_test_multiclass': self.kw_test_multiclass}
+
+            # Joining the results of the multiclass univariate analysis to the metadata available
+            self.multiclass_univariate_results = pd.concat((self.multiclass_univariate_results,
+                                                            DataFrame_Store.metadata_df.loc[self.multiclass_univariate_results.index]),
+                                                            axis=1)
+
+            # Updating the page layout
+            _updating_multiclass_univariate_analysis_page_layout()
+            pn.state.notifications.success('Multiclass Univariate Analysis performed.')
+
+        else:
+            pn.state.notifications.error('You only have 1 or 2 classes in the dataset. Multiclass Univariate Analysis requires at least 3 classes.')
+
+
+    # Function to build a Clustermap
+    def _confirm_button_clustermap_multiclass(self, event):
+        "Build Clustermap Figure."
+
+        # Update the Clustermap section of the layout
+        fig = iaf._plot_clustermap(self, DataFrame_Store.treated_df, multiclass=True)
+        self.clustermap_fig_multiclass[0] = fig
+        layout_multiclass_clustermap[1] = pn.pane.Matplotlib(self.clustermap_fig_multiclass[0].fig, height=600)
+        self.current_multiclass_univ_params['type_of_selection_multiclass'] = self.type_of_selection_multiclass
+        self.current_multiclass_univ_params['n_sig_feats_multiclass'] = self.n_sig_feats_multiclass
+        self.current_multiclass_univ_params['alpha_threshold_multiclass'] = self.alpha_threshold_multiclass
+        save_clustermap_multiclass_button.disabled = False
 
 
     # Update the Volcano plot
@@ -5208,6 +5260,17 @@ class UnivariateAnalysis_Store(param.Parameterized):
             self.clustermap_controls.widgets['alpha_threshold'].disabled = False
 
 
+    @param.depends('type_of_selection_multiclass', watch=True)
+    def _update_clustermap_multiclasss_widgets(self):
+        "Update the clustermap widgets."
+        if self.type_of_selection_multiclass == 'Top Significant Features':
+            self.clustermap_multiclass_controls.widgets['n_sig_feats_multiclass'].disabled = False
+            self.clustermap_multiclass_controls.widgets['alpha_threshold_multiclass'].disabled = True
+        else:
+            self.clustermap_multiclass_controls.widgets['n_sig_feats_multiclass'].disabled = True
+            self.clustermap_multiclass_controls.widgets['alpha_threshold_multiclass'].disabled = False
+
+
     def reset(self):
         "Reset parameters."
         self.compute_fig = False
@@ -5237,7 +5300,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
                     description='''The threshold is set so as only selecting features as significant if either the control class or the test class average is "chosen" threhold times higher than the opposing class.
                     1 will essentially skip this threshold and use only the p-value threshold. Setting 1 for p-value threshold has the same effect for the p-value step.
                     E.g: if 2, the average of a feature in control class samples has to be double or more that of the test class or vice-versa.'''),
-            'confirm_button_univariate': pn.widgets.Button(name="Perform Univariate Analysis", button_type='primary'),
+            'confirm_button_univariate': pn.widgets.Button(name="Perform 1v1 Univariate Analysis", button_type='primary'),
             'color_non_sig': pn.widgets.ColorPicker(name='Color Non Significant Metabolites',
                                                     value=mpl.colors.CSS4_COLORS['silver']),
             'color_down_sig': pn.widgets.ColorPicker(name='Color Downregulated Sig. Metabolites',
@@ -5260,7 +5323,24 @@ class UnivariateAnalysis_Store(param.Parameterized):
                 name='(Adjusted) P-value threshold to select significant features (features below threshold)',
                 start=0, end=1, step=0.0001, value=0.05, disabled=True),
             'confirm_button_clustermap': pn.widgets.Button(name="Build Clustermap Figure", button_type='primary'),
+        }
 
+        widgets4 = {
+            'p_value_threshold_multiclass': pn.widgets.EditableFloatSlider(name='P-value threshold', start=0, end=1, value=0.05,
+                    step=0.001),
+            'kw_test_multiclass': pn.widgets.Checkbox(name='Use Non-Parametric Kruskal-Wallis Test (Not selected will use ANOVA)', value=False),
+            'confirm_button_univariate_multiclass': pn.widgets.Button(name="Perform Multiclass Univariate Analysis", button_type='primary'),
+        }
+
+        widgets5 = {
+            'type_of_selection_multiclass': pn.widgets.RadioBoxGroup(name='Selecting Metabolic Features for Clustermap',
+                value='Top Significant Features', options=['Top Significant Features', '(Adjusted) P-value threshold']),
+            'n_sig_feats_multiclass': pn.widgets.IntSlider(name='Top Significant Metabolic Features to Include',
+                start=10, end=200, step=1, value=50),
+            'alpha_threshold_multiclass': pn.widgets.FloatInput(
+                name='(Adjusted) P-value threshold to select significant features (features below threshold)',
+                start=0, end=1, step=0.0001, value=0.05, disabled=True),
+            'confirm_button_clustermap_multiclass': pn.widgets.Button(name="Build Clustermap Figure", button_type='primary'),
         }
 
         self.controls = pn.Param(self, parameters=['control_class', 'test_class', 'univariate_test_str', 'univariate_test',
@@ -5274,6 +5354,12 @@ class UnivariateAnalysis_Store(param.Parameterized):
         self.clustermap_controls = pn.Param(self, parameters=['type_of_selection', 'n_sig_feats', 'alpha_threshold',
                                  'confirm_button_clustermap'],
                                  widgets=widgets3, name='Characteristics of the Clustermap')
+        self.multiclass_controls = pn.Param(self, parameters=['p_value_threshold_multiclass', 'kw_test_multiclass',
+                                 'confirm_button_univariate_multiclass'],
+                                 widgets=widgets4, name='Multiclass Univariate Analysis')
+        self.clustermap_multiclass_controls = pn.Param(self, parameters=['type_of_selection_multiclass', 'n_sig_feats_multiclass',
+                                 'alpha_threshold_multiclass', 'confirm_button_clustermap_multiclass'],
+                                 widgets=widgets5, name='Characteristics of the Clustermap')
 
 
 # Initializing Store for Univariate Analysis
@@ -5284,6 +5370,15 @@ UnivarA_Store.controls.widgets['confirm_button_univariate'].on_click(UnivarA_Sto
 
 # Click button to build Clustermap
 UnivarA_Store.clustermap_controls.widgets['confirm_button_clustermap'].on_click(UnivarA_Store._confirm_button_clustermap)
+
+# Click button to confirm Univariate Analysis
+UnivarA_Store.multiclass_controls.widgets['confirm_button_univariate_multiclass'].on_click(UnivarA_Store._confirm_button_multiclass_univariate)
+
+# Click button to build Clustermap
+UnivarA_Store.clustermap_multiclass_controls.widgets['confirm_button_clustermap_multiclass'].on_click(UnivarA_Store._confirm_button_clustermap_multiclass)
+
+
+# Widgets and Functions for 1v1 Univariate Analysis
 
 # Widget to save Clustermap Figure
 save_clustermap_button = pn.widgets.Button(name='Save Clustermap Figure', button_type='warning', icon=iaf.download_icon)
@@ -5483,8 +5578,131 @@ def _updating_univariate_analysis_page_layout():
     if len(univar_analysis_page) == 2:
         univar_analysis_page.append(middle_page_univar)
 
+
+### Widgets for Multiclass Univariate Analysis
+
+# Widget to save Clustermap Figure
+save_clustermap_multiclass_button = pn.widgets.Button(name='Save Clustermap Figure', button_type='warning', icon=iaf.download_icon)
+
+# When pressing the button, downloads the figure (builds the appropriate filename)
+def _save_clustermap_multiclass_button(event):
+    "Save clustermap figure"
+    # Building the datafile name
+    univ_parameters = UnivarA_Store.current_multiclass_univ_params
+    filename_string = f'Cluster_Multiclass_Univar_'
+
+    # Type of test
+    if univ_parameters["kw_test_multiclass"]:
+        filename_string = filename_string + f'KruskalWallis_'
+    else:
+        filename_string = filename_string + f'ANOVA_'
+
+    # Clustermap Details
+    if univ_parameters["type_of_selection_multiclass"] == 'Top Significant Features':
+        filename_string = filename_string + f'{univ_parameters["n_sig_feats_multiclass"]}TopSigFeats.png'
+    else:
+        filename_string = filename_string + f'{univ_parameters["alpha_threshold_multiclass"]}pvalueThreshold.png'
+
+    # Saving the file
+    UnivarA_Store.clustermap_fig_multiclass[0].fig.savefig(path_dl + '/' + filename_string, dpi=400)
+    pn.state.notifications.success(f'{filename_string} successfully saved.')
+
+save_clustermap_multiclass_button.on_click(_save_clustermap_multiclass_button)
+
+# Specific Widget for middle section of the page, shows DataFrame with only annotated metabolites or all metabolites
+univar_multiclass_results_show_annots_only = pn.widgets.Checkbox(name='Only show annotated metabolites from the analysis',
+                                                                 value=False)
+
+# Change the DataFrame shown based on checkbox
+@pn.depends(univar_multiclass_results_show_annots_only.param.value, watch=True)
+def _layout_df_dataframe(univar_results_show_annots_only):
+    "Update the layout based on if we are showing all metabolites or only annotated ones."
+    # Select DataFrame
+    if univar_multiclass_results_show_annots_only:
+        df_to_show = UnivarA_Store.multiclass_univariate_results[UnivarA_Store.multiclass_univariate_results['Has Match?']]
+    else:
+        df_to_show = UnivarA_Store.multiclass_univariate_results
+
+    # Update the layout
+    if len(layout_multiclass_df) > 1:
+        layout_multiclass_df[2] = pn.pane.DataFrame(df_to_show, height=600)
+
+# Set up the different sections of the multiclass univariate analysis page
+layout_multiclass_df = pn.Column(univar_multiclass_results_show_annots_only) # For DataFrame section
+# For Clustermap section
+layout_multiclass_clustermap = pn.Column(UnivarA_Store.clustermap_multiclass_controls, UnivarA_Store.clustermap_fig_multiclass[0],
+                                         save_clustermap_multiclass_button)
+
+multi_univar_page = pn.Column('## DataFrame from the Univariate Analysis:',
+                              layout_multiclass_df,
+                              '## Clustermap of Sig. Features of the Univariate Analysis',
+                              layout_multiclass_clustermap,)
+
+
+# Widget to save dataframe of univariate analysis performed in .csv format
+save_multiclass_univariate_results_button = pn.widgets.Button(
+    name='Save (full) multiclass univariate analysis results as .csv',
+    button_type='warning', icon=iaf.download_icon)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_multiclass_univariate_results_button(event):
+    "Save multiclass univariate results performed."
+
+    # Building the datafile name
+    univ_parameters = UnivarA_Store.current_multiclass_univ_params
+    filename_string = f'Multiclass_Univar_'
+
+    # Type of test
+    if univ_parameters["kw_test_multiclass"]:
+        filename_string = filename_string + f'KruskalWallis_'
+    else:
+        filename_string = filename_string + f'ANOVA_'
+    filename_string = filename_string + f'_pvalue{univ_parameters["p_value_threshold_multiclass"]}.xlsx'
+
+    # Saving the file
+    UnivarA_Store.multiclass_univariate_results.to_excel(path_dl + '/' + filename_string)
+    pn.state.notifications.success(f'{filename_string} successfully saved.')
+
+save_multiclass_univariate_results_button.on_click(_save_multiclass_univariate_results_button)
+
+
+def _updating_multiclass_univariate_analysis_page_layout():
+    "Updated the analysis of the univariate analysis page after unviariate analysis."
+
+    # Updating the DataFrame section of the layout
+    univar_multiclass_results_show_annots_only.value = False
+
+    n_sig_met = UnivarA_Store.multiclass_univariate_results.shape[0]
+    n_sig_annotated = UnivarA_Store.multiclass_univariate_results[UnivarA_Store.multiclass_univariate_results['Has Match?']].shape[0]
+    if len(layout_multiclass_df) == 1:
+        layout_multiclass_df.append(f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated. Results for the Top 2000 Features shown below.')
+        layout_multiclass_df.append(pn.pane.DataFrame(UnivarA_Store.multiclass_univariate_results.iloc[:2000], height=600))
+        layout_multiclass_df.append(save_multiclass_univariate_results_button) # Button does not change - only needs to be added once
+    else:
+        layout_multiclass_df[1] = f'**{n_sig_met}** metabolites are significant, **{n_sig_annotated}** of which are annotated. Results for the Top 2000 Features shown below.'
+        layout_multiclass_df[2] = pn.pane.DataFrame(UnivarA_Store.multiclass_univariate_results.iloc[:2000], height=600)
+
+
+    # Update the Clustermap section of the layout
+    fig = iaf._plot_clustermap(UnivarA_Store, DataFrame_Store.treated_df, multiclass=True)
+    UnivarA_Store.clustermap_fig_multiclass[0] = fig
+    layout_multiclass_clustermap[1] = pn.pane.Matplotlib(UnivarA_Store.clustermap_fig_multiclass[0].fig, height=600)
+    UnivarA_Store.current_multiclass_univ_params['type_of_selection_multiclass'] = UnivarA_Store.type_of_selection_multiclass
+    UnivarA_Store.current_multiclass_univ_params['n_sig_feats_multiclass'] = UnivarA_Store.n_sig_feats_multiclass
+    UnivarA_Store.current_multiclass_univ_params['alpha_threshold_multiclass'] = UnivarA_Store.alpha_threshold_multiclass
+    save_clustermap_multiclass_button.disabled = False
+
+    # Add the analysis section of the page in case it was not added yet
+    if len(multiclass_univar_analysis_page) == 2:
+        multiclass_univar_analysis_page.append(multi_univar_page)
+
+
+
 # Setting up the initial univariate analysis page
 univar_analysis_page = pn.Column(pn.pane.HTML(univ_opening_string), UnivarA_Store.controls)
+multiclass_univar_analysis_page = pn.Column(pn.pane.HTML(multiclass_univ_opening_string), UnivarA_Store.multiclass_controls)
+complete_univar_analysis_page = pn.Tabs(('1v1 Univariate', univar_analysis_page),
+                               ('Multiclass Univariate', multiclass_univar_analysis_page))
 
 
 
@@ -7774,6 +7992,8 @@ def Yes_Reset(event):
     UnivarA_Store.reset()
     while len(univar_analysis_page) > 2:
         univar_analysis_page.pop(-1)
+    while len(multiclass_univar_analysis_page) > 2:
+        multiclass_univar_analysis_page.pop(-1)
 
     # Data Diversity Visualization page
     #iaf._group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store) # Add compounds per class dfs

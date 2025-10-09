@@ -1679,8 +1679,8 @@ def _plot_RF_ROC_curve(RF_store, treated_df, target_list):
 
 ### Functions related to the Univariate analysis page of the graphical interface
 
-def _perform_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list):
-    "Performs Univariate Analysis."
+def _perform_1v1_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list):
+    "Performs 1v1 Univariate Analysis."
 
     # See if a T-Test or Mann-Whitney test will be made
     if UnivarA_Store.univariate_test == 'T-Test (Parametric)':
@@ -1815,14 +1815,51 @@ def _plot_Volcano_plot(results_df, UnivarA_Store):
     return fig
 
 
-def _plot_clustermap(UnivarA_Store, treated_data):
+def _perform_multiclass_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list):
+    "Performs Multiclass Univariate Analysis."
+
+    # See if ANOVA or Kruskal-Wallis Test will be performed
+    useKW = UnivarA_Store.kw_test_multiclass
+
+    treated_df = DataFrame_Store.treated_df
+
+    # Creating the dictionary with information about which samples belong to which classes
+    groups = {cl: [] for cl in target_list.color_classes}
+    for c, t in zip(target_list.sample_cols, target_list.target): # Setting up the values
+        for g in groups:
+            if g == t:
+                groups[g].append(c)
+
+    # Performing Multiclass Univariate Results
+    multiclass_univariate_results = metsta.compute_pvalues_multiple_groups(treated_df, groups, useKW=useKW)
+
+    # Select only Features considered significant (below a certain p-value threshold)
+    filt_multiclass_uni_results = multiclass_univariate_results[
+        multiclass_univariate_results['FDR adjusted p-value'] < UnivarA_Store.p_value_threshold_multiclass].copy()
+
+    # Returns results
+    return filt_multiclass_uni_results, multiclass_univariate_results
+
+
+def _plot_clustermap(UnivarA_Store, treated_data, multiclass=False):
     "Plots Clustermap with seaborn."
-    if UnivarA_Store.type_of_selection == 'Top Significant Features':
-        heat_index = list(UnivarA_Store.univariate_results_non_filt.index[:UnivarA_Store.n_sig_feats])
-    else:
-        filtered_df_plot = UnivarA_Store.univariate_results_non_filt
-        heat_index = list(filtered_df_plot[filtered_df_plot['FDR adjusted p-value'] < UnivarA_Store.alpha_threshold].index)
-    filtered_df_plot = treated_data.T.loc[heat_index].T
+    # 1v1 Univariate Analysis
+    if not multiclass:
+        if UnivarA_Store.type_of_selection == 'Top Significant Features':
+            heat_index = list(UnivarA_Store.univariate_results_non_filt.index[:UnivarA_Store.n_sig_feats])
+        else:
+            filtered_df_plot = UnivarA_Store.univariate_results_non_filt
+            heat_index = list(filtered_df_plot[filtered_df_plot['FDR adjusted p-value'] < UnivarA_Store.alpha_threshold].index)
+        filtered_df_plot = treated_data.T.loc[heat_index].T
+
+    # Multiclass Univariate Analysis
+    if multiclass:
+        if UnivarA_Store.type_of_selection_multiclass == 'Top Significant Features':
+            heat_index = list(UnivarA_Store.multiclass_univariate_results_non_filt.index[:UnivarA_Store.n_sig_feats_multiclass])
+        else:
+            filtered_df_plot = UnivarA_Store.multiclass_univariate_results_non_filt
+            heat_index = list(filtered_df_plot[filtered_df_plot['FDR adjusted p-value'] < UnivarA_Store.alpha_threshold_multiclass].index)
+        filtered_df_plot = treated_data.T.loc[heat_index].T
 
     # Plot the clustermap
     g = sns.clustermap(filtered_df_plot, cmap='RdBu_r', # Select colormap to use

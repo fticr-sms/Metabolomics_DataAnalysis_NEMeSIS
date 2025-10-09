@@ -381,9 +381,13 @@ Number of Iterations indicates how many times ROC curve results are computed wit
 This can help to have a more detailed ROC Curve especially when your dataset has a low number of samples.'''
 
 
-# Univariate Analysis Page Opening HTML Description in string format
+# 1v1 Univariate Analysis Page Opening HTML Description in string format
 
-univ_opening_string = '''In this section, both Univariate Analysis and Fold-Change analysis are performed.
+univ_opening_string = '''In this section, both 1v1 Univariate Analysis and Fold-Change analysis are performed.
+<br>
+<br>
+Here, a chosen test class and a chosen control class from the classes in the dataset are put in opposition to detect
+metabolites with significant differences between the classes.
 <br>
 <br>
 The Fold change is calculated in a dataset with missing values imputed and normalized after. <strong>This means that with
@@ -397,8 +401,7 @@ normalization.
 Choose between the parametric <strong>t-test</strong> and non-parametric <strong>Mann-Whitney test</strong>.
 <br>
 <br>
-<strong>Warning</strong>: This type of analysis is only done between 2 classes. If you have more than 2 classes, you can
-also choose one as the control class and one as the test class to perform univariate analysis in the 1st tab.
+<strong>Warning</strong>: If you have more than 2 classes, a control class and a test class can be chosen to perform the analysis.
 <br>
 <br>
 Finally, when you have more than 2 classes, each unsupervised analysis will select the samples respective to the 2 classes,
@@ -417,6 +420,27 @@ minimum of 2 samples in the 6-sample subset (4 out of 15 represents 26.67% of sa
 up to 2). There could be features that appear in 2 of these 6 samples but that did not appear in 4 of the original 15 samples
 and were thus previously removed from the dataset. These features <strong>stay removed</strong>.
 '''
+
+
+# Multiclass Univariate Analysis Page Opening HTML Description in string format
+
+multiclass_univ_opening_string = '''In this section, Multiclass Univariate Analysis is performed.
+<br>
+<br>
+Here, all classes are tested simultaneously. As such, no fold-change can be calculated or Volcano Plot
+drawn, but the results show significant metabolites for all classes with the clustermap showing their
+groupings and intensity pattern trends.
+<br>
+<br>
+Choose between the parametric <strong>ANOVA</strong> and non-parametric <strong>Kruskal-Wallis test</strong>.
+<br>
+<br>
+<strong>Warning</strong>: These tests can only be performed if you have more than 2 classes.
+<br>
+<br>
+The resulting table can be downloaded.
+'''
+
 
 
 # Van Krevelen Description HTML in string format
