@@ -523,6 +523,22 @@ the pathways that they belong to according to this built file. Your identifiers 
 <strong>If no HMDB identifiers are present, you will not be able to perform this data analysis step</strong>."""
 
 
+# KEGG Mapping Colour Section Description HTML in string format
+
+kegg_opening_string = """This section allows to extract every KEGG compound ID annotated to the dataset and obtain a downloaded
+file containing a list with only the KEGG identifiers and the colour associated with them (colours represent metabolite presence
+in classes and can be chosen below). This file can then be used as input in the KEGG website at
+<a href="https://www.genome.jp/kegg/mapper/color.html" target="_blank" rel="nofollow">https://www.genome.jp/kegg/mapper/color.html</a>.
+<br><br>
+This section is <strong>only enabled if the dataset only has 2 classes</strong>. KEGG colour mapping is not available for more than
+2 classes.
+<br><br>
+KEGG identifier will only be mapped if a <strong>Matched KEGGs</strong> column exists. This column can be metadata before previously
+included in the dataset or can be generated in this software during Data Annotation if <strong>at least one of the databases used for
+annotation has a column with the name 'kegg' (with no capitalization) which will created the Matched KEGGs column.</strong>
+"""
+
+
 # HMDB Pathway Over-Representation Analysis Section Description HTML in string format
 
 pathway_ora_opening_string = """

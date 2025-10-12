@@ -38,7 +38,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
     # Adding the disclaimer
     disclaimer = document.add_paragraph('This report is an attempt to describe the metabolomics data analysis performed using ')
-    disclaimer.add_run('the MetsTA software. We cannot assure that the descriptions shown here are 100% correct, therefore ')
+    disclaimer.add_run('the NEMeSIS software. We cannot assure that the descriptions shown here are 100% correct, therefore ')
     disclaimer.add_run('revision of the report to confirm the information shown is advised. Any found inconsistencies are ')
     disclaimer.add_run('encouraged to be reported so the reason can be found and fixed.')
 
@@ -1412,6 +1412,25 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 pathora_store.ora_df.to_excel(folder+filename_string+'.xlsx')
 
 
+        # KEGG Colour Mapping Section
+        if len(PathAssign_store.KEGG_df) > 0:
+            kegg_pg = document.add_paragraph('This sections extracts every KEGG compound ID annotated to the dataset. In total, ')
+            kegg_pg.add_run(f'{len(PathAssign_store.KEGG_df)} KEGG Compounds IDs').bold = True
+
+            filename_string = f'/Report_KEGG_colours_class{target_list.classes[0]}_class{target_list.classes[1]}.csv'
+
+            kegg_pg.add_run(f' were found. The list of extracted KEGG IDs and the chosen colour for each based on their presence')
+            kegg_pg.add_run(f' in the samples of the studied classes are saved as {filename_string[1:]}. This can be used as input ')
+            kegg_pg.add_run(f'in https://www.genome.jp/kegg/mapper/color.html.')
+
+            # Saving the file
+            PathAssign_store.KEGG_df.to_csv(folder+filename_string)
+
+        else:
+            document.add_paragraph(('KEGG Colour Mapping Section was not performed or not possible to be performed. Alternatively, '
+                                        'no KEEG Compound IDs were annotated. Thus, this section will be skipped.'))
+
+
         # End of section
         document.add_page_break()
 
@@ -1820,7 +1839,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 # Saving Parameters function
 def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, FormAssign_store,
                     checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store,
-                    pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
+                    PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
                     include_data_analysis=True):
     "Creates a json file containing relevant parameters used in current dataset analysis."
 
@@ -2030,6 +2049,12 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
                                                     'ccs_bar_plot_type': dataviz_store.ccs_bar_plot_type,}
 
 
+        # Saving KEGG Colour Mapping Related Parameters
+        params_to_be_saved['KEGG Mapping'] = {'KEGG_color_class1': PathAssign_store.KEGG_color_class1,
+                                              'KEGG_color_class2': PathAssign_store.KEGG_color_class2,
+                                              'KEGG_color_both': PathAssign_store.KEGG_color_both,}
+
+
         # Saving Pathway Over-Representation Analysis Related Parameters
         if len(pathora_store.curr_ora_parameters) > 0:
             params_to_be_saved['Pathway Over-Representation Analysis'] = {'min_metabolites_for_pathway': pathora_store.curr_ora_parameters['min_metabolites_for_pathway'],
@@ -2152,8 +2177,9 @@ def loading_parameters_in(params_to_load, data_filtering, n_databases_show, n_da
                          annotation_ppm_deviation, annotation_Da_deviation, only_select_min_ppm_widget, RepGen,
                          adducts_to_search_widget, DB_dict, FormAssign_Store, PreTreatment_Method, checkbox_com_exc,
                          com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
-                         dataviz_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
-                         PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in, params_analysis_loaded_in):
+                         dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, n_components_compute_binsim,
+                         HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in,
+                         params_analysis_loaded_in):
     "Load in Previously Saved Parameters for Data Analysis."
 
     # Data Pre-Processing and Pre-Treatment Related Parameters
@@ -2355,6 +2381,12 @@ def loading_parameters_in(params_to_load, data_filtering, n_databases_show, n_da
             # Chemical Composition Series Related
             dataviz_store.ccs_bar_plot_type = params_to_load['Data Visualization']['ccs_bar_plot_type']
             dataviz_store.compute_fig = True
+
+        # Loading KEGG Colour Mapping Related Parameters:
+        if 'KEGG Mapping' in params_to_load.keys():
+            PathAssign_store.KEGG_color_class1 = params_to_load['KEGG Mapping']['KEGG_color_class1']
+            PathAssign_store.KEGG_color_class2 = params_to_load['KEGG Mapping']['KEGG_color_class2']
+            PathAssign_store.KEGG_color_both = params_to_load['KEGG Mapping']['KEGG_color_both']
 
         # Loading Pathway Over-Representation Analysis Related Parameters:
         if 'Pathway Over-Representation Analysis' in params_to_load.keys():

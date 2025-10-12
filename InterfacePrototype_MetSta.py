@@ -104,11 +104,11 @@ class DataFiltering:
 class DataAnnotation:
     def __init__(self):
         self.content = pn.Column("# Section 2: Data Annotation", 
-    """Perform Annotations based on available databases. Must provide the database filename and the name of the columns with the **ID**, the **Name** and **Formula** of the metabolites. **Cannot perform annotation without a selected Neutral Mass or m/z column.**
-    You can annotate with multiple databases. However, each database is annotated individually.
+    """Perform Annotation based on available databases. Must provide the database filename and the name of the columns with the **ID**, the **Name** and **Formula** of the metabolites. **Cannot perform annotation without a selected Neutral Mass or m/z column.**
+    You can annotate with multiple databases. Each database is merged together into a large database before annotation.
     Annotation works by assigning to a m/z peak / feature all metabolites of a database that are within the provided error margin.
-    Annotation from two different databases might annotate different metabolites for the same m/z peak / feature.
-    Thus, each database annotation will generate **4 columns** added to the metadata: one with the **IDs** of the metabolites annotated, another with their **formula**, another with their **name** and another with the corresponding **adduct**.""",
+    Thus, annotation will add **5 columns** to the metadata: one with the **IDs** of the metabolites annotated, another with their **formula**, another with their **name**, another with the corresponding **adduct** and another with the **database** used for the annotation.
+    Futhermore, to take into account KEGG IDs, if any database has a column named 'kegg', the information in this column will also be added as an extra column named '**Matched KEGGs**' that can be used later for KEGG compound mapping (explained later).""",
                                 page2)
 
     def view(self):
@@ -532,7 +532,7 @@ def _confirm_param_file_button(event):
                     annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, only_select_min_ppm_widget,
                     RepGen, adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
                     com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
-                    dataviz_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
+                    dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
                     PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in.value, params_analysis_loaded_in.value)
 
         # Adjust necessary widgets
@@ -1213,7 +1213,7 @@ class Final_DB(param.Parameterized):
                 'Mass', DB_dict[db_to_use].annotation, DB_dict[db_to_use].formula,]].values
 
             # Get kegg id if HMDB
-            if DB_dict[db_to_use].abv == 'HMDB':
+            if 'kegg' in DB_dict[db_to_use].db.value.columns:
                 full_db.loc[list(DB_dict[db_to_use].db.value.index), 'Kegg'] = DB_dict[db_to_use].db.value.loc[:, 'kegg']
 
             # Provide a DB identifier to each metabolite
@@ -2590,24 +2590,24 @@ save_data_dataframes_button = pn.widgets.Button(
 # When pressing the button, downloads the dataframes
 def _save_data_dataframes_button(event):
     "Saves Data main DataFrames."
-    DataFrame_Store.original_df.to_csv('annotated_df.csv')
-    DataFrame_Store.treated_df.to_csv('treated_df.csv')
-    pd.concat((DataFrame_Store.metadata_df, DataFrame_Store.treated_df.T), axis=1).to_csv('complete_treated_df.csv')
+    DataFrame_Store.original_df.to_csv(path_dl + '/' + 'annotated_df.csv')
+    DataFrame_Store.treated_df.to_csv(path_dl + '/' + 'treated_df.csv')
+    pd.concat((DataFrame_Store.metadata_df, DataFrame_Store.treated_df.T), axis=1).to_csv(path_dl + '/' + 'complete_treated_df.csv')
 
     # Exports for the side modules
     # Complete exported data
-    with pd.ExcelWriter('Export_TreatedData.xlsx') as writer:
+    with pd.ExcelWriter(path_dl + '/' + 'Export_TreatedData.xlsx') as writer:
         DataFrame_Store.processed_df.to_excel(writer, sheet_name='Metadata+Normalized Data')
         DataFrame_Store.treated_df.T.to_excel(writer, sheet_name='Fully Treated Data')
         DataFrame_Store.binsim_df.T.to_excel(writer, sheet_name='BinSim Treated Data')
         DataFrame_Store.univariate_df.to_excel(writer, sheet_name='MVI+Norm Data')
 
     # Export target
-    with open('Export_Target.txt', 'w') as f:
+    with open(path_dl + '/' + 'Export_Target.txt', 'w') as f:
         f.write('\n'.join(target_list.target))
 
-    DataFrame_Store.processed_df.to_pickle('Export_ProcData.pickle')
-    DataFrame_Store.treated_df.to_pickle('Export_TreatedData.pickle')
+    DataFrame_Store.processed_df.to_pickle(path_dl + '/' + 'Export_ProcData.pickle')
+    DataFrame_Store.treated_df.to_pickle(path_dl + '/' + 'Export_TreatedData.pickle')
 
     pn.state.notifications.success(f'DataFrames successfully saved.')
 
@@ -2747,10 +2747,16 @@ def _confirm_button_next_step_5(event):
             # Pathway Assignment page
             PathAssign_store.reset()
             pathora_store.controls.widgets['confirm_button_ORA'].disabled = True
+            PathAssign_store.controls_kegg.widgets['KEGG_color_class1'].disabled = True
+            PathAssign_store.controls_kegg.widgets['KEGG_color_class2'].disabled = True
+            PathAssign_store.controls_kegg.widgets['KEGG_color_both'].disabled = True
+            PathAssign_store.controls_kegg.widgets['KEGG_confirm_button'].disabled = True
             while len(path_matching_section) > 3:
                 path_matching_section.pop(-1)
             while len(hmdb_id_searching_section) > 3:
                 hmdb_id_searching_section.pop(-1)
+            while len(kegg_mapping_section) > 3:
+                kegg_mapping_section.pop(-1)
             pathora_store.reset()
             while len(pathway_ora_page) > 3:
                 pathway_ora_page.pop(-1)
@@ -2813,8 +2819,8 @@ def _confirm_button_next_step_5(event):
                                 annotation_margin_method_radio, annotation_ppm_deviation, annotation_Da_deviation, only_select_min_ppm_widget,
                                 RepGen, adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
                                 com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
-                                dataviz_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
-                                PLSDA_store_binsim, RF_store_binsim, False, params_analysis_loaded_in.value)
+                                dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, n_components_compute_binsim,
+                                HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, False, params_analysis_loaded_in.value)
 
                     # Adjust necessary widgets
                     if 'BinSim Analysis' in params_to_load.value.keys():
@@ -2861,6 +2867,7 @@ def _confirm_button_next_step_5(event):
 
     # Updating Widgets for Pathway Assignment
     PathAssign_store._update_widgets(DataFrame_Store.metadata_df, pathway_db)
+    PathAssign_store._update_widgets_KEGG(target_list)
     map_pathways._update_widgets(target_list)
 
     # BinSim page updating widgets
@@ -2902,8 +2909,8 @@ def _save_parameters_pretreat_button(event):
         filename = params_filename.value
         report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget,
                         DB_dict, FormAssign_store, checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store,
-                        RF_store, dataviz_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim,
-                        RF_store_binsim, include_data_analysis=False)
+                        RF_store, dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim,
+                        PLSDA_store_binsim, RF_store_binsim, include_data_analysis=False)
 
         pn.state.notifications.success(f'Pre-Treatment Parameters successfully saved in {filename}.json')
 
@@ -5484,7 +5491,8 @@ def _save_multiple_univariate_button(event):
         filename_string = filename_string + f'.csv'
 
     # Saving the file
-    pd.concat((UnivarA_Store.specific_cl_df, DataFrame_Store.original_df[target_list.sample_cols]), join='inner', axis=1).to_csv(path_dl + '/' + filename_string)
+    pd.concat((UnivarA_Store.specific_cl_df, DataFrame_Store.original_df[target_list.sample_cols]), join='inner', axis=1).to_csv(
+        path_dl + '/' + filename_string)
     pn.state.notifications.success(f'{filename_string} successfully saved.')
 
 save_multiple_univariate_button.on_click(_save_multiple_univariate_button)
@@ -6143,6 +6151,13 @@ class PathAssignment_Storage(param.Parameterized):
     chosen_hmdb_ids = param.String()
     chosen_hmdb_ids_assigns = param.Dict({})
 
+    # KEGG Related Parameters
+    KEGG_color_class1 = param.Color(default=mpl.colors.CSS4_COLORS['red'])
+    KEGG_color_class2 = param.Color(default=mpl.colors.CSS4_COLORS['blue'])
+    KEGG_color_both = param.Color(default=mpl.colors.CSS4_COLORS['purple'])
+    KEGG_confirm_button = param.Boolean(default=False)
+    KEGG_df = param.DataFrame(pd.DataFrame())
+
 
     def _pathway_assignments(self, metadata_df, pathway_db):
         "Performs pathway matching between HMDB IDs found and the pathway database."
@@ -6272,6 +6287,63 @@ class PathAssignment_Storage(param.Parameterized):
         self.controls_hmdb.widgets['chosen_hmdb_ids'].options = list(pathway_db.index)
 
 
+    def _update_widgets_KEGG(self, target_list):
+        "Updates Widgets based on target."
+
+        # If KEGG Matching can be done
+        if len(target_list.classes) == 2:
+            # Enable
+            PathAssign_store.controls_kegg.widgets['KEGG_color_class1'].disabled = False
+            PathAssign_store.controls_kegg.widgets['KEGG_color_class2'].disabled = False
+            PathAssign_store.controls_kegg.widgets['KEGG_color_both'].disabled = False
+            PathAssign_store.controls_kegg.widgets['KEGG_confirm_button'].disabled = False
+
+            # Change names
+            PathAssign_store.controls_kegg.widgets[
+                'KEGG_color_class1'].name = f'Colour for Only Present in Class {target_list.classes[0]}'
+            PathAssign_store.controls_kegg.widgets[
+                'KEGG_color_class2'].name = f'Colour for Only Present in Class {target_list.classes[1]}'
+            PathAssign_store.controls_kegg.widgets[
+                'KEGG_color_both'].name = f'Colour for Present in Both Class {target_list.classes[0]} and Class {target_list.classes[1]}'
+
+        # If KEGG Matching cannot be performed
+        else:
+            # Disable
+            PathAssign_store.controls_kegg.widgets['KEGG_color_class1'].disabled = True
+            PathAssign_store.controls_kegg.widgets['KEGG_color_class2'].disabled = True
+            PathAssign_store.controls_kegg.widgets['KEGG_color_both'].disabled = True
+            PathAssign_store.controls_kegg.widgets['KEGG_confirm_button'].disabled = True
+
+            # Change names
+            PathAssign_store.controls_kegg.widgets['KEGG_color_class1'].name = f'Colour for Only Present in Class 1'
+            PathAssign_store.controls_kegg.widgets['KEGG_color_class2'].name = f'Colour for Only Present in Class 2'
+            PathAssign_store.controls_kegg.widgets['KEGG_color_both'].name = f'Colour for Present in Both Class 1 and Class 2'
+
+        # Update the layout
+        kegg_mapping_section[2] = PathAssign_store.controls_kegg
+
+
+    def _KEGG_confirm_button(self, event):
+        "Create the KEGG Compound List and colour mapping and download the file."
+
+        if 'Matched KEGGs' in DataFrame_Store.processed_df.columns:
+            # Generate the list
+            kegg_data = iaf.KEGG_colour_mapping(self, DataFrame_Store, target_list)
+            kegg_colours = kegg_data[['Matched KEGGs', 'Colour']]
+            kegg_colours = kegg_colours.set_index('Matched KEGGs')
+            self.KEGG_df = kegg_colours
+
+            # Save the file
+            kegg_colours_filename = f'KEGG_colours_class{target_list.classes[0]}_class{target_list.classes[1]}.csv'
+            kegg_colours.to_csv(path_dl + '/' + kegg_colours_filename, sep="\t")
+
+            pn.state.notifications.success(f"{kegg_colours_filename} successfully downloaded.")
+
+        else:
+            pn.state.notifications.error(
+                f"'Matched KEGGs' column (annotation) could not be found. KEGG colour mapping cannot be performed.")
+
+
     def reset(self):
         "Resets all relevant parameters."
         for param in self.param:
@@ -6293,11 +6365,26 @@ class PathAssignment_Storage(param.Parameterized):
                 rows=10, placeholder='''HMDB0000001\nHMDB0001045\nHMDB0000125\nHMDB0123678''', max_length=20000)
         }
 
+        widgets_kegg = {
+            'KEGG_color_class1': pn.widgets.ColorPicker(name='Colour for Only Present in Class 1',
+                                                    value=mpl.colors.CSS4_COLORS['red'], disabled=True),
+            'KEGG_color_class2': pn.widgets.ColorPicker(name='Colour for Only Present in Class 2',
+                                                    value=mpl.colors.CSS4_COLORS['blue'], disabled=True),
+            'KEGG_color_both': pn.widgets.ColorPicker(name='Colour for Present in Both Class 1 and Class 2',
+                                                    value=mpl.colors.CSS4_COLORS['purple'], disabled=True),
+            'KEGG_confirm_button': pn.widgets.Button(name='Perform KEGG Colour Mapping and Download the Resulting File',
+                                                button_type='warning', icon=iaf.download_icon, disabled=True)
+        }
+
         self.controls = pn.Param(self, parameters=['hmdb_id_cols'], widgets=widgets_initial,
                                  name='Choose data columns with HMDB IDs (in string or list format) from metadata columns:')
 
         self.controls_hmdb = pn.Param(self, parameters=['chosen_hmdb_ids'], widgets=widgets_final,
                                  name='Specific search of HMDBs in Database')
+
+        self.controls_kegg = pn.Param(self, parameters=['KEGG_color_class1', 'KEGG_color_class2', 'KEGG_color_both',
+                                 'KEGG_confirm_button'],
+                                 widgets=widgets_kegg, name='Choosing Colours for KEGG Colour Mapping')
 
 
 # Load pathway database into a DataFrame
@@ -6433,6 +6520,14 @@ confirm_hmdb_ids_to_search_button.on_click(_confirm_hmdb_ids_to_search_button)
 hmdb_id_searching_section = pn.Column('## HMDB ID Pathway Searching Section',
                                       PathAssign_store.controls_hmdb,
                                       confirm_hmdb_ids_to_search_button)
+
+
+# KEGG Mapping Colour Section
+
+PathAssign_store.controls_kegg.widgets['KEGG_confirm_button'].on_click(PathAssign_store._KEGG_confirm_button)
+
+kegg_mapping_section = pn.Column('# KEGG Colour Mapping', pn.pane.HTML(desc_str.kegg_opening_string),
+                            PathAssign_store.controls_kegg)
 
 
 
@@ -6957,8 +7052,8 @@ pathway_map_page = pn.Column('# Mapping SMPDB Pathways (based on HMDB IDs)',
 
 
 # Overall Page layout
-path_assign_page = pn.Column(path_matching_section, hmdb_id_searching_section, pathway_ora_page,
-                             pathway_map_page)
+path_assign_page = pn.Column(path_matching_section, hmdb_id_searching_section, kegg_mapping_section,
+                             pathway_ora_page, pathway_map_page)
 
 
 
@@ -7842,8 +7937,8 @@ def _save_parameters_analysis_button(event):
         # Trying to save parameters
         filename = params_filename.value
         report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, FormAssign_store,
-                        checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, pathora_store,
-                        PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True)
+                        checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
+                        pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True)
 
         pn.state.notifications.success(f'Parameters successfully saved in {filename}.json')
 

@@ -2216,7 +2216,35 @@ def _plot_KMD_plot_individual(filt_df, dataviz_store, group, neutral_mass_col):
 
 
 
-### Functions related to the Pathway Assignment, Matching, Over-Representation Analysis and Pathway Mapping page of the graphical interface
+### Functions related to the Pathway Assignment, Matching, KEGG Mapping, OR Analysis and Pathway Mapping page of the graphical interface
+
+def KEGG_colour_mapping(PathAssign_store, DataFrame_Store, target_list):
+    "Filter from the dataset, features with KEGG compounds associate and assigns them a colour."
+
+    # Creating the dictionary with information about which samples belong to which classes
+    groups = {cl: [] for cl in target_list.classes}
+    for c, t in zip(target_list.sample_cols, target_list.target): # Setting up the values
+        for g in groups:
+            if g == t:
+                groups[g].append(c)
+
+    # Getting the KEGG compound filtered dataset
+    kegg_data = DataFrame_Store.processed_df.copy()
+    kegg_data = kegg_data.explode('Matched KEGGs', ignore_index=True)
+    kegg_data = kegg_data.dropna(subset='Matched KEGGs')
+    kegg_data['Colour'] = np.nan
+    # Adding colour information
+    for k in kegg_data.index:
+        k_df = kegg_data.loc[[k]]
+        if k_df[groups[target_list.classes[0]]].isnull().values.all():
+            kegg_data['Colour'][k] = PathAssign_store.KEGG_color_class1
+        elif k_df[groups[target_list.classes[1]]].isnull().values.all():
+            kegg_data['Colour'][k] = PathAssign_store.KEGG_color_class2
+        else:
+            kegg_data['Colour'][k] = PathAssign_store.KEGG_color_both
+
+    return kegg_data
+
 
 def _plot_pathwayORA_class(pathora_store):
     "Plots pathway enrichment adjusted probability over the % of metabolites of the pathway found."
