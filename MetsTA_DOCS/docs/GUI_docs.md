@@ -164,38 +164,218 @@ Missing Value Imputation aims to replace missing values in the dataset (metaboli
 
     Scaling equations obtained from van den Berg et al., 2006, paper available [here](https://doi.org/10.1186/1471-2164-7-142).
 
+After Data Pre-Treatment, you will have the option to download the generated tables in different stages:
+
+- Untreated data after data annotation - `annotated_df.csv`
+- Treated intensity data without metadata - `treated_df.csv`.
+- Treated intensity data with metadata - `complete_treated_df.csv`.
+
+Furthermore, a series of extra files starting with **Export** will also be generated. These files can then be moved to the NEMeSIS folder and used as input for the [Independent Side Modules](jupyter_docs.md#independent-side-modules). These are:
+
+- `Export_TreatedData.xlsx` - Excel with 4 sheets, one containing the normalized data (without missing value imputation, transformation or scaling) with metadata, another the treated intensity data without metadata, another with the dataset treated with Binary Simplification (or Spectral Digitalization) method and the last with the treated values after missing value imputation and normalization (but before transformation and scaling).
+- `Export_Target.txt` - File containing the class labels (target) of the dataset's samples in the same order as they appear in the dataset.
+- `Export_TreatedData.pickle` - Treated intensity data without metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).
+- `Export_ProcData.pickle` - Normalized data (without missing value imputation, transformation or scaling) with metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).
+
+After moving from this page, you will be able to select a colour to represent each of the classes in the studied dataset before moving on to the [Data Analysis and Interpretation](jupyter_docs.md#data-analysis-and-interpretation) (Statistical Analysis) step. Futhermore, at this stage, the parameters used for pre-processing and pre-treatment can be saved as a json that can be loaded back in the Data Reading page in subsequent analysis. This will be automatically saved on the NEMeSIS folder.
+
 
 ## Stage 3: Data Analysis and Interpretation
 
-The third and final stage of the software is the Data Analysis and Interpretation (Statistical Analysis) that also includes many sub-sections: [Common and Exclusive Compound Analysis](GUI_docs.md#com-and-exc-compound-analysis), [Unsupervised Analysis](GUI_docs.md#unsupervised-analysis), [Supervised Analysis](GUI_docs.md#supervised-analysis), [Univariate Analysis](GUI_docs.md#univariate-analysis), [Data Diversity Visualization](GUI_docs.md#data-diversity-visualization), [HMDB IDs to Pathways Assignment](GUI_docs.md#hmdb-ids-to-pathways-assignment), [BinSim Treated Data Analysis](GUI_docs.md#binsim-treated-data-analysis) and a [Compound Search Tool](GUI_docs.md#compound-search-tool).
+The third and final stage of the software is the Data Analysis and Interpretation (Statistical Analysis) that also includes many sub-sections: [Common and Exclusive Compound Analysis](GUI_docs.md#com-and-exc-compound-analysis), [Unsupervised Analysis](GUI_docs.md#unsupervised-analysis), [Supervised Analysis](GUI_docs.md#supervised-analysis), [Univariate Analysis](GUI_docs.md#univariate-analysis), [Data Diversity Visualization](GUI_docs.md#data-diversity-visualization), [HMDB based Pathway Analysis](GUI_docs.md#hmdb-based-pathway-analysis), [BinSim Treated Data Analysis](GUI_docs.md#binsim-treated-data-analysis) and a [Compound Search Tool](GUI_docs.md#compound-search-tool).
+
+Almost all these sections are independent of one another and can be performed in any desired order based on the analyses objective. The exception is certain parts of the [HMDB based Pathway Analysis](GUI_docs.md#hmdb-based-pathway-analysis) section that requires either [Supervised Analysis](GUI_docs.md#supervised-analysis) or [Univariate Analysis](GUI_docs.md#univariate-analysis) to have been performed first.
+
+!!! info
+
+    During this stage, analysis results expressed as images can either be **static** (made using matplotlib python package)or **interactive** (made using plotly). For **static** figures, a nearby button with 'save as png' text will always be nearby so the figure can be downloaded exactly as it is shown. For **interactive** figures (see image below), when hovering over them, a series of options appears in the top right. The leftmost of these options allows to save the figure exactly as it is currently shown (red box in image below). Interactive figures allows to hover over individual points and obtain information, to zoom in on specific regions, etc. To return the default view point, the autoscale button can be pressed (green box in image below).
+
+![Interactive Image Example](img/InteractiveImageExample.png)
 
 #### Com. and Exc. Compound Analysis
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+The Common and Exclusive Compound Analysis when computed provides three types of outputs that can be viewed by selecting the shown tabs.
+
+The **Overview** section includes a brief description of the number of compounds (and annotated compounds) that each biological class has, that are exclusive to each of them and that are common to all of them. This data can also be downloaded as a table. Furthermore, you may select a subset of the classes to see all associated metabolic features to those classes or only those that are exclusive to those classes. This data subset can also be saved as a dataframe.
+
+The **Venn Diagram** section, as the name entails, shown a Venn Diagram of the metabolic features. This Diagram is built with the `venn.py` file originally provided in [https://github.com/tctianchi/pyvenn/blob/master/venn.py](https://github.com/tctianchi/pyvenn/blob/master/venn.py) and used according to its license.
+
+The **Intersection Plot** section shows intersection plots considering all metabolic features of the data and only the features with annotated data.
+
+Venn Diagrams and Intersection Plots are static non-interactive images.
+
+!!! info
+
+    Venn Diagrams and Intersection Plots will not be computed and drawn if the dataset has more than 6 different classes since the observation of the data becomes less meaningful.
 
 #### Unsupervised Analysis
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+Multivariate Unsupervised Analysis methods included in its corresponding page are Principal Component Analysis (PCA) and Hierarchical Clustering Analysis (HCA). Since they are used to observe the intrinsic patterns and structure in the data, they provide mostly figures to describe the analysed data.
+
+The **PCA** section can show 2D and 3D projection of the samples in 2 or 3 PCA components (these components can be chosen) as well as the cumulative explained variance by component and a 2D Scatter plot of PCA projections of up to the first 6 components. All these figures are interactive.
+
+The **HCA** section contains the dendrogram result as a static image that can e downloaded. Changes to the parameters will immediately cause an update to the dendrogram.
 
 #### Supervised Analysis
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+Multivariate Supervised Analysis methods included in its corresponding page are Partial Least Squares - Discriminant Analysis (PLS-DA) and Random Forest (RF). They are used to build classifier models based on stratified cross validation schemes and obtain a list of important metabolites to build these classifiers and discriminate between classes.
+
+Both **PLS-DA** and **RF** follow a very similar organization on their corresponding tabs.
+
+They start with an optimization of specific parameters for each one. For **PLS-DA**, this is an optimization of the number of components or latent variables which is an essential parameter. This is made by evaluating the $Q^{2}$ (1) and the $R^{2}$ (2) (see tip below) when fitting a PLS model to the data from a chosen initial to final number of components with a stratified cross validation scheme (see warning below). For **RF**, it is an optimization of the number of trees by observing RF accuracy of models built between specified numbers of trees with a stratified cross validation scheme.
+{ .annotate}
+
+1. Mean squared error of PLS predictions based on **test samples**.
+
+2. Mean squared error of PLS predictions based on **training samples**.
+
+!!! warning
+
+    The maximum number of components chosen cannot be higher than the number of samples that will train a model minus 1. For example, if you have 15 samples and a 3-fold cross-validation each fold will have 5 samples. A training set will be comprised of two of those folds thus it will have 10 samples, thus the number of components cannot be higher than 9. Another example if you have 22 samples and 5 folds, the folds will have 4/4/4/5/5 samples each. A training set will have four of these folds and the minimum sum of them is 4+4+4+5-1=16, thus it cannot be higher than 16.
+
+!!! tip
+
+    When optimizing **PLS-DA**, the chosen number of components should be the number where **$Q^{2}$ stops increasing**.
+
+    - **$Q^{2}$** will increase until a certain number of components that should be chosen. Then it usually stabilizes but from a certain point it might start to decrease which would mean the model is overfitting (less generalizable to the test samples).
+    - **$R^{2}$** will be higher than $Q^{2}$ but it should not be used to choose the number of components. This metric always increases with more components (estimation errors might lead to temporary decreases) which means it will eventually overfit the model.
+
+    When optimizing **RF**, the usual pattern observed is an increase in accuracy with an increase of the number of trees until it stabilizes and fluctuates around a certain value. Since RF are somewhat resistant to overfitting, the value chosen will be one where the accuracy has stopped increasing but not too high as to make the model training too slow.
+
+After optimization, the models can be trained allowing the modification of key parameters. The number of times to repeat analysis parameter exists as more repetition will allow a better estimation of model peerformance and feature importance at a cost of time of running. They will output a table summarizing model performance and a table with an ordered list of important metabolic features to build the classifier model as estimated by either Variable Importance in Projection (VIP) scores or X-Weights for PLS-DA and by Gini Importance for RF. The latter table can be downloaded.
+
+!!! info
+
+    Metabolic Feature importances estimated are calculated for each fold and each repetition of the analysis and averaged.
+
+    VIP Scores are calculated based on Keiron Teilo O'Shea provided code in [https://www.researchgate.net/post/How-can-I-compute-Variable-Importance-in-Projection-VIP-in-Partial-Least-Squares-PLS](https://www.researchgate.net/post/How-can-I-compute-Variable-Importance-in-Projection-VIP-in-Partial-Least-Squares-PLS). This calculation can be slow when you have a high number of features.
+
+Besides model fitting, **Permutation tests** for model validation and **Receiver Operating Characteristic (ROC) Curve** are available.
+
+ROC Curves plot the True Positive Rate by the False Positive Rate and thus geared towards 2-class datasets (1). For multiclass cases (more than 2 classes), a ROC curve will be computed for each class considered as the positive by fitting a "1vsAll" model, that is, the class of each sample is either the current positive class or "Other". Thus, there will likely be many more negative samples than positive samples in each case, greatly increasing the importance of the latter for the curve of each class.
+{ .annotate }
+
+1. One class has to be considered as the positive class.
+
+!!! info
+
+    Permutation tests are slow to be computed and can take quite a few minutes depending on the number of permutations. For an initial analysis of the data, it may be skipped.
+
+    Permutation test p-value is calculated as: $p-value = \dfrac{1 + n}{N}$
+
+    Where **_n_** is number of times permuted model has better performance that non-permuted model and **_N_** is the total number of permutations.
 
 #### Univariate Analysis
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+Univariate Analysis page includes **1v1 Univariate Analysis** and **Multiclass Univariate Analysis**.
+
+**1v1 Univariate Analysis** includes also a **Fold-Change analysis**. When there are more than 2 classes, a control and test class can be chosen. In this case, the samples respective to the 2 chosen classes will be selected from the non-treated data (after annotation). Data filtering (Filter 1 only) and pre-treatment will be performed the same way it was done on the complete dataset before performing unsupervised analysis (starting from the dataset after data filtering, annotation and de-duplication) (1). In case of filtering based on the total number of samples a feature appears in, the number used on the full dataset is converted to percentage-based and then a new number is calculated based on the number of samples of the control and test class, which is then rounded up.
+{ .annotate }
+
+1. We cannot start from the completely full dataset since we have no annotations associated with it despite the fact that, when using total number of samples based data filtering, there could be some fatures that were initially filtered out that could remain in the dataset. E.g. if you choose a minimum of 4 samples to appear in a 15-sample 5-class dataset. When performing univariate analysis on 2 classes that have a total of 6 samples, the minimum 5 samples would be transformed to a minimum of 2 samples in the 6-sample subset (4 out of 15 represents 26.67% of samples, which is 1.6 out of 6 samples rounded up to 2). There could be features that appear in 2 of these 6 samples but that did not appear in 4 of the original 15 samples and were thus previously removed from the dataset. These features **stay removed**.
+
+The types of univariate test can be chosen (t-test, Mann-Whitney test, consider variances equal or not) as well as the thresholds for significancy on both _p_-values (1) and fold-change. Fold-change is calculated using the values after missing value imputation and normalization (but before transformation and scaling) as to avoid calculations with negative values. Thus, fold-change calculation is severely affected by a high number of missing values and is not suited to this type of data where the values have to be taken with a grain (or multiple grains that are actually more like rocks than grains) of salt (see tip below).
+{ .annotate }
+
+1. _P_-values are adjusted with Benjamini-Hochberg multiple test correction.
+
+!!! tip
+
+    Selecting the Fold-change threshold to 1 will nullify it, essentially skipping the threshold. This should be used when the dataset has a high number of missing values.
+
+1v1 Univariate analysis results include a downloadable table with all _p_-values and fold changes, a volcano plot and a clustermap that can show the top most significant features or all significant features below a determined _p_-value threshold. Finally, for multiclass datasets, you can also obtain the intersection of significant metabolites against multiple possible test classes.
+
+**Multiclass Univariate Analysis** can only be performed when the dataset has **more than 2 classes**. All classes are tested simultaneously and results show significant metabolites considering all samples not possible for 1v1 analysis. On the other hand, no fold-change can be calculated or volcano plot drawn. The test performed can be chosen between the parametric **ANOVA** and non-parametric **Kruskal-Wallis test**.
+
+Multiclass  Univariate analysis results include a downloadable table with all _p_-values and a clustermap that can show the top most significant features or all significant features below a determined _p_-value threshold. This clustermap can show the groupings of samples and also of metabolic features and their intensity pattern trends.
 
 #### Data Diversity Visualization
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+Data Diversity Visualization sections presents three types of plots: **Van Krevelen Plots**, **Kendrick Mass Defect Plots** and **Chemical Composition Series** plots. All these are computed when pressing the button at the top of the page and can be accessed by clicking their respective tab. Each hsa multiple options that allows to tune the figure. An essential parameter common to all 3 plots is which **columns containing formulas** to consider whether it is from data annotation, formula assignment or previous annotations and formula assignments performed outside NEMeSIS. Multiple can be selected to consider multiple annotations (each plot deals with multiple annotations in their own way) but **at least one column must be selected.**
 
-#### HMDB IDs to Pathways Assignment
+**Van Krevelen Plots** are drawn one for each class considering the metabolites annotated in the samples of each class. If multiple formulas can be assigned to a metabolite whether within the same database annotation or different, they are both considered and plotted.
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+**Kendrick Mass Defect Plots** are drawn one for each class considering the metabolic features detected in the samples of each class.The colour of each feature is based on its chemical composition series. If multiple formulas can be assigned to a metabolite **AND** they do not belong to the same chemical composition series, they get assigned as **'Ambiguous'**.
+
+In **Chemical Composition Series**, if multiple formulas can be assigned to the same metabolic feature, whether within the same annotation made or between different annotations, each one will be counted. That is, if a feature has 3 possible formulas, 2 belonging to the 'CHO' series and another to the 'CHOP' series; then 2 formulas will be added to the 'CHO' series and 1 to the 'CHOP' series. Thus, we are considering that the 3 elemental formulas are represented by that feature (probably an overestimation). To provide an idea of how extensive this effect is, a description is also provided before the plot detailing how many formulas are being considered for each class and from how many different features they came from.
+
+!!! bug
+
+    Randomly, in some Kendrick Mass Defect Plots, points may have a bigger size than in other plots despite dot size being parametrized the same in both cases.
+
+#### HMDB based Pathway Analysis
+
+**HMDB based Pathway Analysis** page can be divided into 4 separate and distinct sections:
+
+- Pathway Assignment (HMDB Annotation)
+- KEGG Colour Mapping
+- Pathway Over-Representation Analysis (based on HMDB IDs)
+- Mapping SMPDB Pathways (based on HMDB IDs)
+
+Three of these sections require HMDB annotation while the KEGG Colour Mapping requires that only 2 classes are present in the dataset.
+
+##### Pathway Assignment (HMDB Annotation)
+
+This section matches known metabolic pathways to HMDB annotations (1) with 55872 HMDB compounds having at least 1 associated pathway. For matching, a column with HMDB identifiers must exist. The identifiers should have 7 numbers after HMDB (e.g. 'HMDB0000001'). The output gives the HMDB IDs and annotation names as index in a DataFrame and the name and id of the pathways that they belong to.
+{ .annotate }
+
+1. Only matched to HMDB and the abbreviation of the database should be HMDB.
+
+Moreover, a specific search of the associated pathways of an HMDB identifier in the RAMP database can be performed in the `HMDB ID Pathway Searching Section`, independent if that compound was annotated in the studied data.
+
+!!! note
+
+    Matching is performed based on a file created from the [RAMP database](https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287) ([https://rampdb.nih.gov/](https://rampdb.nih.gov/)), which are an aggregation of pathways from multiple sources: HMDB, Reactome, WikiPathways and KEGG.
+
+##### KEGG Colour Mapping
+
+This section extracts every KEGG compound ID annotated to the dataset to a downloaded file containing a list with only the KEGG identifiers and with a colour associated with them based on metabolite presence in classes. This file can then be used as input in the KEGG website [here](https://www.genome.jp/kegg/mapper/color.html).
+
+To perform this mapping, **2 conditions must be fulfilled**:
+
+**1)** Dataset must only have 2 classes (not available for more than 2).
+
+**2)** A `Matched KEGGs` column might exist. This column can be metadata before previously included in the dataset or can be generated in this software during Data Annotation if **at least one of the databases used for annotation has a column with the name `kegg` (with no capitalization)** which will create the Matched KEGGs column.
+
+##### Pathway Over-Representation Analysis (based on HMDB IDs)
+
+This section uses the pathway mapping in the **Pathway Assignment (HMDB Annotation)** section to perform an over-representation analysis and observe which pathways are over-represented. Parameters to choose include, the minimum number of metabolites that a pathway must have in the database to be considered and the minimum number of metabolites detected in the studied dataset of a pathway for that pathway to be considered in the analysis; the background set to use; and the metric to select the set of 'significant' metabolites and corresponding threshold.
+
+!!! info
+
+    Multiple metabolic features with the same annotation will be considered as individual entries. Metabolic features that have multiple annotations that could correspond to multiple metabolites in the same pathway will be counted as a single metabolite. So, analysis of the relevant pathways should be performed.
+
+The background set can be chosen between restricting to the number of `HMDB annotated metabolites in the dataset with associated pathways` or considering `All HMDB metabolites in the pathway database` (currently not implemented). The background set to choose is critical. If the pathway database is used as background, most metabolic pathways will appear as significant by 'common _p_-values' even after multiple testing correction and very general pathways with more metabolites such as 'Metabolism' or 'Biochemical pathways: part I' or 'Transport of small molecules' have a good chance of appearing as significant. Thus, pathways with multiple metabolites annotated that constitute a decent part of the pathway should be looked at more carefully. If the `HMDB annotated metabolites in the dataset with associated pathways` are used as the background, this conservative approach makes more complicated for any pathway to be considered significant but there is less bias per pathway. In this case, we recommend looking not only at the number of significant and detected metabolites in the pathway but also to the overall number of metabolites in the pathway (in the database), which is included in the output table.
+
+There are 4 metrics available to select the significant metabolites (have to have associated at least 1 pathway). In each case, it will only work if the corresponding methodology has been previously ran.
+
+- **RF Gini Importance** - Threshold is the top % of ranks considered significant (e.g. 0.20 for 20%).
+- **PLS-DA Feat. Importance** - Threshold is the top % of ranks considered significant if below 1 (e.g. 0.20 for 20%) or the threshold for importance if higher or equal to 1 (should only be used for VIP Scores) - **Default**.
+- **1v1 Univariate Analysis** - Threshold is the maximum adjusted (for multiple test correction) _p_-value from the univariate analysis (e.g. 0.05 for adjusted _p_-values under 0.05). The test class is the class chosen as test during univariate analysis.
+- **Multiclass Univariate Analysis** - Threshold is the maximum adjusted (for multiple test correction) _p_-value from the multiclass univariate analysis (e.g. 0.05 for adjusted _p_-values under 0.05).
+
+##### Mapping SMPDB Pathways (based on HMDB IDs)
+
+This section uses the pathway mapping in the **Pathway Assignment (HMDB Annotation)** section and the SMPDB pathway database to output a representation of a pathway based on the reactions associated with that pathway in SMPDB (1). This mapping is restricted to SMPDB metabolic pathways (2).
+{ .annotate }
+
+1. SMPDB and the RAMP database are not always identical even when referring to SMPDB pathways. For example, NAD is associated with reactions in Galactose metabolism but it is not included in the RAMP database as a Galactose metabolism metabolite.
+
+2. SMPDB includes many pathways and only around half of them are designated as metabolic. Others such as disease pathways or signalling pathways are not able to be mapped currently.
+
+!!! note
+
+    This section will be improved in the next version to include a greater array of pathways.
 
 #### BinSim Treated Data Analysis
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+This section and page uses data treated with Binary Simplification (BinSim) or Spectral Digitalization to perform the same analysis as it is performed for the traditionally treated data in the Unsupervised and Supervised Analysis pages. Thus, all instructions and indications are for the use of this method is equal to those pages.
+
+BinSim ([paper here](10.3390/metabo11110788)) was a method developed in our FT-ICR-MS-Lisboa laboratory group. It is an alternative to traditional intensity based pre-treatments that focuses on feature occurrence instead of intensity offering complementary information. BinSim is particularly effective for extreme-resolution data such as FT-ICR-MS data that has a lot of missing values and can more closely detect the set of metabolites present in a sample. Feature occurrence tends to be more reproducible than intensity values. The set of metabolites detected is characteristic of a biological system and can be used for discrimination.
+
+!!! info
+
+    BinSim consists of transforming all **intensity values** present in the data matrix to **1** (metabolic features present in the data) and all **missing values** to **0** (metabolic features absent from the data).
 
 #### Compound Search Tool
 
@@ -246,8 +426,34 @@ If you want to redo your analysis with another dataset, you may use the `RESET` 
 
 ## Tips and Precautions
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+!!! note
 
-Image and table files names as well as in report generations
+    This section is nearly identical to the `Instructions and Considerations` page of the NEMeSIS software.
 
-Refresh the page if something seems out of place
+Here, we will go through some general considerations to have while using this software by describing how it works and some of the currently known issues overall that exist. Furthermore, if you encounter an issue or problem with the software feel free to inform us at [https://github.com/fticr-sms/Metabolomics_DataAnalysis_Pipeline/issues/new](https://github.com/fticr-sms/Metabolomics_DataAnalysis_Pipeline/issues/new). If you feel some parts are underexplained or cannot be intuitively grasped, please also inform us so we can improve the descriptions provided.
+
+**General Considerations to Have**
+
+- While there is an effort for figures and tables produced that can be downloaded to have the relevant parameters used to build them in the name, it is a good practice to keep in mind what parameters were used to make these figures and tables, especially those that do not update with every parameter change to safeguard possible errors that may arise in the filenames generated.
+
+- All tables and figures are saved in the `Downloads` folder. Interactive figures are downloaded using the toolbar that appears at the top right of the figure when hovering over it. Non-interactive figures are saved using an available button in the software. The generated report folder is put on the current working directory, that is, the folder where NEMeSIS is.
+
+- When you start running something there is not a way to stop the process. You can observe if the program is running by observing the little circle on the top right. If there is something currently running it will have this aspect: ![Loading](img/Loading.png). Otherwise, it will have this aspect ![Not Loading](img/NotLoading.png).
+
+- Resetting the program will reset all your variables and previously performed analysis.
+
+**Possible Problems and Suggested Fixes**
+
+- A rare bug that occurs when running the program is the de-formatting of the pages that can happen when you go back and forth between different pages causing artifacts of different pages or empty spaces before the pages to show up. We currently believe this is an issue with the panel package we are basing this software on. This can be mostly solved by refreshing the page in the browser to reset the layout of the page. However, do not use this trick on the common and exclusive compound page since this has a small chance to make the sidebar to navigate the software disappear, rendering it unoperable and needing to be closed and opened again.
+
+- Another issue of the same type is the reset floatpanel not appearing when pressing it the 2nd time. It is also fixed by refreshing.
+
+- Do not mash the buttons many times, it may buffer the clicks. See first on the upper right if the program is running or not.
+
+- Other known issues have smaller consequences and affect specific pages. When they exist, a little note in bold will indicate the problem at the beginning of the corresponding page.
+
+**Performance of the Different Parts of the Program**
+
+- The program generally runs smoothly and quickly with low latency. The exceptions are the very first page when data reading which can slow down the program for a few seconds as well as some parts when certain analysis such as PLS-DA or Random Forest finish and the page layout is updated with the results.
+
+- The possible slow downs and time of analysis is also dependent on the size of the dataset. The bigger the dataset to be analyzed, the slower the analysis is and vice-versa. Formula assignment or calculating VIP scores for example is heavily dependent on dataset size.
