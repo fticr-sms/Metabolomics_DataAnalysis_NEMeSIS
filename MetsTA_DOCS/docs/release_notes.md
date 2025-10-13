@@ -1,7 +1,18 @@
 
-This page includes the release notes for both jupyter notebook and graphical interface versions of the MetsTA software (independent from one another).
+This page includes the release notes for both jupyter notebook and graphical interface versions of the NEMeSIS software (independent from one another).
 
 ## Jupyter Notebook Version Release Notes
+
+**V2.8 - Raw Data Processing, Improved Data Annotation, Pathway Analysis and FDiGNN side module (09/09/2025)**
+
+- Added raw data spectra processing as a side module to process mzML data.
+- Improved Data Annotation where chosen databases are merged together into a complete database before perfoming annotations (made associated changes).
+- Small improvement on allowed mass deviation calculation for formula assignment.
+- Improved intersection plot section and adding intersection plot colouring chemical compound classes.
+- Re-structured pathway analysis section to select more conservative background sets (metabolites detected in the data) and 'significant' metabolites based on univariate or multivariate analysis.
+- Added mapping formulas to pathway and pathway representation in pathways analysis section (only SMPDB pathways).
+- Added a side module with FDiGNN analysis as a standalone jupyter notebook as example of independent analysis modules.
+- Minor bugfixes and improvements in text.
 
 **V2.7 - Data Filtering, Score-based Formula Assignment, Improved Peak De-duplication (19/02/2025)**
 
@@ -138,6 +149,15 @@ This page includes the release notes for both jupyter notebook and graphical int
 <br>
 
 ## Graphical Interface Version Release Notes
+
+**Version Beta.0 (09/09/2025)**
+
+- Added raw data spectra processing section to the DataAlignment specific interface.
+- Improved Data Annotation where chosen databases are merged together into a complete database before perfoming annotations (made associated changes).
+- Changed Formula Assignment to the score-based Formula Assignment. Small improvement on allowed mass deviation calculation.
+- Re-structured pathway analysis section to select more conservative background sets (metabolites detected in the data) and 'significant' metabolites based on univariate or multivariate analysis.
+- Added mapping formulas to pathway and pathway representation in pathways analysis section (only SMPDB pathways).
+- Minor bugfixes and improvements in text.
 
 **Version Alpha.5 (19/02/2025)**
 
