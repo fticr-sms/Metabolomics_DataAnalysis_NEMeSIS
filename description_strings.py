@@ -49,8 +49,8 @@ instructions_page = '''<p>Here, we will go through some general considerations t
 how it works and some of the currently known issues overall that exist. Furthermore, if you encounter an issue or problem
 with the software feel free to inform us at
 <a data-fr-linked="true" href="https://github.com/fticr-sms/Metabolomics_DataAnalysis_Pipeline/issues/new">https://github.com/fticr-sms/Metabolomics_DataAnalysis_Pipeline/issues/new</a>.
-Furthermore, if you feel some parts are underexplained or cannot be intuitively grasped, please also inform us so we can
-improve the descriptions provided.</p>
+If you feel some parts are underexplained or cannot be intuitively grasped, please also inform us so we can improve the
+descriptions provided.</p>
 <p><strong>General Considerations to Have</strong></p>
 <p>- If you have reached this page, we are assuming that you have all the needed required Python packages and their versions
 that were outlined in the README.md to run this software.</p>
@@ -73,7 +73,7 @@ forgot to re-apply posterior pre-treatment steps.</p>
 to build them in the name, it is a good practice to keep in mind what parameters were used to make these figures and tables,
 especially those that do not update with every parameter change to safeguard possible errors that may arise in the filenames
 generated.</p>
-<p>- All tables and figures the 'Downloads' folder. Interactive figures are downloaded using the toolbar that appears at the
+<p>- All tables and figures are saved in the 'Downloads' folder. Interactive figures are downloaded using the toolbar that appears at the
 top right of the figure when hovering over it. Non-interactive figures are saved using an available button in the software. The
 generated report folder is put on the current working directory, that is, the folder where NEMeSIS is.</p>
 <p>- When you start running something there is not a way to stop the process. You can observe if the program is running by
@@ -90,13 +90,12 @@ style="width: 22px; height: 20.9px;">&nbsp;aspect.</p>
 <p>- Resetting the program will reset all your variables and previously performed analysis.</p>
 <p><br></p>
 <p><strong>Possible Problems and Suggested Fixes</strong></p>
-<p>- The most common bug when running the program is the de-formatting of the pages that can happen when you go
+<p>- A rare bug that occurs when running the program is the de-formatting of the pages that can happen when you go
 back and forth between different pages causing artifacts of different pages or empty spaces before the pages to show up.
-We currently believe this is an issue with the panel package we are basing this software on. Fortunately, this can be
-mostly solved when using the program by refreshing the page in the browser to reset the layout of the page. However,
-<strong>do not use&nbsp;</strong>this trick on the <strong>common and exclusive compound page</strong> since this has a
-small chance to make the sidebar to navigate the software disappear, rendering it unoperable and needing to be closed and
-opened again.</p>
+We currently believe this is an issue with the panel package we are basing this software on. This can be mostly solved
+by refreshing the page in the browser to reset the layout of the page. However, <strong>do not use&nbsp;</strong>this
+trick on the <strong>common and exclusive compound page</strong> since this has a small chance to make the sidebar to
+navigate the software disappear, rendering it unoperable and needing to be closed and opened again.</p>
 <p>- Another issue of the same type is the <strong>reset floatpanel</strong> not appearing when pressing it the 2nd time. It
 is once again a problem fixed by refreshing.</p>
 <p>- Do not mash the buttons many times, it will buffer the clicks. See first on the upper right if the program is running or not.</p>
@@ -535,20 +534,26 @@ This section is <strong>only enabled if the dataset only has 2 classes</strong>.
 <br><br>
 KEGG identifier will only be mapped if a <strong>Matched KEGGs</strong> column exists. This column can be metadata before previously
 included in the dataset or can be generated in this software during Data Annotation if <strong>at least one of the databases used for
-annotation has a column with the name 'kegg' (with no capitalization) which will created the Matched KEGGs column.</strong>
+annotation has a column with the name 'kegg' (with no capitalization) which will create the Matched KEGGs column.</strong>
 """
 
 
 # HMDB Pathway Over-Representation Analysis Section Description HTML in string format
 
 pathway_ora_opening_string = """
-Pathway Over-Representation Analysis considers Feature Occurrence data and matched to the HMDB database specifically.
-We consider as a background set all the metabolites with HMDB identifiers with associated pathways in the <strong>RAMP
-database</strong> (<a href="https://rampdb.nih.gov/" target="_blank" rel="nofollow">https://rampdb.nih.gov/</a>) as the
-section before. Thus, it will include very general pathways such as 'Metabolism' or 'Biochemical pathways: part I' or
-'Transport of small molecules' that have a good chance of appearing as significant (even after multiple testing correction)
-by the sheer number of metabolites in these pathways and the large background set used. More attention is probably warranted
-on smaller pathways that have multiple annotated metabolites.
+Pathway Over-Representation Analysis is performed based on HMDB compound pathway matching done before. The background set
+can be either all the metabolites with HMDB identifiers with associated pathways in the <strong>RAMP
+database</strong> (<a href="https://rampdb.nih.gov/" target="_blank" rel="nofollow">https://rampdb.nih.gov/</a>) (currently
+not implemented) or <strong>restricted to the number of HMDB annotated metabolites in the dataset with associated
+pathways</strong>. The background set to choose is critical. If the RAMP pathway database is used as background, most
+metabolic pathways will appear as significant by 'common <em>p</em>-values' even after multiple testing correction and very
+general pathways with more metabolites such as 'Metabolism' or 'Biochemical pathways: part I' or 'Transport of small molecules'
+have a good chance of appearing as significant. Thus, pathways with multiple metabolites annotated that constitute a decent
+part of the pathway should be looked at more carefully. If the <strong>HMDB annotated metabolites in the dataset with
+associated pathways</strong> are used as the background, this conservative approach makes it more complicated for any pathway
+to be considered significant but there is less bias per pathway. In this case, we recommend looking not only at the number of
+significant and detected metabolites in the pathway but also to the overall number of metabolites in the pathway (in the
+database), which is included in the output table.
 <br>
 <br>
 Multiple peaks with the same annotation will all be considered as individual entries. Peaks that have multiple
@@ -566,12 +571,12 @@ of the methodologies has been previously ran.
 - <strong>PLS-DA Feat. Importance</strong> - Threshold is the top % of ranks considered significant if below 1 (e.g. 0.20
 for 20%) or the threshold for importance if higher that should only be used for VIP Scores - <strong>Default</strong>.
 <br>
-- <strong>1v1 Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction) _p_-value from
-the univariate analysis (e.g. 0.05 for adjusted <em>p</em>-values under 0.05). It also has the `test_class_spec` specific
-parameter to select a specific test class against your control class in case you have more than 2 classes.
+- <strong>1v1 Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction) <em>p</em>-value
+from the univariate analysis (e.g. 0.05 for adjusted <em>p</em>-values under 0.05). The test class is the class chosen as test
+during univariate analysis.
 <br>
-- <strong>Multiclass Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction) _p_-value
-from the univariate analysis (e.g. 0.05 for adjusted <em>p</em>-values under 0.05).
+- <strong>Multiclass Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction)
+<em>p</em>-value from the univariate analysis (e.g. 0.05 for adjusted <em>p</em>-values under 0.05).
 """
 
 

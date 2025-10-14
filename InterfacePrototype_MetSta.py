@@ -2621,8 +2621,18 @@ page3[:2,2:5] = pn.Tabs(('Treated Data', DataFrame_Store.treated_df),
                 ('BinSim Treated Data', DataFrame_Store.binsim_df), height=600, dynamic=True)
 page3[2, :] = pn.Column(confirm_button_next_step_4,
                         '## Optionally save data as .csv files',
-                        '''The button saves data after annotation (without pre-treatment), the treated intensity data without metadata and with the metadata.
-                        These files are saved in the current folder as annotated_df.csv, treated_df.csv, complete_treated_df.csv.''',
+                        pn.Column(pn.pane.Markdown(
+                        '''Download the generated tables in different stages in the Downloads folder:
+                            - Untreated data after data annotation - **annotated_df.csv**
+                            - Treated intensity data without metadata - **treated_df.csv**.
+                            - Treated intensity data with metadata - **complete_treated_df.csv**.'''),
+                        pn.pane.Markdown('''
+                           Extra files will also be generated that can be moved to the NEMeSIS folder and used as input for the side modules:
+                            - **Export_Target.txt** - Class labels (target) of the dataset's samples.
+                            - **Export_TreatedData.pickle** - Treated intensity data without metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).
+                            - **Export_ProcData.pickle** - Normalized data (without missing value imputation, transformation or scaling) with metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).
+                            - **Export_TreatedData.xlsx** - Excel with 4 sheets (Export_ProcData.pickle data, Export_TreatedData.pickle data, BinSim treated data and values after missing value imputation and normalization.
+                        ''')),
                         save_data_dataframes_button)
 
 
@@ -6631,16 +6641,18 @@ class PathwayORA_Storage(param.Parameterized):
         # 1v1 Univariate Analysis
         elif self.type_of_ORA == '1v1 Univariate Analysis':
             if len(UnivarA_Store.current_univ_params) == 0:
-                pn.state.notifications.error('No Univariate Analysis was performed to select significant metabolites from.')
+                pn.state.notifications.error('No 1v1 Univariate Analysis was performed to select significant metabolites from.')
                 return
             sig_mets = UnivarA_Store.univariate_results_non_filt[UnivarA_Store.univariate_results_non_filt['FDR adjusted p-value'] < self.type_of_ORA_threshold].index
             sig_mets_w_paths = [i for i in sig_mets if i in unique_masses_with_paths]
 
-        # TODO: ADD
         # Multiclass Univariate Analysis
         elif self.type_of_ORA == 'Multiclass Univariate Analysis':
-            sig_mets = UnivarA_Store.univariate_results_non_filt[
-                UnivarA_Store.univariate_results_non_filt['FDR adjusted p-value'] < self.type_of_ORA_threshold].index
+            if len(UnivarA_Store.current_multiclass_univ_params) == 0:
+                pn.state.notifications.error('No Multiclass Univariate Analysis was performed to select significant metabolites from.')
+                return
+            sig_mets = UnivarA_Store.multiclass_univariate_results_non_filt[
+                UnivarA_Store.multiclass_univariate_results_non_filt['FDR adjusted p-value'] < self.type_of_ORA_threshold].index
 
             sig_mets_w_paths = [i for i in sig_mets if i in unique_masses_with_paths]
 
