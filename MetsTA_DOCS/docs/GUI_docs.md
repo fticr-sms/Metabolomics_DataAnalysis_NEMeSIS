@@ -81,7 +81,7 @@ After Data Filtering, a small table detailing some characteristics of your data 
 
 #### Data Annotation
 
-Next up, we have Data Annotation. This step is only possible if you have a Mass column as selected in the earlier section (either created in the software based on mass values provided or previously obtained) that represents the masses of the metabolites detected as numbers. 
+Next up, we have Data Annotation. This step is only possible if you have a Mass column as selected in the earlier section (either created in the software based on mass values provided or previously obtained) that represents the masses of the metabolites detected as numbers. This section allows to match unknown metabolic features to known compounds and metabolite, highly enhancing the possible biological interpretation.
 
 You can skip this step by selecting annotation with _0_ databases. Or you can select 1 to 5 databases to perform independent annotations. A database must have a compound ID column, a compound name column and a compound formula column (that is used to calculate the compound theoretical mass used for annotation). To use a database, it should be on the directory where NEMeSIS is located and you must provide a series of informations such as the file name and the column identifier of the ID, name and formula of the compounds. You will also be asked for an abbreviated name of the database to use (for example, HMDB for Human Metabolome Database). If the Database contains a column with KEGG compound IDs, this information will also be conserved in the annotation if and only if the column is named 'kegg'.
 
@@ -100,11 +100,65 @@ With these parameters selected, you can perform the annotation. Before the annot
 
 #### Formula Assignment
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+Formula Assignment is a complement to the Data Annotation performed in the step before. Data annotation provides a lot of information to annotated metabolic features but the lower number of compounds in the database leads to only a small subset of metaoblic features to be annotated. Formula assignment complements annotation by having a much wider coverage of the chemical space allowing many more formula assignments to be performed, however each is less informative individually. Thus, they complement each other to provide a fuller picture of the dataset.
+
+!!! tip
+
+    Data Annotation and Formula Assignment are essential for the extraction of biological information. However, if annotation and/or formula assignment have been performed outside NEMeSIS, we do not recommend them to also be applied here. Multiple sets of annotations or of formula assignments can confound the [De-Duplication of Annotated Features](GUI_docs.md#de-duplication-of-ann-features) step (next step) and posterior analysis.
+
+Formula assignment is made here with our developed algorithm **ScoreForm** presented with detailed descriptions of the criteria and steps used available in the **preprint here**. It follows the [7 Golden Rules](https://doi.org/10.1186/1471-2105-8-105) proposed by Kind and Fiehn updated to new standards following what is observed in the chemical space of metabolites nowadays. It focuses on restricting and prioritizing formulas with elemental ratios (and number of atoms of each element) in ranges tailored to the mass of the formula itself, allowing a higher performance in formula prediction while not sacrificing formula coverage. Moreover, it is a score-based algorithm providing a relative score of confidence when there are multiple candidates for assignment of a metabolic feature. The scores and candidates are also saved within the dataset allowing the researcher to delve into the candidates and compare their relative scores for greater granularity.
+
+Importantly, the first step of the algorithm is the creation of a Formula Database which is **performed outside the interface**. **Without creating a database, this step cannot be ran and must be skipped. The Formula Database can be created by simply running the `FormulaDatabaseCreator.ipynb` notebook once before.** The parameters in this file can also be changed to suit the Formula Database closer to the researcher's desires. The name of the files comprising the database should follow the convention of 'formulas_improved_dict{n}.csv' where _n_ is the lowest molecular mass in the file that should go from 0 to 1000 in 250 Da intervals. For example, 'formulas_improved_dict250.csv' should comprise the masses from 250-500 Da.
+
+Parameters shared with data annotation, namely mass deviation and adducts searched must be kept the same as for data annotation so as to not introduce incompatibilities. Thus, to change these parameters, they have to be altered in the [Data Annotation](GUI_docs.md#data-annotation) page. After formula assignment, a small description of the results is shown.
+
+!!! warning
+
+    When choosing the name of the columns the assigned formulas will be added to, make sure it is not the same name of a pre-existing column.
+
+!!! note
+
+    The next version will include a greater set of parameter options to modify and finetune how the ScoreForm algorithm is applied.
 
 #### De-Duplication of Ann. Features
 
-Blah blah, Lorem Ipsum even maybe a bit of dolor.
+Due to the proximity of mass values, the same compound (or formula) can be annotated to different metabolic features. The objective of this section is to merge metabolic features that have the same annotations or formula assignments, preventing the existence of features with the same annotations. The rationale is that, being NEMeSIS targeted to direct infusion data, the adduct of one compound should result in one monoisotopic mass and therefore metabolic peak. However, practically, an _m/z_ peak might be split between two very similar _m/z_ values. Thus, we can merge features with the same annotations. In the same way, peaks from different adducts can also be merged into one metabolic feature.
+
+The beginning of the page will provide you a report of duplicated peaks across annotations and formula assignments you have provided (see figure below). The first columns regard to the duplications in annotations with the orange box showing the duplications from columns previously annotated before uploading data to NEMeSIS and in green the box with Matched IDs annotations performed by NEMeSIS; and the last columns correspond to duplications in formula assignments with the first (red box) corresponding to the NEMeSIS performed ScoreForm assignment and the last one (blue box) to previous formula assignments. This example shows all 4 types of possible columns to appear but **we recommend for no more than 1 annotation and 1 formula assignment column to be present in the data to simplify de-duplication and analysis.**
+
+![Duplicated Peaks Report Example](img/Dup_Report.png)
+
+From this report, a decision can be made whether de-duplication (merging) of these peak will be made. The most common situations to merge is the existence of one 'main' peak with much higher intensities across the samples or the existence of peaks corresponding to multiple adducts that can be merged. More situations can also arise, including a specific situation that warrants individual attention. These are more likely when multiple annotations are considered, hence our previous recommendations. **When finding different metabolic features with the same annotation (for all columns), features are merged by keeping the highest intensity value in each sample if representing the same adduct and summed if they correspond to different adducts (1).**
+{ .annotate }
+
+1. When both cases happen at the same time, first metabolic features of the same adduct are merged by keeping the highest intensity and then different adducts are summed.
+
+In total, 4 possible situations for merging can happen:
+
+- **Situation 1 (Overwrite)**: Multiple metabolic features have the same annotation for all annotation databases with the highest intensity values coming all from one metabolic feature that becomes the de facto metabolic feature with others being erased (only happens when they all come from the same adduct).
+
+- **Situation 2 (Merge Same Adducts)**: Multiple metabolic features have the same annotation (no different annotations in any annotation column) with the highest intensity coming from at least two different metabolic features and **ALL** metabolic features come from the same adduct. For each sample, the highest intensity is kept. 'Bucket Label' and the 'Mass' columns become the weighted average (based on the average intensity of the features) of all the features with the same annotation.
+
+- **Situation 3 (Merge Different Adducts)**: Identical to Situation 2 but there is **at least one metabolic feature that comes from a different adduct**. For each sample, the highest intensity of metabolic features from the same adduct are kept. Then, the intensities of metabolic features of different adducts are summed.
+
+- **Situation 4 (Contradictions - Possible Problem Situation)**: Multiple metabolic features have the same annotation for one annotation and different for another. Most of the time there is no issue. For example, imagine a case where we have annotated HMDB compounds and ScoreForm assigned formulas. **Scenario 1**: We find that HMDB puts two different compounds for 2 metabolic features and ScoreForm assigns the same formula. Here, it is fair to treat them as different features and this is the default behaviour. **Scenario 2**: However, rarely, there can be a case where there are more than 2 metabolic features with the same compound annotated in HMDB. This should be quite rare and it is from where the problem arises. HMDB has the same compound for 4 features and ScoreForm assigns to one of them one formula, to a second one a different formula and the last two no formula at all. What is the correct course of action?  Perhaps merging the two peaks with no annotation by ScoreForm, maybe merging those two peaks with one of those annotated by ScoreForm since they would be normally merged if not for the existence of two different ScoreForm annotations. Hence, the problem. **They should be seen on a case-by-case basis and are thus not automatically merged. These cases can be individually seen and decided upon (example below). At this point, we believe a sensible course of action may be to not merge any of these peaks together. If many of these cases occur, consider your annotations**.
+
+From the merging of metabolic peaks, tables will appear to describe them as shown below. First, an overview of the mergings performed on the left and the mergings that each annotation led to (by order of scanning) on the right. Below, a description of every single merging is also provided.
+
+![De-Duplication of Peaks Report Example](img/DeDup_Report.png)
+
+!!! info
+
+    It is expected for the number of mergings per annotation to decrease along annotations since most of the annotation duplications and mergings overlap. In our example, almost all mergings that would happen for the `Matched IDs` column happenned first for the `Name - Prev. Ann.` column and, therefore, did not need to be repeated.
+
+At the end, all possible merging problems arising from **Situation 4** will also be displayed (figure below), where you can pass to the [Data Pre-Treatment](GUI_docs.md#data-pre-treatment) or decide what to do with each individual problem. **Right now, we believe a sensible course of action may be to not merge any of these peaks together and consider your annotation more closely if many of these cases occur**.
+
+![Merging Problems Example](img/MergingProblems_Example.png)
+
+The figure below shows the example of a problem emerging from a 5-peak merging (5 peaks being merged is highly unlikely and only occurs due to the wide ppm deviation allowed for a prvious annotation made in the example dataset). Here you can select on the elft which peaks to merge. However, **these peaks cannot be incompatible**. For example, in the case shown below, despite all peaks having the same annotation in the `Name` and `Formula` columns (previous annotation) and no annotation in `Matched IDs`, they all have different annotations in the `Formula_Assignment` column. Therefore, no possible selection will allow a merging of the peaks. If for example, another peak also had no annotation in the `Formula_Assignment` column like `306.0777699814 Da`, then those two peaks could've been selected and merge (identical for if any 2 peaks had the same `Formula_Assignment` assignment). After this, a report of the individual mergings performed or not performed will be provided before moving on to the next section.
+
+![Individual Merging Example](img/IndividualMerging_Example.png)
+
 
 #### Data Pre-Treatment
 
@@ -186,6 +240,8 @@ The third and final stage of the software is the Data Analysis and Interpretatio
 
 Almost all these sections are independent of one another and can be performed in any desired order based on the analyses objective. The exception is certain parts of the [HMDB based Pathway Analysis](GUI_docs.md#hmdb-based-pathway-analysis) section that requires either [Supervised Analysis](GUI_docs.md#supervised-analysis) or [Univariate Analysis](GUI_docs.md#univariate-analysis) to have been performed first.
 
+These steps have different purposes to interpret the analysed data, giving different perspectives on it.
+
 !!! info
 
     During this stage, analysis results expressed as images can either be **static** (made using matplotlib python package)or **interactive** (made using plotly). For **static** figures, a nearby button with 'save as png' text will always be nearby so the figure can be downloaded exactly as it is shown. For **interactive** figures (see image below), when hovering over them, a series of options appears in the top right. The leftmost of these options allows to save the figure exactly as it is currently shown (red box in image below). Interactive figures allows to hover over individual points and obtain information, to zoom in on specific regions, etc. To return the default view point, the autoscale button can be pressed (green box in image below).
@@ -194,7 +250,7 @@ Almost all these sections are independent of one another and can be performed in
 
 #### Com. and Exc. Compound Analysis
 
-The Common and Exclusive Compound Analysis when computed provides three types of outputs that can be viewed by selecting the shown tabs.
+The Common and Exclusive Compound Analysis when computed provides three types of outputs that can be viewed by selecting the shown tabs. They allow to see possible important compounds that are biomarker like as well as the the general number of metabolic features by class and common to all classes. It also allows to see if a subset of classes has a high number of metabolic features specific to them.
 
 The **Overview** section includes a brief description of the number of compounds (and annotated compounds) that each biological class has, that are exclusive to each of them and that are common to all of them. This data can also be downloaded as a table. Furthermore, you may select a subset of the classes to see all associated metabolic features to those classes or only those that are exclusive to those classes. This data subset can also be saved as a dataframe.
 
@@ -267,7 +323,7 @@ ROC Curves plot the True Positive Rate by the False Positive Rate and thus geare
 
 #### Univariate Analysis
 
-Univariate Analysis page includes **1v1 Univariate Analysis** and **Multiclass Univariate Analysis**.
+Univariate Analysis page includes **1v1 Univariate Analysis** and **Multiclass Univariate Analysis**. It allows to detect metabolites that individually have a significant difference between the tested classes and can thus be discriminant. Each metabolite in the dataset is tested individually and thus, this does not account for any interaction between metabolites as multivariate analysis does (and is expected in metabolites within a biological system).
 
 **1v1 Univariate Analysis** includes also a **Fold-Change analysis**. When there are more than 2 classes, a control and test class can be chosen. In this case, the samples respective to the 2 chosen classes will be selected from the non-treated data (after annotation). Data filtering (Filter 1 only) and pre-treatment will be performed the same way it was done on the complete dataset before performing unsupervised analysis (starting from the dataset after data filtering, annotation and de-duplication) (1). In case of filtering based on the total number of samples a feature appears in, the number used on the full dataset is converted to percentage-based and then a new number is calculated based on the number of samples of the control and test class, which is then rounded up.
 { .annotate }
@@ -291,7 +347,7 @@ Multiclass  Univariate analysis results include a downloadable table with all _p
 
 #### Data Diversity Visualization
 
-Data Diversity Visualization sections presents three types of plots: **Van Krevelen Plots**, **Kendrick Mass Defect Plots** and **Chemical Composition Series** plots. All these are computed when pressing the button at the top of the page and can be accessed by clicking their respective tab. Each hsa multiple options that allows to tune the figure. An essential parameter common to all 3 plots is which **columns containing formulas** to consider whether it is from data annotation, formula assignment or previous annotations and formula assignments performed outside NEMeSIS. Multiple can be selected to consider multiple annotations (each plot deals with multiple annotations in their own way) but **at least one column must be selected.**
+Data Diversity Visualization allows to see the chemical diversity in different ways of your dataset. The section presents three types of plots: **Van Krevelen Plots**, **Kendrick Mass Defect Plots** and **Chemical Composition Series** plots. All these are computed when pressing the button at the top of the page and can be accessed by clicking their respective tab. Each has multiple options that allows to tune the figure. An essential parameter common to all 3 plots is which **columns containing formulas** to consider whether it is from data annotation, formula assignment or previous annotations and formula assignments performed outside NEMeSIS. Multiple can be selected to consider multiple annotations (each plot deals with multiple annotations in their own way) but **at least one column must be selected.**
 
 **Van Krevelen Plots** are drawn one for each class considering the metabolites annotated in the samples of each class. If multiple formulas can be assigned to a metabolite whether within the same database annotation or different, they are both considered and plotted.
 
@@ -345,7 +401,7 @@ This section uses the pathway mapping in the **Pathway Assignment (HMDB Annotati
 
     Multiple metabolic features with the same annotation will be considered as individual entries. Metabolic features that have multiple annotations that could correspond to multiple metabolites in the same pathway will be counted as a single metabolite. So, analysis of the relevant pathways should be performed.
 
-The background set can be chosen between restricting to the number of `HMDB annotated metabolites in the dataset with associated pathways` or considering `All HMDB metabolites in the pathway database` (currently not implemented). The background set to choose is critical. If the pathway database is used as background, most metabolic pathways will appear as significant by 'common _p_-values' even after multiple testing correction and very general pathways with more metabolites such as 'Metabolism' or 'Biochemical pathways: part I' or 'Transport of small molecules' have a good chance of appearing as significant. Thus, pathways with multiple metabolites annotated that constitute a decent part of the pathway should be looked at more carefully. If the `HMDB annotated metabolites in the dataset with associated pathways` are used as the background, this conservative approach makes more complicated for any pathway to be considered significant but there is less bias per pathway. In this case, we recommend looking not only at the number of significant and detected metabolites in the pathway but also to the overall number of metabolites in the pathway (in the database), which is included in the output table.
+The background set can be chosen between restricting to the number of `HMDB annotated metabolites in the dataset with associated pathways` or considering `All HMDB metabolites in the pathway database` (currently not implemented). The background set to choose is critical. If the pathway database is used as background, most metabolic pathways will appear as significant by 'common _p_-values' even after multiple testing correction and very general pathways with more metabolites such as 'Metabolism' or 'Biochemical pathways: part I' or 'Transport of small molecules' have a good chance of appearing as significant. Thus, pathways with multiple metabolites annotated that constitute a decent part of the pathway should be looked at more carefully. If the `HMDB annotated metabolites in the dataset with associated pathways` are used as the background, this conservative approach makes it more complicated for any pathway to be considered significant but there is less bias per pathway. In this case, we recommend looking not only at the number of significant and detected metabolites in the pathway but also to the overall number of metabolites in the pathway (in the database), which is included in the output table.
 
 There are 4 metrics available to select the significant metabolites (have to have associated at least 1 pathway). In each case, it will only work if the corresponding methodology has been previously ran.
 
@@ -371,7 +427,7 @@ This section uses the pathway mapping in the **Pathway Assignment (HMDB Annotati
 
 This section and page uses data treated with Binary Simplification (BinSim) or Spectral Digitalization to perform the same analysis as it is performed for the traditionally treated data in the Unsupervised and Supervised Analysis pages. Thus, all instructions and indications are for the use of this method is equal to those pages.
 
-BinSim ([paper here](10.3390/metabo11110788)) was a method developed in our FT-ICR-MS-Lisboa laboratory group. It is an alternative to traditional intensity based pre-treatments that focuses on feature occurrence instead of intensity offering complementary information. BinSim is particularly effective for extreme-resolution data such as FT-ICR-MS data that has a lot of missing values and can more closely detect the set of metabolites present in a sample. Feature occurrence tends to be more reproducible than intensity values. The set of metabolites detected is characteristic of a biological system and can be used for discrimination.
+BinSim ([paper here](https://doi.org/10.3390/metabo11110788)) was a method developed in our FT-ICR-MS-Lisboa laboratory group. It is an alternative to traditional intensity based pre-treatments that focuses on feature occurrence instead of intensity offering complementary information. BinSim is particularly effective for extreme-resolution data such as FT-ICR-MS data that has a lot of missing values and can more closely detect the set of metabolites present in a sample. Feature occurrence tends to be more reproducible than intensity values. The set of metabolites detected is characteristic of a biological system and can be used for discrimination.
 
 !!! info
 
@@ -422,7 +478,52 @@ If you want to redo your analysis with another dataset, you may use the `RESET` 
 
     After resetting the software once using the `RESET` button, when clicking it again, the window pane to confirm the reset might not appear. To fix this issue, refresh the image and it should appear once again.
 
-## Data Alignment Software Instructions
+## Data Alignment Software
+
+This standalone GUI interface is used to transform either mass lists or mzML data into 2D aligned sample tables that can be used as input for the main NEMeSIS software. This is geared to the pre-processing of **direct-infusion mass spectrometry data**. As such, this software has two main purposes:
+
+1) Convert mzML file data into mass values and intensity lists - [Converting Spectral mzML raw data](GUI_docs.md#converting-spectral-mzml-raw-data).
+
+2) Perform Data Alignment on mass values and intensity lists to generate 2D aligned sample tables, that can be exported and used as inputs for NEMeSIS - [Data Alignment](GUI_docs.md#data-alignment).
+
+Moreover, in case the original data was mzML, it also allows to visualize the raw and aligned spectra for the researcher to observe the quality of the alignment - [Spectra Visualization](GUI_docs.md#spectra-visualization).
+
+#### Inputting Data
+
+Input files for the alignment should be placed in the `Files_To_Align` folder within the NEMeSIS folder. These files will be shown and selectable at the beginning of the software. You can select files either to select to go to [Converting Spectral mzML raw data](GUI_docs.md#converting-spectral-mzml-raw-data) or to pass directly to [Data Alignment](GUI_docs.md#data-alignment) when you already have your mass lists. The program will recognize this by whether you select one or multiple files:
+
+- For submitting **mass lists with intensity values to be aligned**, the software will expect a **single Excel (.xlsx or .xls) file**. If more than one file is passed, it will assume it is spectral raw data and if the format is not .xlsx or .xls, it will not be able to read the file. An example image of the formatting of this file is shown below. It should have **one sample per Excel sheet**; the **name of the Excel sheet should correspond to the sample name** (orange box); each sheet should have in its **first column the mass values** (m/z, neutral mass or equivalent) and in its **second column the corresponding intensity values**; and finally, the first row should have the name of the two columns, for example, 'm/z' and 'I' (this name should be consistent between samples if possible). The example file 'example_samples_to_align.xlsx' is available in the `Files_To_Align` folder as guidance.
+
+![Formatting of Mass Peak Lists](img/SampleToBeAligned.png)
+
+- For submitting **spectral mzML raw data to convert and align**, the software will expect **multiple mzML files**. For the software to assume that mzML conversion is required, multiple files must be passed all in mzML format. Converting spectral raw data into the open mzML format can be done using freely available tools such as Proteowizard's [MSConvert](https://proteowizard.sourceforge.io/download.html).
+
+#### Converting Spectral mzML raw data
+
+This section of the software only appears if **mzML files** are detected in the data input. Here, these files in open mzML format can be converted into _m/z_ peak lists so data alignment can be performed. For this purpose, the [pyopenms](https://pyopenms.readthedocs.io/en/latest/) Python package is used. A series of parameters that can be changed to optimize conversion are available to be chosen with special attention to the `Minimal signal-to-noise ratio for a peak to be picked` parameter as crucial. Explanations of each parameter are shown with extensive documentation is present in [https://openms.de/current_doxygen/html/classOpenMS_1_1PeakPickerHiRes.html](https://openms.de/current_doxygen/html/classOpenMS_1_1PeakPickerHiRes.html). The description from the link is also near every parameter with a tooltip. Credit to pyopenms devs.
+
+When pressing the button for conversion, each spectra will be converted giving a small description of the number of raw and centroided signals. After finishing, you will be prompted to download the results, which is required for data alignment. This exports two files, a word document with a small description of the conversion and an excel file with the mass peak lists in the formatting already required for data alignment.
+
+#### Data Alignment
+
+This section of the software either appears after a **single Excel file** is detected in the input or after mzML spectra raw data conversion and peak list saving. The data alignment performed is made using the `align` function from the [Metabolinks](https://pypi.org/project/metabolinks/) Python package (developed in the group). It uses 2 parameters: the **`PPM Deviation Tolerance`** that defines the maximum tolerance (in parts per million) to group metabolic features from different samples together and the **`Minimum Sample Number Appearance`** that defines the minimum number of samples a metabolic feature must appear in to be kept in the final aligned dataset.
+
+After alignment, a short description of the alignment process will be shown as well as the aligned dataset (if this aligned dataset is large, only the first 10 000 metabolic features will be shown). The dataset and an abridged description of the metabolic feature alignments can be saved. The aligned dataset can be directly used in the NEMeSIS software.
+
+#### Spectra Visualization
+
+This section of the software appears after **data alignment** is performed **if the original files were mzML raw data**. The objective is to visualize the quality of the spectral data processing by observing the raw, centroided (after spectral processing) and aligned (after data alignment) spectra in interactive graphs of a few samples simultaneously. They are interactive so close ups can be selected for each graph. This allows to observe the genral shape of peaks that were kept through the process and which were discarded and to see if the quality of the aligned spectra is as desired or expected.
+
+The image below shows an example. You can choose which samples to see, if the spectra values should be normalized (1), and which mass ranges to plot initially.
+{ .annotate }
+
+1. Normalization in the raw, centroided and aligned spectra is made by dividing their intensities the sum of all intensities in the **raw data** specifically.
+
+!!! warning
+
+    Spectra contain a very large number of points which combined to their interactive nature, make it heavy resource demanding for the software and the computer. Hence, although it depends on the computer available, we do not recommend selecting more than 3-4 samples simultaneously. Moreover, it may take a few seconds until the spectra are fully operational.
+
+![Mass Spectra Example](img/MSpectra.png)
 
 ## Tips and Precautions
 
