@@ -39,10 +39,10 @@ retention time or collision cross-section.</p>
 <p>To perform data alignment from a <em>m/z</em> lists, a single <strong>Excel</strong> file (.xlsx or .xls) is the input. This
 file should follow the format: <strong>one sample per Excel sheet</strong>; the <strong>name</strong> of the Excel
 sheet should correspond to the <strong>sample name</strong>; each sheet should have in its <strong>first column the mass
-values</strong> (<em>m/z</em>, neutral mass or equivalent) and in its <strong>second column&nbsp;</strong> the corresponding
+values</strong> (<em>m/z</em>, neutral mass or equivalent) and in its <strong>second column&nbsp;</strong>the corresponding
 <strong>intensity values</strong>; and finally, the <strong>first row</strong> should have the <strong>name of the two
 columns</strong>, for example, &apos;<em>m/z</em>&apos; and &apos;I&apos; (this name should be consistent between samples).
-The example file &apos;example_samples_to_align.xlsx&apos; is available in the interface folder as guidance.</p>
+The example file &apos;example_samples_to_align.xlsx&apos; is available in the Files_To_Align folder as guidance.</p>
 <p>To use spectral raw data in mzML format, <strong>multiple mzML files</strong> are expected. Converting spectral raw data into
 the open mzML format can be done using freely available tools such as Proteowizard's MSConvert
 (<a href=https://proteowizard.sourceforge.io/download.html target="_blank" rel="nofollow">https://proteowizard.sourceforge.io/download.html</a>).
@@ -67,8 +67,7 @@ to group metabolic features from different samples together and the <strong>Mini
 defines the minimum number of samples a metabolic feature must appear in to be kept in the final aligned Dataset.</p>
 <p>After alignment, a short description of the alignment process will be shown as well as the aligned dataset (if this
 aligned dataset is large, only the first 10,000 metabolic features will be shown). The dataset and an abridged description
-of the metabolic feature alignments can be saved. The aligned dataset can be directly used in our MetsTA data analysis
-software.</p>"""
+of the metabolic feature alignments can be saved. The aligned dataset can be directly used in the NEMeSIS software.</p>"""
 
 
 spectra_visualization_specific_string = """

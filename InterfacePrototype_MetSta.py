@@ -216,7 +216,7 @@ class UnivariateAnalysisPage:
                                  ("In Univariate Analysis, each metabolite (variable) in the experimental dataset is tested individually to observe "
                                   'if there is a significant difference between the tested classes. Thus, this does not take into account any '
                                   'interaction between metabolites as multivariate analysis does (and is expected in metabolites within a biological system), '
-                                  'providing the metabolites which are differential intesnity patterns.'),
+                                  'providing the metabolites which are differential intensity patterns.'),
                                  complete_univar_analysis_page)
 
     def view(self):
@@ -2020,7 +2020,7 @@ class AnnDeDuplication_Storage(param.Parameterized):
         self.annotated_df = annotated_data
         self.merge_description = pd.DataFrame(merge_description).T
         self.merge_description.index.name = 'New Indexes'
-        self.mergings_performed = pd.DataFrame(pd.Series(mergings_performed), columns=['Nº of Mergings by Database'])
+        self.mergings_performed = pd.DataFrame(pd.Series(mergings_performed), columns=['Nº of Mergings by Annotation'])
         self.merge_situations = pd.DataFrame(pd.Series(merging_situations), columns=['Nº of Mergings by Situation'])
 
         # Problems results
