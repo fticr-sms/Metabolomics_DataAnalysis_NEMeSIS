@@ -1,5 +1,5 @@
-# Metabolomics_DataAnalysis_Pipeline
-Repository for the metabolomics data analysis pipeline. This pipeline includes both a jupyter notebook version and a graphical interface version.
+# Metabolomics Data Analysis Software - NEMeSIS
+Repository for the metabolomics data analysis NEMeSIS software. It includes both a jupyter notebook version and a graphical interface version.
 
 ## Repository by:
 
@@ -258,20 +258,24 @@ To install these packages run in the command line (or AnacondaPrompt):
 - conda install -c conda-forge holoviews
 - conda install -c plotly plotly
 - pip install python-docx
-- pip install kaleido==0.1.0post1
+- pip install kaleido==0.1.0post1 # If not on Windows, change package version to 0.1.0 or 0.2.0
 
 The other packages mentioned at the begginning are also needed.
 
 ### How to Open the Graphical Interface
 
-#### Path 1 (More complex but allows to look at the code)
+#### Path 1
+
+- Open the Terminal or AnacondaPrompt (if Anaconda was not added to the PATH during installation).
+- Navigate to the NEMeSIS folder in the pc (or open the terminal directly on the folder).
+- (Activate NEMeSIS_env with `conda activate NEMeSIS_env` if the environment was created for running NEMeSIS).
+- Run `InterfaceProtoype_MetSta.py` as a line code.
+- To close the program, go to the command line and press 'Ctrl+C'.
+
+#### Path 2 (More complex but allows to look at the code)
 
 - Open Visual Studio Code or other equivalent editor.
 - Open Folder where these files are located.
+- (Change environment used to `NEMeSIS_env` if this environment was created for running NEMeSIS).
 - Open and Run "InterfaceProtoype_MetSta.py".
 - To close, go back to your editor terminal and press 'Ctrl+C'.
-
-#### Path 2 (Quicker)
-
-- Run 'OpenGraphicalInterface.bat' (this will open a command line and the interface in a browser)
-- To close the program, go to the command line and press 'Ctrl+C'.
