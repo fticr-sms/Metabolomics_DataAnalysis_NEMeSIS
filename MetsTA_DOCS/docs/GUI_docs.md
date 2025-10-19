@@ -5,7 +5,18 @@ NEMeSIS incldues a large main program to perform the analysis from Data Tables t
 
 ## Opening NEMeSIS
 
-**TODO**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+To open NEMeSIS, there are multiple options. We recommend the following:
+
+1) Open the Terminal or AnacondaPrompt (if Anaconda was not added to the PATH during installation).
+
+2) Navigate to the NEMeSIS folder in the pc with the `cd` command (or open the terminal directly on the folder).
+
+3) If you installed the requirements for NEMeSIS in the **NEMeSIS_env** specific environment as suggested, activate said environment with `conda activate NEMeSIS_env`.
+
+4) Run `InterfaceProtoype_MetSta.py` as a line code. This will open the program itself so it can be used in an internet browser (it is running locally however).
+
+5) To close the program, return to the command line and press 'Ctrl+C'.
+
 
 ## Introduction to the Graphical Interface of NEMeSIS
 
@@ -17,7 +28,7 @@ The green box marks the main section where the page currently selected appears. 
 
 ![GUI Opening Page](img/OpeningPage_GUI.png)
 
-The data analysis pipeline is divided into 3 stages:
+NEMeSIS is divided into 3 stages:
 
 1. Data Input (a single page in the Data Pre-Processing and Pre-Treatment section). Image als shows steps performed by the Data Alignment Software
 2. Data Pre-Processing and Pre-Treatment
@@ -29,7 +40,11 @@ Note: Independent Side Modules are only available in jupyter notebooks. See [Ind
 
 ## Stage 1: Data Input
 
-The first section of the data analysis pipeline is data reading, that is, the data you will input to the program and thus requires a strict formatting from the files. The software accepts already data tables with the raw data of the sample having already been previously aligned. From then on, the software is capable of performing the remaining data analysis. See [Data Alignment Software](GUI_docs.md#data-alignment-software) for instructions on how to obtain these data tables using our standalone Data Alignment Software from mzML raw data or peak lists.
+!!! info
+
+    This section shares high similarities with the first part of the [Data Reading](jupyter_docs.md#data-reading) section of the [Get started with jupyter](jupyter_docs.md) page.
+
+The first section of the data analysis software is data reading, that is, the data you will input to the program and thus requires a strict formatting from the files. The software accepts already data tables with the raw data of the sample having already been previously aligned. From then on, the software is capable of performing the remaining data analysis. See [Data Alignment Software](GUI_docs.md#data-alignment-software) for instructions on how to obtain these data tables using our standalone Data Alignment Software from mzML raw data or peak lists.
 
 This formatting is exemplified in the figure below with the addition that files can either be `.csv` or `.xlsx` files. Metabolic Features should be represented in the rows, while samples and metadata should be represented in columns. 
 
@@ -462,7 +477,7 @@ The idea behind parameter saving is that you can load in these parameters and th
 
 !!! warning
 
-    Some parameters are saved but should still always be adapted based on the dataset analysed. A case and point is that of the number of components used for building PLS-DA models. This number highly affects the performance of the models and is characteristic of the dataset used. Thus, it should always be adapted to the current dataset. Other parameters such as pre-treatment related can be used on a standard preferred pipeline independent of the dataset analysed.
+    Some parameters are saved but should still always be adapted based on the dataset analysed. A case and point is that of the number of components used for building PLS-DA models. This number highly affects the performance of the models and is characteristic of the dataset used. Thus, it should always be adapted to the current dataset. Other parameters such as pre-treatment related can be used on a standard preferred workflow independent of the dataset analysed.
 
 !!! info
 
@@ -492,7 +507,7 @@ Moreover, in case the original data was mzML, it also allows to visualize the ra
 
 Input files for the alignment should be placed in the `Files_To_Align` folder within the NEMeSIS folder. These files will be shown and selectable at the beginning of the software. You can select files either to select to go to [Converting Spectral mzML raw data](GUI_docs.md#converting-spectral-mzml-raw-data) or to pass directly to [Data Alignment](GUI_docs.md#data-alignment) when you already have your mass lists. The program will recognize this by whether you select one or multiple files:
 
-- For submitting **mass lists with intensity values to be aligned**, the software will expect a **single Excel (.xlsx or .xls) file**. If more than one file is passed, it will assume it is spectral raw data and if the format is not .xlsx or .xls, it will not be able to read the file. An example image of the formatting of this file is shown below. It should have **one sample per Excel sheet**; the **name of the Excel sheet should correspond to the sample name** (orange box); each sheet should have in its **first column the mass values** (m/z, neutral mass or equivalent) and in its **second column the corresponding intensity values**; and finally, the first row should have the name of the two columns, for example, 'm/z' and 'I' (this name should be consistent between samples if possible). The example file 'example_samples_to_align.xlsx' is available in the `Files_To_Align` folder as guidance.
+- For submitting **mass lists with intensity values to be aligned**, the software will expect a **single Excel (`.xlsx` or `.xls`) file**. If more than one file is passed, it will assume it is spectral raw data and if the format is not .xlsx or .xls, it will not be able to read the file. An example image of the formatting of this file is shown below. It should have **one sample per Excel sheet**; the **name of the Excel sheet should correspond to the sample name** (orange box); each sheet should have in its **first column the mass values** (m/z, neutral mass or equivalent) and in its **second column the corresponding intensity values**; and finally, the first row should have the name of the two columns, for example, 'm/z' and 'I' (this name should be consistent between samples if possible). The example file `example_samples_to_align.xlsx` is available in the `Files_To_Align` folder as guidance.
 
 ![Formatting of Mass Peak Lists](img/SampleToBeAligned.png)
 
@@ -508,9 +523,13 @@ When pressing the button for conversion, each spectra will be converted giving a
 
 This section of the software either appears after a **single Excel file** is detected in the input or after mzML spectra raw data conversion and peak list saving. The data alignment performed is made using the `align` function from the [Metabolinks](https://pypi.org/project/metabolinks/) Python package (developed in the group). It uses 2 parameters: the **`PPM Deviation Tolerance`** that defines the maximum tolerance (in parts per million) to group metabolic features from different samples together and the **`Minimum Sample Number Appearance`** that defines the minimum number of samples a metabolic feature must appear in to be kept in the final aligned dataset.
 
-After alignment, a short description of the alignment process will be shown as well as the aligned dataset (if this aligned dataset is large, only the first 10 000 metabolic features will be shown). The dataset and an abridged description of the metabolic feature alignments can be saved. The aligned dataset can be directly used in the NEMeSIS software.
+After alignment, a short description of the alignment process will be shown as well as the aligned dataset (if this aligned dataset is large, only the first 10 000 metabolic features will be shown). The dataset and an abridged description of the metabolic feature alignments can be saved. The aligned dataset can be directly used in the NEMeSIS software (GUI or jupyter notebook versions).
 
 #### Spectra Visualization
+
+!!! info
+
+    This section shares high similarities with the first part of the [Spectra Visualization](jupyter_docs.md#spectra-visualization) section of the [Get started with jupyter](jupyter_docs.md) page.
 
 This section of the software appears after **data alignment** is performed **if the original files were mzML raw data**. The objective is to visualize the quality of the spectral data processing by observing the raw, centroided (after spectral processing) and aligned (after data alignment) spectra in interactive graphs of a few samples simultaneously. They are interactive so close ups can be selected for each graph. This allows to observe the genral shape of peaks that were kept through the process and which were discarded and to see if the quality of the aligned spectra is as desired or expected.
 
