@@ -2,8 +2,8 @@
 
 NEMeSIS (**N**ovel **E**xtreme-resolution **Me**tabolomics **S**treamlined data analysis **I**ntegrated **S**oftware) is a software geared towards FT-ICR-MS extreme-resolution mass spectrometry data. For this objective, it offers a complete pipeline from **raw data (in mzML format) or peak lists to data interpretation** in two different formats (both built with the Python programming language) based on the users preference.
 
-- Jupyter Notebook for a more hands on approach for intermediate (or higher) experienced Python users to take advantage of the implemented metabolomics data analysis workflow and customize it to their liking. The file to start to experience NEMeSIS in this way is `Met_Data_Analysis_Standard.ipynb` - see details on [Get started with jupyter](jupyter_docs.md) page.
-- Graphical Interface for a more streamlined experience for non-experienced Python users where no coding knowledge is necessary and results are shown in an interactive format. The file to start to experience NEMeSIS in this way is `InterfacePrototype_MetSta.py`. Detailed instructions and ways to start up the program are in the [Get started with GUI](GUI_docs.md) page.
+- Jupyter Notebook for a more hands on approach for intermediate (or higher) experienced Python users to take advantage of the implemented metabolomics data analysis workflow and customize it to their liking. The file to start to experience NEMeSIS in this way is `NEMeSIS_Data_Analysis_V2.8.ipynb` - see details on [Get started with jupyter](jupyter_docs.md) page.
+- Graphical Interface for a more streamlined experience for non-experienced Python users where no coding knowledge is necessary and results are shown in an interactive format. The file to start to experience NEMeSIS in this way is `Interface_NEMeSIS.py`. Detailed instructions and ways to start up the program are in the [Get started with GUI](GUI_docs.md) page.
 
 Here, on this page, we will detail on how to install this software and dependencies to run them. Then, we will have a separate page for each main way to use NEMeSIS with a tutorial on how to use them.
 

@@ -13,7 +13,7 @@ To open NEMeSIS, there are multiple options. We recommend the following:
 
 3) If you installed the requirements for NEMeSIS in the **NEMeSIS_env** specific environment as suggested, activate said environment with `conda activate NEMeSIS_env`.
 
-4) Run `InterfaceProtoype_MetSta.py` as a line code. This will open the program itself so it can be used in an internet browser (it is running locally however).
+4) Run `Interface_NEMeSIS.py` as a line code. This will open the program itself so it can be used in an internet browser (it is running locally however).
 
 5) To close the program, return to the command line and press 'Ctrl+C'.
 

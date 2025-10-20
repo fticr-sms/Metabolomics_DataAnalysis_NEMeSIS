@@ -269,7 +269,7 @@ The other packages mentioned at the begginning are also needed.
 - Open the Terminal or AnacondaPrompt (if Anaconda was not added to the PATH during installation).
 - Navigate to the NEMeSIS folder in the pc (or open the terminal directly on the folder).
 - (Activate NEMeSIS_env with `conda activate NEMeSIS_env` if the environment was created for running NEMeSIS).
-- Run `InterfaceProtoype_MetSta.py` as a line code.
+- Run `Interface_NEMeSIS.py` as a line code.
 - To close the program, go to the command line and press 'Ctrl+C'.
 
 #### Path 2 (More complex but allows to look at the code)
@@ -277,5 +277,5 @@ The other packages mentioned at the begginning are also needed.
 - Open Visual Studio Code or other equivalent editor.
 - Open Folder where these files are located.
 - (Change environment used to `NEMeSIS_env` if this environment was created for running NEMeSIS).
-- Open and Run "InterfaceProtoype_MetSta.py".
+- Open and Run "Interface_NEMeSIS.py".
 - To close, go back to your editor terminal and press 'Ctrl+C'.
