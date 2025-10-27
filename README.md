@@ -1,5 +1,5 @@
 # Metabolomics Data Analysis Software - NEMeSIS
-Repository for the metabolomics data analysis NEMeSIS software. It includes both a jupyter notebook version and a graphical interface version.
+Repository for the metabolomics data analysis NEMeSIS software. It includes a graphical interface as well as an illustrative jupyter notebook.
 
 ## Repository by:
 
@@ -31,6 +31,107 @@ Repository for the metabolomics data analysis NEMeSIS software. It includes both
 Right now, the HMDB, LOTUS and DrugBank databases that are used in the Jupyter notebook as examples are present in this repository.
 
 However, in the future, these databases will have corresponding python files that you can run to extract, parse and automatically treat them so you can always have the most current version of them.
+
+**Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)**
+
+- panel >= 1.3.4
+- param >= 2.0.1
+- holoviews >= 1.18.1
+- plotly >= 5.18.0
+- docx >= 1.1.0
+- kaleido == 0.1.0.post1
+- pyopenms >= 3.4.0
+
+To install these packages run in the command line (or AnacondaPrompt):
+- conda install -c pyviz panel
+- conda install -c anaconda param
+- conda install -c conda-forge holoviews
+- conda install -c plotly plotly
+- pip install python-docx
+- pip install kaleido==0.1.0post1 # If not on Windows, change package version to 0.1.0 or 0.2.0
+
+### How to Open the Graphical Interface
+
+#### Path 1
+
+- Open the Terminal or AnacondaPrompt (if Anaconda was not added to the PATH during installation).
+- Navigate to the NEMeSIS folder in the pc (or open the terminal directly on the folder).
+- (Activate NEMeSIS_env with `conda activate NEMeSIS_env` if the environment was created for running NEMeSIS).
+- Run `Interface_NEMeSIS.py` as a line code.
+- To close the program, go to the command line and press 'Ctrl+C'.
+
+#### Path 2 (More complex but allows to look at the code)
+
+- Open Visual Studio Code or other equivalent editor.
+- Open Folder where these files are located.
+- (Change environment used to `NEMeSIS_env` if this environment was created for running NEMeSIS).
+- Open and Run "Interface_NEMeSIS.py".
+- To close, go back to your editor terminal and press 'Ctrl+C'.
+
+
+# Graphical Interface Version Patch Notes
+
+#### Version Alpha.0 (13/12/2023)
+
+- Alpha Version of the Graphical Interface of the NEMeSIS software (includes homepage, instruction page and all data analysis pipeline except for BinSim Analysis).
+
+#### Version Alpha.1 (30/12/2023)
+
+- Added Report Generation feature and page to the interface software.
+- Datasets up to 100 MB can now be read in the software (previously 20 MB was the maximum).
+- Many bugfixes (especially in previously non-considered fringe cases), improvements and updates to handling page layouts, saving current parameters used for different analysis, improved image and table filenames (that could be saved with incorrect parameters in the name), better description and organization of different variables, to the software reset and soft-reset (in case of change in pre-treatments) procedures - see commits 45 to 53 for more details on these issues.
+
+#### Version Alpha.2 (20/02/2024)
+
+- Added BinSim Analysis Page to the interface software (also included in report generation).
+- Added possibility to save used data pre-processing, pre-treatment and data analysis parameters and to load them back in posterior analysis.
+- Adapted classes and pages to work with possible save and loading of parameters. Attribute 'compute_fig' added to many classes allowing to cancel and restarting automatic figure updating.
+- PCA now is not computed automatically when going into the data analysis section of the software.
+- Bugfix in Univariate Analysis and change in how it is made (data filtering section within it). Now if data filtering used is 'total_samples', the filtering is performed by the percentage of samples allowed used with the full dataset rounded up. E.g. if the minimum nº of samples a feature must appear in a 15-sample dataset is 4, then by performing univariate analysis between 2 classes on a 6-sample subset, the minimum nº of samples allowed is (4/15) * 6 = 1.6 rounded up, that is, it has to appear in at least 2 of that 6 sample-subset (and 4 samples of the original 15).
+- Multiple minor changes and improvements.
+
+#### Version Alpha.3 (26/04/2024)
+
+- Added possibility to interpret mass values in data index as Neutral, Positive m/z or Negative m/z (in Data Reading).
+- Added possibility to define which adducts to search for Data Annotation when comparing data masses to the databases selected.
+- Mass calculations (of compounds based on formula and adducts) are now made with fractions instead of floats.
+- Bugfix and improvement in PLS-DA components. Now maximum number of components based on number of samples available (and folds in cross-validation) is controlled.
+- Updated the rest of the graphical interface and report generation based on the changes in Data Reading and adducts in Data Annotation.
+- Minor bugfixes and improvements throughout software.
+
+#### Version Alpha.4 (05/06/2024)
+
+- Original files can now be read from different folders than where the software is (files will still be downloaded to the software folder).
+- Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.
+- (Furthermore, added external jupyter notebook for creation of own formula database to use for this formula assignment).
+- Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).
+- Simplifying some table displays and eliminating redundant parameters (decrease memory usage).
+- Improved hover data for PCA and PLS-DA projection plots.
+- Small bugfixes and enhancing descriptions.
+- Added external interface software to perform Sample Peak Alignment (DataAlignmentInterface.py) whose output can be used as input to the software.
+
+#### Version Alpha.5 (19/02/2025)
+
+- Added possibility to select Quality Control (QC) samples.
+- Added in-depth Data Filtering page with 4 main options: minimum appearance filters, intensity-based filters, QC based filters and variation based filters.
+- Improved Peak De-Duplication (same annotation from different adducts are now merged by adding intensity values while same adduct peaks are merged by selecting the higher intensity value in each sample).
+- Added data export to be used in independent jupyter notebook side modules.
+- Added section on correlated metabolites to searched metabolite in Compound Finder page.
+- Improved hover data for Volcano Plots.
+- Added a few quality of life changes.
+- Slight tweak to maximum file size accepted.
+- Fixed normalization by a reference feature.
+- Minor bugfixes.
+
+#### Version Beta.0 (09/09/2025)
+
+- Added raw data spectra processing section to the DataAlignment specific interface.
+- Improved Data Annotation where chosen databases are merged together into a complete database before perfoming annotations (made associated changes).
+- Changed Formula Assignment to the score-based Formula Assignment. Small improvement on allowed mass deviation calculation.
+- Re-structured pathway analysis section to select more conservative background sets (metabolites detected in the data) and 'significant' metabolites based on univariate or multivariate analysis.
+- Added mapping formulas to pathway and pathway representation in pathways analysis section (only SMPDB pathways).
+- Minor bugfixes and improvements in text.
+
 
 # Jupyter Notebook Version Patch Notes
 
@@ -176,106 +277,3 @@ However, in the future, these databases will have corresponding python files tha
 - Added mapping formulas to pathway and pathway representation in pathways analysis section (only SMPDB pathways).
 - Added a side module with FDiGNN analysis as a standalone jupyter notebook as example of independent analysis modules.
 - Minor bugfixes and improvements in text.
-
-
-# Graphical Interface Version Patch Notes
-
-#### Version Alpha.0 (13/12/2023)
-
-- Alpha Version of the Graphical Interface of the NEMeSIS software (includes homepage, instruction page and all data analysis pipeline except for BinSim Analysis).
-
-#### Version Alpha.1 (30/12/2023)
-
-- Added Report Generation feature and page to the interface software.
-- Datasets up to 100 MB can now be read in the software (previously 20 MB was the maximum).
-- Many bugfixes (especially in previously non-considered fringe cases), improvements and updates to handling page layouts, saving current parameters used for different analysis, improved image and table filenames (that could be saved with incorrect parameters in the name), better description and organization of different variables, to the software reset and soft-reset (in case of change in pre-treatments) procedures - see commits 45 to 53 for more details on these issues.
-
-#### Version Alpha.2 (20/02/2024)
-
-- Added BinSim Analysis Page to the interface software (also included in report generation).
-- Added possibility to save used data pre-processing, pre-treatment and data analysis parameters and to load them back in posterior analysis.
-- Adapted classes and pages to work with possible save and loading of parameters. Attribute 'compute_fig' added to many classes allowing to cancel and restarting automatic figure updating.
-- PCA now is not computed automatically when going into the data analysis section of the software.
-- Bugfix in Univariate Analysis and change in how it is made (data filtering section within it). Now if data filtering used is 'total_samples', the filtering is performed by the percentage of samples allowed used with the full dataset rounded up. E.g. if the minimum nº of samples a feature must appear in a 15-sample dataset is 4, then by performing univariate analysis between 2 classes on a 6-sample subset, the minimum nº of samples allowed is (4/15) * 6 = 1.6 rounded up, that is, it has to appear in at least 2 of that 6 sample-subset (and 4 samples of the original 15).
-- Multiple minor changes and improvements.
-
-#### Version Alpha.3 (26/04/2024)
-
-- Added possibility to interpret mass values in data index as Neutral, Positive m/z or Negative m/z (in Data Reading).
-- Added possibility to define which adducts to search for Data Annotation when comparing data masses to the databases selected.
-- Mass calculations (of compounds based on formula and adducts) are now made with fractions instead of floats.
-- Bugfix and improvement in PLS-DA components. Now maximum number of components based on number of samples available (and folds in cross-validation) is controlled.
-- Updated the rest of the graphical interface and report generation based on the changes in Data Reading and adducts in Data Annotation.
-- Minor bugfixes and improvements throughout software.
-
-#### Version Alpha.4 (05/06/2024)
-
-- Original files can now be read from different folders than where the software is (files will still be downloaded to the software folder).
-- Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.
-- (Furthermore, added external jupyter notebook for creation of own formula database to use for this formula assignment).
-- Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).
-- Simplifying some table displays and eliminating redundant parameters (decrease memory usage).
-- Improved hover data for PCA and PLS-DA projection plots.
-- Small bugfixes and enhancing descriptions.
-- Added external interface software to perform Sample Peak Alignment (DataAlignmentInterface.py) whose output can be used as input to the software.
-
-#### Version Alpha.5 (19/02/2025)
-
-- Added possibility to select Quality Control (QC) samples.
-- Added in-depth Data Filtering page with 4 main options: minimum appearance filters, intensity-based filters, QC based filters and variation based filters.
-- Improved Peak De-Duplication (same annotation from different adducts are now merged by adding intensity values while same adduct peaks are merged by selecting the higher intensity value in each sample).
-- Added data export to be used in independent jupyter notebook side modules.
-- Added section on correlated metabolites to searched metabolite in Compound Finder page.
-- Improved hover data for Volcano Plots.
-- Added a few quality of life changes.
-- Slight tweak to maximum file size accepted.
-- Fixed normalization by a reference feature.
-- Minor bugfixes.
-
-#### Version Beta.0 (09/09/2025)
-
-- Added raw data spectra processing section to the DataAlignment specific interface.
-- Improved Data Annotation where chosen databases are merged together into a complete database before perfoming annotations (made associated changes).
-- Changed Formula Assignment to the score-based Formula Assignment. Small improvement on allowed mass deviation calculation.
-- Re-structured pathway analysis section to select more conservative background sets (metabolites detected in the data) and 'significant' metabolites based on univariate or multivariate analysis.
-- Added mapping formulas to pathway and pathway representation in pathways analysis section (only SMPDB pathways).
-- Minor bugfixes and improvements in text.
-
-
-### Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)
-
-- panel >= 1.3.4
-- param >= 2.0.1
-- holoviews >= 1.18.1
-- plotly >= 5.18.0
-- docx >= 1.1.0
-- kaleido == 0.1.0.post1
-- pyopenms >= 3.4.0
-
-To install these packages run in the command line (or AnacondaPrompt):
-- conda install -c pyviz panel
-- conda install -c anaconda param
-- conda install -c conda-forge holoviews
-- conda install -c plotly plotly
-- pip install python-docx
-- pip install kaleido==0.1.0post1 # If not on Windows, change package version to 0.1.0 or 0.2.0
-
-The other packages mentioned at the begginning are also needed.
-
-### How to Open the Graphical Interface
-
-#### Path 1
-
-- Open the Terminal or AnacondaPrompt (if Anaconda was not added to the PATH during installation).
-- Navigate to the NEMeSIS folder in the pc (or open the terminal directly on the folder).
-- (Activate NEMeSIS_env with `conda activate NEMeSIS_env` if the environment was created for running NEMeSIS).
-- Run `Interface_NEMeSIS.py` as a line code.
-- To close the program, go to the command line and press 'Ctrl+C'.
-
-#### Path 2 (More complex but allows to look at the code)
-
-- Open Visual Studio Code or other equivalent editor.
-- Open Folder where these files are located.
-- (Change environment used to `NEMeSIS_env` if this environment was created for running NEMeSIS).
-- Open and Run "Interface_NEMeSIS.py".
-- To close, go back to your editor terminal and press 'Ctrl+C'.

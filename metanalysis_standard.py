@@ -358,9 +358,10 @@ def metabolite_annotation(annotated_data, full_db, ppm_margin, mass_val_col, add
         # Reduce candidates to those which have the minimum ppm deviation
         if only_select_min_ppm:
             if len(ppm_dev) > 0:
-                min_ppm_dev = ppm_dev.min().values[0]
-                matched_adds = list(np.array(matched_adds)[ppm_dev[0].values == min_ppm_dev])
-                ppm_dev = ppm_dev[ppm_dev[0].values == min_ppm_dev]
+                ppm_dev = ppm_dev.min(axis=1)
+                min_ppm_dev = ppm_dev.min()
+                matched_adds = list(np.array(matched_adds)[ppm_dev.values == min_ppm_dev])
+                ppm_dev = ppm_dev[ppm_dev.values == min_ppm_dev]
 
         for i in ppm_dev.index:
             matched_ids.append(i)

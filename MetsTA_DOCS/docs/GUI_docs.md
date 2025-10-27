@@ -40,10 +40,6 @@ Note: Independent Side Modules are only available in jupyter notebooks. See [Ind
 
 ## Stage 1: Data Input
 
-!!! info
-
-    This section shares high similarities with the first part of the [Data Reading](jupyter_docs.md#data-reading) section of the [Get started with jupyter](jupyter_docs.md) page.
-
 The first section of the data analysis software is data reading, that is, the data you will input to the program and thus requires a strict formatting from the files. The software accepts already data tables with the raw data of the sample having already been previously aligned. From then on, the software is capable of performing the remaining data analysis. See [Data Alignment Software](GUI_docs.md#data-alignment-software) for instructions on how to obtain these data tables using our standalone Data Alignment Software from mzML raw data or peak lists.
 
 This formatting is exemplified in the figure below with the addition that files can either be `.csv` or `.xlsx` files. Metabolic Features should be represented in the rows, while samples and metadata should be represented in columns. 
@@ -523,13 +519,9 @@ When pressing the button for conversion, each spectra will be converted giving a
 
 This section of the software either appears after a **single Excel file** is detected in the input or after mzML spectra raw data conversion and peak list saving. The data alignment performed is made using the `align` function from the [Metabolinks](https://pypi.org/project/metabolinks/) Python package (developed in the group). It uses 2 parameters: the **`PPM Deviation Tolerance`** that defines the maximum tolerance (in parts per million) to group metabolic features from different samples together and the **`Minimum Sample Number Appearance`** that defines the minimum number of samples a metabolic feature must appear in to be kept in the final aligned dataset.
 
-After alignment, a short description of the alignment process will be shown as well as the aligned dataset (if this aligned dataset is large, only the first 10 000 metabolic features will be shown). The dataset and an abridged description of the metabolic feature alignments can be saved. The aligned dataset can be directly used in the NEMeSIS software (GUI or jupyter notebook versions).
+After alignment, a short description of the alignment process will be shown as well as the aligned dataset (if this aligned dataset is large, only the first 10 000 metabolic features will be shown). The dataset and an abridged description of the metabolic feature alignments can be saved. The aligned dataset can be directly used in the NEMeSIS software.
 
 #### Spectra Visualization
-
-!!! info
-
-    This section shares high similarities with the first part of the [Spectra Visualization](jupyter_docs.md#spectra-visualization) section of the [Get started with jupyter](jupyter_docs.md) page.
 
 This section of the software appears after **data alignment** is performed **if the original files were mzML raw data**. The objective is to visualize the quality of the spectral data processing by observing the raw, centroided (after spectral processing) and aligned (after data alignment) spectra in interactive graphs of a few samples simultaneously. They are interactive so close ups can be selected for each graph. This allows to observe the genral shape of peaks that were kept through the process and which were discarded and to see if the quality of the aligned spectra is as desired or expected.
 

@@ -1,7 +1,7 @@
 
 MIT License
 
-Copyright (c) 2023 FT-ICR and Structural MS lab
+Copyright (c) 2025 FT-ICR and Structural MS lab
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -31,3 +31,5 @@ DrugBank data is used under the Creative Common’s Attribution-NonCommercial
 4.0 International License.
 
 The RaMP-DB is used under a GPL-2 license.
+
+venn.py file is used and available under 'The Unlicense' license.
