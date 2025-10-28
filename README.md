@@ -20,12 +20,6 @@ Repository for the metabolomics data analysis NEMeSIS software. It includes a gr
 - Run the line 'pip install pyopenms'.
 - Restart jupyter.
 
-**pyvenn**
-
-- Go to https://github.com/tctianchi/pyvenn/blob/master/venn.py.
-- Over 'Raw' (see where 'Watch' is on the upper left and move look down), click 'Save link as...'.
-- Save it on the same folder you have the rest of the files.
-
 **Databases**
 
 Right now, the HMDB, LOTUS and DrugBank databases that are used in the Jupyter notebook as examples are present in this repository.
