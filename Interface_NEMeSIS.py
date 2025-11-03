@@ -266,6 +266,7 @@ class CompoundFinderPage:
                                  See the sample bar plot to observe if there are low number of missing values in the classes for the searched compound.
                                  The class bar plots are only usable as good approximations if so. If not, they should be ignored, since missingness is an important part of the observed compound behaviour in the dataset.
                                  Missing values can be accounted for as 0 if that option is preferred however this is also not ideal. There are **2 checkboxes** for this parameter (2 plots) so the last one you have changed is the one that remains true for both plots.
+                                 **Please always take into account that Box Plots of metabolites with many missing values may lead to distorted perceptions of group differences.**
                                  Check figure save name to confirm the exact parameters of how the figure was made if you do not remember the last one you have changed.""",
                                  comp_finder_page)
 
