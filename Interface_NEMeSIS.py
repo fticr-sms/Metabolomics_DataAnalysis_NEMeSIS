@@ -404,7 +404,12 @@ file = FileReading()
 
 # Widgets and reacting functions of page 1
 filename = pn.widgets.FileInput(name='Choose file', accept='.csv,.xlsx,.xls')
-target_included_in_file = pn.widgets.Checkbox(name='The first row of the file corresponds to the target (sample class labels).', value=False)
+position_samples_text = pn.widgets.StaticText(name='Position of samples in the read data:', value='')
+position_samples = pn.widgets.RadioBoxGroup(name='', options=['Features in Rows and Samples in Columns',
+                                                              'Samples in Rows and Features in Columns'],
+                                            value='Features in Rows and Samples in Columns')
+target_included_in_file = pn.widgets.Checkbox(name='The first row/column of the file corresponds to the target (sample class labels).',
+                                              value=False)
 temp_target = param.Parameter(default={})
 type_of_mass_values_text = pn.widgets.StaticText(name='Mass Values in your data are', value='')
 type_of_mass_values = pn.widgets.RadioBoxGroup(name='Type of mass values in data',
@@ -432,6 +437,7 @@ def _confirm_button_filename(event):
     # Read the file, updating widgets and parameters
     file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file(filename.filename, filename.value,
                                                                                       target_included_in_file.value,
+                                                                                      position_samples.value,
                                                                                       type_of_mass_values.value)
 
     # Parameters to store for Report Generation
@@ -470,6 +476,7 @@ def _load_example_df_button(event):
 
     # Read the file, updating widgets and parameters
     file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file('5yeasts_notnorm.csv', '', False,
+                                                                                      'Features in Rows and Samples in Columns',
                                                                                       type_of_mass_values.value)
 
     # Parameters to store for Report Generation
@@ -595,7 +602,8 @@ def _confirm_step1(event):
 confirm_button_step1.on_click(_confirm_step1)
 
 # Setting up the page layout
-section1page = pn.Column(pn.Row(pn.Column(filename, target_included_in_file, type_of_mass_values_text, type_of_mass_values),
+section1page = pn.Column(pn.Row(pn.Column(filename, position_samples_text, position_samples, target_included_in_file,
+                                          type_of_mass_values_text, type_of_mass_values),
                                 pn.Row(load_example_df_button, tooltip_example_df)),
                          pn.Row(confirm_button_filename, tooltip_file),
                          file.read_df,
@@ -2631,8 +2639,8 @@ page3[2, :] = pn.Column(confirm_button_next_step_4,
                         pn.pane.Markdown('''
                            Extra files will also be generated that can be moved to the NEMeSIS folder and used as input for the side modules:
                             - **Export_Target.txt** - Class labels (target) of the dataset's samples.
-                            - **Export_TreatedData.pickle** - Treated intensity data without metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).
-                            - **Export_ProcData.pickle** - Normalized data (without missing value imputation, transformation or scaling) with metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).
+                            - **Export_TreatedData.pickle** - Treated intensity data without metadata in pickle format to guarantee the 'Metabolite Labels' suffer no changes (roundings).
+                            - **Export_ProcData.pickle** - Normalized data (without missing value imputation, transformation or scaling) with metadata in pickle format to guarantee the 'Metabolite Labels' suffer no changes (roundings).
                             - **Export_TreatedData.xlsx** - Excel with 4 sheets (Export_ProcData.pickle data, Export_TreatedData.pickle data, BinSim treated data and values after missing value imputation and normalization.
                         ''')),
                         save_data_dataframes_button)
@@ -7456,7 +7464,7 @@ class CompoundFinder(param.Parameterized):
     "Class to contain parameters and figures related to a compound finder tool."
 
     # Parameters to detect which compound to see
-    id_type = param.String(default='Metabolite Bucket Label')
+    id_type = param.String(default='Metabolite Label')
     id_comp = param.String()
     confirm_id_button = param.Boolean(default=False)
 
@@ -7506,13 +7514,13 @@ class CompoundFinder(param.Parameterized):
         if radiobox_neutral_mass.value != 'None':
             self.neutral_mass_to_idxs = {
                 str(metadata_df.loc[idx, radiobox_neutral_mass.value]): [idx] for idx in metadata_df.index}
-            self.controls.widgets['id_type'].options = ['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula',
+            self.controls.widgets['id_type'].options = ['Metabolite Label', 'Metabolite Name', 'Metabolite Formula',
                                                        'Metabolite Neutral or m/z Mass']
 
         # If there isn't remove it as an option
         else:
             self.neutral_mass_to_idxs = {}
-            self.controls.widgets['id_type'].options = ['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula']
+            self.controls.widgets['id_type'].options = ['Metabolite Label', 'Metabolite Name', 'Metabolite Formula']
 
         # Default option for id_type - setting up widgets
         self.controls.widgets['id_comp'].options = list(metadata_df.index)
@@ -7523,7 +7531,7 @@ class CompoundFinder(param.Parameterized):
         "Find the DataFrame subsection correponding to the identifier given."
 
         # Finding the DataFrame
-        if self.id_type == 'Metabolite Bucket Label':
+        if self.id_type == 'Metabolite Label':
             finder = processed_df.loc[self.bucket_to_idxs[self.id_comp]].copy()
         elif self.id_type == 'Metabolite Formula':
             finder = processed_df.loc[self.formula_to_idxs[self.id_comp]].copy()
@@ -7596,7 +7604,7 @@ class CompoundFinder(param.Parameterized):
             c_meth = 'kendall'
 
         # Finding the DataFrame
-        if self.id_type == 'Metabolite Bucket Label':
+        if self.id_type == 'Metabolite Label':
             finder = DataFrame_Store.treated_df.loc[:, self.bucket_to_idxs[self.id_comp]].copy()
         elif self.id_type == 'Metabolite Formula':
             finder = DataFrame_Store.treated_df.loc[:, self.formula_to_idxs[self.id_comp]].copy()
@@ -7610,7 +7618,7 @@ class CompoundFinder(param.Parameterized):
 
         # Building the matrix
         corr_mets = DataFrame_Store.metadata_df.copy()
-        corr_mets.insert(0,'Bucket label', corr_mets.index)
+        corr_mets.insert(0,'Metabolite Label', corr_mets.index)
         corr_mets.insert(1,'Corr Coef', '')
         for c in corr_mets.index:
             corr_mets.loc[c, 'Corr Coef'] = corr_matrix.loc[c].iloc[0]
@@ -7644,9 +7652,9 @@ class CompoundFinder(param.Parameterized):
         self.sample_bar_plot = ['To plot a bar plot with sample intensities']
         self.class_bar_plot = ['To plot a bar plot with class avg. intensities']
         self.class_boxplot = ['To plot a boxplot with class avg. intensities']
-        self.id_type = 'Metabolite Bucket Label'
-        self.controls.widgets['id_type'].value = 'Metabolite Bucket Label'
-        self.controls.widgets['id_type'].options = ['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula',
+        self.id_type = 'Metabolite Label'
+        self.controls.widgets['id_type'].value = 'Metabolite Label'
+        self.controls.widgets['id_type'].options = ['Metabolite Label', 'Metabolite Name', 'Metabolite Formula',
                                                     'Metabolite Neutral or m/z Mass']
         self.id_comp = self.param['id_comp'].default
         self.controls.widgets['id_comp'].options = ['']
@@ -7666,7 +7674,7 @@ class CompoundFinder(param.Parameterized):
         self.id_comp = ''
 
         # Update the options based on id_type chosen
-        if self.id_type == 'Metabolite Bucket Label':
+        if self.id_type == 'Metabolite Label':
             self.controls.widgets['id_comp'].options = list(self.bucket_to_idxs.keys())
             self.controls.widgets['id_comp'].placeholder = list(self.bucket_to_idxs.keys())[0]
 
@@ -7727,8 +7735,8 @@ class CompoundFinder(param.Parameterized):
         # Base Widgets
         widgets = {
             'id_type': pn.widgets.RadioButtonGroup(name='Choose which type of identifier you want to use for your compound',
-                    value='Metabolite Bucket Label',
-                    options=['Metabolite Bucket Label', 'Metabolite Name', 'Metabolite Formula', 'Metabolite Neutral or m/z Mass'],
+                    value='Metabolite Label',
+                    options=['Metabolite Label', 'Metabolite Name', 'Metabolite Formula', 'Metabolite Neutral or m/z Mass'],
                     button_type='success', description='Choose which type of identifier you want to use for your compound.'),
             'id_comp': pn.widgets.AutocompleteInput(name="Type the compound identifier you want to see",
                     value = '', options=[''], search_strategy='includes', case_sensitive=False,

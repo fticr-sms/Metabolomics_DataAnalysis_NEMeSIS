@@ -117,31 +117,27 @@ be analyzed, the slower the analysis is and vice-versa.</p>
 
 # Data Reading Description HTML in string format
 
-data_reading_opening_string ='''<strong>Input your Excel or csv MetaboScape file.</strong>
+data_reading_opening_string ='''<strong>Input your Excel or csv file.</strong>
 <br>
 This process can take a while for larger datasets.
 <br>
-The inputted file should have the feature peak column be the first column in your data. This column should represent the
-metabolic features either their "neutral mass" or <em>m/z</em> values obtained in either positive or negative ionization
-mode (choose accordingly based on your data). If it is the former, a Neutral Mass column will be generated with those
-values; if it is the latter, a Probable <em>m/z</em> column will be generated with those values. Albeit not necessary, it
-will allow to perform annotation later on in the software. <strong>Avoid the existence of a column named "Neutral Mass" or
-'Probable <em>m/z</em>' on your data.</strong>
-<br>
-<br>
-In general, your file should have your detected features in the rows and sample data and meta data in the columns. The
-detected features should be in the first column which must be named 'Bucket Label'. You will be asked later to identify the
-meta data columns to separate them from the remaining ones.
-<br>
-<br>
-If the 'Bucket Label' can be interpreted as a float (number), an extra column called either 'Neutral Mass' or 'Probable
-<em>m/z</em>' will be automatically added to your data.
-<br>
-Otherwise, a notification will inform that this column could not be added. If it could not be created in this way, you will
+The inputted file can either have samples in the columns and features on the rows or vice-versa. In any case, the first
+column/row should have the feature <em>m/z</em> peaks, representing the metabolic features either their "neutral mass"
+or <em>m/z</em> values obtained in either positive or negative ionization mode (choose accordingly based on your data).
+If it is the former, a Neutral Mass column/row will be generated with those values; if it is the latter, a Probable
+<em>m/z</em> row/column will be generated with those values. Albeit not necessary, it will allow to perform annotation
+later on in the software. <strong>Avoid the existence of a column/row named "Neutral Mass" or 'Probable <em>m/z</em>' on
+your data.</strong> This will only happen if the <em>m/z</em> peaks can be interpreted as a float (number). Otherwise,
+a notification will inform that this column could not be added. If it could not be created in this way, you will
 not be able to perform annotation (database annotation or formula assignment) using this software.
 <br>
+<br>
+In general, the file will be transformed to have detected features in the rows and sample data and metadata in the columns.
+You will be asked later to identify the metadata columns to separate them from the sample ones.
+<br>
+<br>
 Currently, after confirming your dataset and moving to the next page, you will not be able to change it unless you restart
-the program or reset every variable.
+or reset the program.
 '''
 
 
@@ -235,7 +231,7 @@ metabolic feature with others being erased.</p>
 <p>- <strong>Situation 2&nbsp;(Merge Same Adducts)</strong>: Multiple metabolic features have the same annotation for all
 annotation databases (and no other database has different annotations for those features) with the highest intensity coming
 from at least two different metabolic features and <strong>ALL</strong> features come from the same adduct. For each sample,
-the highest intensity is kept. &apos;Bucket Label&apos; and the &apos;Mass&apos; columns become the weighted average (based
+the highest intensity is kept. &apos;Metabolite Label&apos; and the &apos;Mass&apos; columns become the weighted average (based
 on the average intensity of the features) of all the features with the same annotation.</p>
 <p>&nbsp;- <strong>Situation 3&nbsp;(Merge Different Adducts)</strong>: Identical to Situation 2 but there is at least one
 metabolic feature that comes from a different adduct. For each sample, the highest intensity of metabolic features from the
