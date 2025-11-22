@@ -82,7 +82,7 @@ hourglass_icon = '''<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tab
 
 
 # Function related to File data reading
-def read_file(filename, file_bytes, target_in_file, type_of_mass_values):
+def read_file(filename, file_bytes, target_in_file, position_samples, type_of_mass_values):
     "Function to read the file given."
 
     # Samples names frequently have 00000.
@@ -100,16 +100,22 @@ def read_file(filename, file_bytes, target_in_file, type_of_mass_values):
     elif filename.endswith('.csv'):
 
         if target_in_file: # If you have the target in the file
-            file = pd.read_csv(BytesIO(file_bytes), header=[0,1])
+            if position_samples == 'Features in Rows and Samples in Columns':
+                file = pd.read_csv(BytesIO(file_bytes), header=[0,1], index_col=0)
+            else:
+                file = pd.read_csv(BytesIO(file_bytes), index_col=[0,1]).T
             colnames = [renamer(i) for i in file.columns.get_level_values(0)]
             target_file = dict(zip(colnames, file.columns.get_level_values(1).astype(str)))
             file.columns = colnames
 
         else: # If you do not have the target in the file
             if filename == '5yeasts_notnorm.csv':
-                file = pd.read_csv('5yeasts_notnorm.csv')
+                file = pd.read_csv('5yeasts_notnorm.csv',index_col=0)
             else:
-                file = pd.read_csv(BytesIO(file_bytes))
+                if position_samples == 'Features in Rows and Samples in Columns':
+                    file = pd.read_csv(BytesIO(file_bytes),index_col=0)
+                else:
+                    file = pd.read_csv(BytesIO(file_bytes),index_col=0).T
             file.columns = [renamer(i) for i in file.columns]
             target_file = {}
 
@@ -117,13 +123,19 @@ def read_file(filename, file_bytes, target_in_file, type_of_mass_values):
     elif filename.endswith('.xlsx') or filename.endswith('.xls'):
 
         if target_in_file: # If you have the target in the file
-            file = pd.read_excel(BytesIO(file_bytes), header=[0,1])
+            if position_samples == 'Features in Rows and Samples in Columns':
+                file = pd.read_excel(BytesIO(file_bytes), header=[0,1], index_col=0)
+            else:
+                file = pd.read_excel(BytesIO(file_bytes), index_col=[0,1]).T
             colnames = [renamer(i) for i in file.columns.get_level_values(0)]
             target_file = dict(zip(colnames, file.columns.get_level_values(1).astype(str)))
             file.columns = colnames
 
         else: # If you do not have the target in the file
-            file = pd.read_excel(BytesIO(file_bytes))
+            if position_samples == 'Features in Rows and Samples in Columns':
+                file = pd.read_excel(BytesIO(file_bytes),index_col=0)
+            else:
+                file = pd.read_excel(BytesIO(file_bytes),index_col=0).T
             file.columns = [renamer(i) for i in file.columns]
             target_file = {}
 
@@ -134,19 +146,19 @@ def read_file(filename, file_bytes, target_in_file, type_of_mass_values):
     try:
         # If the masses in the index are Neutral
         if type_of_mass_values == 'Neutral':
-            file.insert(1, 'Neutral Mass', file[file.columns[0]].astype('str').str.replace('Da', '').astype('float'))
+            file.insert(0, 'Neutral Mass', file.index.astype('str').str.replace('Da', '').astype('float'))
         # If the masses are m/z values obtained in Positive Ionization Mode
         if type_of_mass_values == 'm/z (Positive)':
-            file.insert(1, 'Probable m/z', file[file.columns[0]].astype('str').str.replace('Da', '').astype('float'))
+            file.insert(0, 'Probable m/z', file.index.astype('str').str.replace('Da', '').astype('float'))
         # If the masses are m/z values obtained in Negative Ionization Mode
         elif type_of_mass_values == 'm/z (Negative)':
-            file.insert(1, 'Probable m/z', file[file.columns[0]].astype('str').str.replace('Da', '').astype('float'))
+            file.insert(0, 'Probable m/z', file.index.astype('str').str.replace('Da', '').astype('float'))
         nm_column = True
     except:
         pn.state.notifications.warning('Masses could not be inferred from the 1st column of your data. No annotation can be performed.')
 
-    file = file.set_index(file.columns[0])
-    file.index.name = 'Bucket label'
+    #file = file.set_index(file.columns[0])
+    file.index.name = 'Metabolite Label'
     # Replaces zeros with numpy nans. Essential for data processing
     file = file.replace({0:np.nan})
 
@@ -263,7 +275,7 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
        6) Situation 1: If all the highest intensity values come from one m/z peak, then that peak becomes the 'de facto'
         peak and all others are erased.
        7) Situation 2: The highest intensity comes from at least two different m/z peaks and ALL peaks come from the same
-        adduct (including ones that are not used for the merge). Then, the peak 'Bucket Label' and 'Mass' columns
+        adduct (including ones that are not used for the merge). Then, the peak 'Metabolite Label' and 'Mass' columns
         become the weighted average (based on the average intensity of the peaks) of all the peaks with the same annotation.
         If there is no m/z column, this is the situation used.
        8) Situation 3: Identical to Situation 2 but there is at least one peak that comes from a different adduct based on
@@ -400,7 +412,7 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
                             # If yes, then situation 1: Overwrite is the correct option here
                             overwrite = True
 
-                            # The new id (bucket label) will be the same as in the line with all the higher intensities
+                            # The new id (Metabolite Label) will be the same as in the line with all the higher intensities
                             # Store it
                             keep_id = subset_df.index[i]
                             new_idxs[annotated_data.index[min_idx]] = keep_id
@@ -468,13 +480,13 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
                             else:
                                 temp_full_new_line.loc[key] = subset_df.loc[idx_max, key]
 
-                    # All that's left is the Bucket Label and Neutral Mass
+                    # All that's left is the Metabolite Label and Neutral Mass
                     if multiple_adds:
                         # See if the distance between the maximum and minimum mass is low aka they come from the same adduct
-                        # If yes, Situation 2: bucket label, Neutral Mass and m/z peak will be the weighted averages of all the
+                        # If yes, Situation 2: Metabolite Label, Neutral Mass and m/z peak will be the weighted averages of all the
                         # possible peaks
                         if max(n_masses) - min(n_masses) < 0.5:
-                            # Get the new bucket label
+                            # Get the new Metabolite Label
                             new_bucket = np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1))
                             new_idxs[annotated_data.index[min_idx]] = new_bucket
                             # Get the Mass
@@ -490,7 +502,7 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
                                     'Situation': 'Merging same adducts'}
 
                         else:
-                            # Get the new bucket label
+                            # Get the new Metabolite Label
                             argmax_idx = subset_df.loc[:,sample_cols].mean(axis=1).argmax()
                             new_bucket = str(subset_df.iloc[argmax_idx].name)
                             new_idxs[annotated_data.index[min_idx]] = new_bucket
@@ -506,7 +518,7 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
                                     'Situation': 'Merging different adducts'}
 
                     else:
-                        # Get the new bucket label
+                        # Get the new Metabolite Label
                         new_bucket = str(np.average(n_masses, weights=subset_df[sample_cols].mean(axis=1)))
                         new_idxs[annotated_data.index[min_idx]] = new_bucket
                         # Get the Mass
@@ -535,7 +547,7 @@ def duplicate_disambiguator(data_ann_deduplicator, annotated_data, sample_cols, 
             for idx in named_idxs:
                 annotated_data = annotated_data.drop(index=idx)
 
-            # Assigning the new bucket labels
+            # Assigning the new Metabolite Labels
             for old_idx, new_idx in new_idxs.items():
                 annotated_data = annotated_data.rename(index= {old_idx : new_idx})
                 n_merged_peaks += 1
@@ -652,7 +664,7 @@ def individually_merging(data_ann_deduplicator, given_idxs, sample_cols, annotat
             # If yes, then situation 1: Overwrite is the correct option here
             overwrite = True
 
-            # The new id (bucket label) will be the same as in the line with all the higher intensities
+            # The new id (Metabolite Label) will be the same as in the line with all the higher intensities
             # Store it
             keep_id = intensities.index[i]
             new_idxs[annotated_data.index[min_idx]] = keep_id
@@ -675,10 +687,10 @@ def individually_merging(data_ann_deduplicator, given_idxs, sample_cols, annotat
         # If not Situation 1
         if multiple_adds:
             # If there are multiple adducts being used, see if the distance between the maximum and minimum mass is low
-            # If yes, Situation 2: bucket label, Neutral Mass or m/z peak will be the weighted averages of all the
+            # If yes, Situation 2: Metabolite Label, Neutral Mass or m/z peak will be the weighted averages of all the
             # possible peaks
             if max(other_metadata) - min(other_metadata) < 0.5:
-                # Get the new bucket label
+                # Get the new Metabolite Label
                 avg_neutral_mass = np.average(other_metadata, weights=intensities.mean(axis=1))
                 new_bucket = avg_neutral_mass
                 new_idxs[annotated_data.index[min_idx]] = new_bucket
@@ -691,7 +703,7 @@ def individually_merging(data_ann_deduplicator, given_idxs, sample_cols, annotat
                         'Situation': 'Individual - Merging same adducts'}
 
             else:
-                # Get the new bucket label
+                # Get the new Metabolite Label
                 argmax_idx = intensities.mean(axis=1).argmax()
                 new_bucket = other_metadata.iloc[argmax_idx]
                 new_idxs[annotated_data.index[min_idx]] = new_bucket
@@ -703,7 +715,7 @@ def individually_merging(data_ann_deduplicator, given_idxs, sample_cols, annotat
                         'Situation': 'Individual - Merging different adducts'}
 
         else:
-            # Get the new bucket label
+            # Get the new Metabolite Label
             avg_neutral_mass = np.average(other_metadata, weights=intensities.mean(axis=1))
             new_bucket = avg_neutral_mass
             new_idxs[annotated_data.index[min_idx]] = new_bucket
@@ -725,7 +737,7 @@ def individually_merging(data_ann_deduplicator, given_idxs, sample_cols, annotat
     for idx in named_idxs:
         annotated_data = annotated_data.drop(index=idx)
 
-    # Assigning the new bucket labels
+    # Assigning the new Metabolite Labels
     for old_idx, new_idx in new_idxs.items():
         annotated_data = annotated_data.rename(index= {old_idx : new_idx})
 
@@ -823,7 +835,7 @@ def TargetStorage_filling(target_list, colours):
 
 
 
-### Functions related to the common and exclusive compound page of the graphical interface
+### Functions related to the Class Intersection Analysis page of the graphical interface
 
 def _group_compounds_per_class(com_exc_compounds, target_list, DataFrame_Store):
     "Creates a DataFrame per biological class with the features that appear in samples of said class (and provides a description of each DataFrame)."
@@ -1192,7 +1204,7 @@ def _plot_PCA(PCA_params, target_list):
             ellipses_df.columns=['0', '1', 'Label']
             ellipses = px.line(ellipses_df, x='0', y='1', color='Label', color_discrete_map=target_list.color_classes,
                                hover_data={'0': False, '1': False})
-            #ellipses.update_layout(hov=False)
+            ellipses.update_traces(showlegend=False, hoverinfo=None)
 
             # Final Plot joining the 2
             final_PCA_plot = go.Figure(data=PCA_plot.data + ellipses.data)
@@ -1200,6 +1212,13 @@ def _plot_PCA(PCA_params, target_list):
                 title=f'''Total Explained Variance: {(PCx_var_explained + PCy_var_explained)*100:.2f}%''')
             final_PCA_plot.update_xaxes(title=PCA_params.PCx + f' ({PCx_var_explained*100:.2f}%)')
             final_PCA_plot.update_yaxes(title=PCA_params.PCy + f' ({PCy_var_explained*100:.2f}%)')
+#            final_PCA_plot.update_layout(
+#                legend=dict(
+#                    orientation="h",
+#                    entrywidth=40,
+#                    y=-0.3
+#                )
+#            )
 
         else:
             final_PCA_plot = PCA_plot
@@ -2347,7 +2366,7 @@ def build_annotation_to_idx_dict(metadata_df, col_list):
 
     ann_to_idxs_dict = {}
 
-    # For each bucket label with the type of compound chosen
+    # For each Metabolite Label with the type of compound chosen
     for idx in filt_df.index:
         for col in col_list: # For each column corresponding to the type of column
             # Get the annotations

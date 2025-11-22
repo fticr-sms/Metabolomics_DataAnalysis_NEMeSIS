@@ -494,9 +494,9 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
     document.add_paragraph(f'This section includes the statistical analysis chosen to be in this report. These are: {", ".join(stat_methods)}.')
 
-    # Common and Exclusive Compound Section
+    # Class Intersection Analysis Section
     if len(np.intersect1d(['Common and Exclusive Compound Overview', 'Venn Diagram', 'Intersection Plot'], stat_methods)) != 0:
-        document.add_heading('Common and Exclusive Compound Analysis', level=2)
+        document.add_heading('Class Intersection Analysis (Common and Exclusive Compound) Analysis', level=2)
 
         # Overview Section
         if 'Common and Exclusive Compound Overview' in stat_methods:
@@ -1893,7 +1893,7 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
 
     # Whether or not to include parameters related to data analysis:
     if include_data_analysis:
-        # Saving Common and Exclusive Compound Analysis Related Paramaeters
+        # Saving Class Intersection Analysis Related Paramaeters
         params_to_be_saved['Com. and Exc. Comp.'] = {# General
                                                     'chosen': checkbox_com_exc.value, # Technically can be different
                                                     # Venn Diagram Related
@@ -2242,7 +2242,7 @@ def loading_parameters_in(params_to_load, data_filtering, n_databases_show, n_da
 
     # Data Analysis Related Parameters
     if params_analysis_loaded_in:
-        # Loading Common and Exclusive Compound Analysis Related Paramaeters
+        # Loading Class Intersection Analysis Related Paramaeters
         if 'Com. and Exc. Comp.' in params_to_load.keys():
             # Stopping Figures from trying to be made
             com_exc_compounds.compute_fig = False

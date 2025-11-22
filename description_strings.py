@@ -94,7 +94,7 @@ style="width: 22px; height: 20.9px;">&nbsp;aspect.</p>
 back and forth between different pages causing artifacts of different pages or empty spaces before the pages to show up.
 We currently believe this is an issue with the panel package we are basing this software on. This can be mostly solved
 by refreshing the page in the browser to reset the layout of the page. However, <strong>do not use&nbsp;</strong>this
-trick on the <strong>common and exclusive compound page</strong> since this has a small chance to make the sidebar to
+trick on the <strong>Class Intersection Analysis page</strong> since this has a small chance to make the sidebar to
 navigate the software disappear, rendering it unoperable and needing to be closed and opened again.</p>
 <p>- Another issue of the same type is the <strong>reset floatpanel</strong> not appearing when pressing it the 2nd time. It
 is once again a problem fixed by refreshing.</p>
@@ -601,6 +601,13 @@ href="https://doi.org/10.3390/metabo11110788">https://doi.org/10.3390/metabo1111
 <br>
 In this section, BinSim treated data is used to perform <strong>PCA</strong>, <strong>HCA</strong> (unsupervised),
 <strong>PLS-DA</strong> and <strong>Random Forest</strong> (supervised) statistical analysis.'''
+
+
+# Graph-based Analysis Page Description HTML in string format
+
+Graph_opening_string = '''Here, extreme-resolution direct-infusion metabolomics data can be used to generate either
+Mass-Difference Networks or Formula-Difference Networks.
+'''
 
 
 # Report Generation Page Description HTML in string format

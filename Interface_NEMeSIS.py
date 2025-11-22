@@ -176,7 +176,7 @@ class TransitionalPage:
 class CommonExclusivePage:
     def __init__(self):
 
-        self.content = pn.Column("# Seeing Common and Exclusive Compounds Between Biological Classes",
+        self.content = pn.Column("# Class Intersection Analysis - Seeing Common and Exclusive Compounds Between Biological Classes",
                                  "This includes an overview analysis as well as Venn Diagrams and Intersection Plots of common and exclusive compounds of the different classes in the dataset.",
                                  comexc_page)
 
@@ -226,7 +226,7 @@ class UnivariateAnalysisPage:
 class DataVisualizationPage:
     def __init__(self):
 
-        self.content = pn.Column("# Data Diversity Visualization Plots",
+        self.content = pn.Column("# Chemical Diversity Visualization Plots",
                                  """This page allows you to plot Van Krevelen, Kendrick Mass Defect  and Chemical Composition Series Plots to visualize the data diversity in your dataset.
                                  **Note**: Press the button to generate the data and update the different sections with relevant information from your workflow.
                                  """, '', '#### Known Issue: Legend in Van Krevelen Plots does not appear. Randomly some Kendrick Mass Defect Plots have bigger points than others.',
@@ -253,6 +253,17 @@ class BinSimPage:
         self.content = pn.Column("# Performing BinSim Analysis",
                                  pn.pane.HTML(desc_str.BinSim_opening_string),
                                  binsim_analysis_page)
+
+    def view(self):
+        return self.content
+
+
+class GraphAnalysisPage:
+    def __init__(self):
+
+        self.content = pn.Column("# Performing Graph-based Analysis - Building Networks and Analysis",
+                                 pn.pane.HTML(desc_str.Graph_opening_string),
+                                 graph_analysis_page)
 
     def view(self):
         return self.content
@@ -374,11 +385,12 @@ def _disabling_stat_analysis_buttons():
     page11_button.disabled = True
     page12_button.disabled = True
     page13_button.disabled = True
+    page14_button.disabled = True
 
 
 
 
-# TODO: Data Visualization page does not reset figure parameters to default (Volcano plot does not reset colours but that is okay)
+# TODO: Chemical Diversity Visualization page does not reset figure parameters to default (Volcano plot does not reset colours but that is okay)
 
 # Page 1 - Reading File
 
@@ -2444,7 +2456,7 @@ class PreTreatment(param.Parameterized):
         if n_nan_values == 0:
             confirm_button_next_step_4.disabled = False
             save_data_dataframes_button.disabled = False
-            page13_button.disabled = False
+            page14_button.disabled = False
 
         # If there are missing values, show an alert and inactivate further analysis
         else:
@@ -2455,7 +2467,7 @@ class PreTreatment(param.Parameterized):
             page3[2, :].objects[(0, None, 1, None)].insert(0, pn.pane.Alert(alert_message, alert_type='warning'))
             confirm_button_next_step_4.disabled = True
             save_data_dataframes_button.disabled = True
-            page13_button.disabled = True
+            page14_button.disabled = True
 
 
     def reset(self):
@@ -2703,7 +2715,7 @@ def _confirm_button_next_step_5(event):
     # Resetting all statistical analysis performed before (if repeating analysis)
     if reset_time.value == 0:
         if confirm_button_next_step_transitionalpage.clicks > 1:
-            # Common and Exclusive Compound page . Has to be after Data diversity visualization reset
+            # Class Intersection Analysis page. Has to be after Data diversity visualization reset
             com_exc_compounds.compute_fig = False
             com_exc_compounds.reset()
             while len(end_page_comexc) > 0:
@@ -2866,6 +2878,7 @@ def _confirm_button_next_step_5(event):
     page11_button.disabled = False
     page12_button.disabled = False
     page13_button.disabled = False
+    page14_button.disabled = False
 
 
     # Initial calculations for HCA and storing initial plots
@@ -2960,19 +2973,19 @@ ComExc_A = pn.widgets.Button(name='Common/Exclusive Comp.', button_type='default
 Unsup_A = pn.widgets.Button(name='Unsupervised Analysis', button_type='default')
 Sup_A = pn.widgets.Button(name='Supervised Analysis', button_type='default')
 Univariate_A = pn.widgets.Button(name='Univariate Analysis', button_type='default')
-DataViz_A = pn.widgets.Button(name='Data Visualization', button_type='default')
+DataViz_A = pn.widgets.Button(name='Chemical Diversity Visualization', button_type='default')
 
 # Buttons for the secondary analyses steps
 PathAssign_A = pn.widgets.Button(name='Pathway Assignment Analysis', button_type='default')
 BinSim_A = pn.widgets.Button(name='BinSim Specific Analysis', button_type='default')
+Graph_A = pn.widgets.Button(name='Graph-based Analysis', button_type='default')
 CompFinder_A = pn.widgets.Button(name='Compound Finder', button_type='default')
-ToBeAdded_A = pn.widgets.Button(name='More to be added', button_type='danger', disabled=True)
 
 # Functions for pressing each button
 def _confirm_button_ComExc_A(event):
-    "Button to go to the Common and Exclusive Compound page."
+    "Button to go to the Class Intersection Analysis page."
     main_area.clear()
-    show_page(pages["Common and Exclusive Compounds"])
+    show_page(pages["Class Intersection Analysis"])
 ComExc_A.on_click(_confirm_button_ComExc_A)
 
 def _confirm_button_Unsup_A(event):
@@ -2994,9 +3007,9 @@ def _confirm_button_Univariate_A(event):
 Univariate_A.on_click(_confirm_button_Univariate_A)
 
 def _confirm_button_DataViz_A(event):
-    "Button to go to the Data Diversity Visualization Analysis page."
+    "Button to go to the Chemical Diversity Visualization Analysis page."
     main_area.clear()
-    show_page(pages["Data Visualization"])
+    show_page(pages["Chemical Diversity Visualization"])
 DataViz_A.on_click(_confirm_button_DataViz_A)
 
 def _confirm_button_PathAssign_A(event):
@@ -3011,6 +3024,12 @@ def _confirm_button_BinSim_A(event):
     show_page(pages["BinSim Analysis"])
 BinSim_A.on_click(_confirm_button_BinSim_A)
 
+def _confirm_button_Graph_A(event):
+    "Button to go to the Graph-based Analysis page."
+    main_area.clear()
+    show_page(pages["Graph-based Analysis"])
+Graph_A.on_click(_confirm_button_Graph_A)
+
 def _confirm_button_CompFinder_A(event):
     "Button to go to the Compound Finder Search Tool page."
     main_area.clear()
@@ -3020,12 +3039,12 @@ CompFinder_A.on_click(_confirm_button_CompFinder_A)
 # Transitional page Layout
 transitional_page = pn.Column(pn.Row(ComExc_A, Unsup_A, Sup_A, Univariate_A, DataViz_A),
                              '## Other Options:',
-                             pn.Row(PathAssign_A, BinSim_A, CompFinder_A, ToBeAdded_A))
+                             pn.Row(PathAssign_A, BinSim_A, CompFinder_A, Graph_A))
 
 
 
 
-# Page for Common and Exclusive Compounds
+# Page for Class Intersection Analysis
 
 # Param Class to store parameters and data regarding Common and Exclusive Compounds
 class ComExc_Storage(param.Parameterized):
@@ -5735,7 +5754,7 @@ complete_univar_analysis_page = pn.Tabs(('1v1 Univariate', univar_analysis_page)
 
 
 
-# Page for Data Visualization
+# Page for Chemical Diversity Visualization
 
 # Three sections: Van Krevelen Plots, Kendrick Mass Defect Plots and Chemical Composition Series
 # TODO: (PROBLEM) Legend does not appear in Van Krevelen Plot - make it appear
@@ -7459,6 +7478,14 @@ binsim_analysis_page = pn.Column(pn.Tabs(('PCA', page_binsim_PCA), ('HCA', page_
 
 
 
+# Page for Graph-Based Analysis
+
+# Complete BinSim Analysis Page Layout
+graph_analysis_page = pn.Column()
+
+
+
+
 # Page for Compound Finder
 class CompoundFinder(param.Parameterized):
     "Class to contain parameters and figures related to a compound finder tool."
@@ -7875,7 +7902,7 @@ class ReportGeneration(param.Parameterized):
         super().__init__(**params)
         # Base Widgets
         widgets = {
-            'com_exc_analysis': pn.widgets.CheckBoxGroup(name='Common and Exclusive Compounds Analysis',
+            'com_exc_analysis': pn.widgets.CheckBoxGroup(name='Class Intersection Analysis',
                     value=[], options=['Overview', 'Venn Diagram', 'Intersection Plot']),
             'unsup_analysis': pn.widgets.CheckBoxGroup(name='Unsupervised Analysis',
                     value=[], options=['PCA', 'HCA']),
@@ -7897,11 +7924,11 @@ class ReportGeneration(param.Parameterized):
 RepGen = ReportGeneration()
 
 # Setting up the widgets for the page layout
-desc_repgen = pn.Row('#### Common and Exclusive Compound Analysis',
+desc_repgen = pn.Row('#### Class Intersection Analysis',
               '#### Unsupervised Analysis',
               '#### Supervised Analysis',
               '#### Univariate Analysis',
-              '#### Data Diversity Visualization Analysis',
+              '#### Chemical Diversity Visualization Analysis',
               '#### HMDB Pathways Assignment',
               '#### BinSim Analysis',)
 
@@ -8065,7 +8092,7 @@ def Yes_Reset(event):
 
     # Resetting all statistical analysis performed
 
-    # Common and Exclusive Compound page
+    # Class Intersection Analysis page
     com_exc_compounds.compute_fig = False
     com_exc_compounds.reset()
     while len(end_page_comexc) > 0:
@@ -8275,13 +8302,14 @@ pages = {
     "Data Pre-Treatment": DataPreTreatment(),
     "Class Colours": ClassColours(),
     "Transitional Page": TransitionalPage(),
-    "Common and Exclusive Compounds": CommonExclusivePage(),
+    "Class Intersection Analysis": CommonExclusivePage(),
     "Unsupervised Analysis": UnsupervisedAnalysisPage(),
     "Supervised Analysis": SupervisedAnalysisPage(),
     "Univariate Analysis": UnivariateAnalysisPage(),
-    "Data Visualization": DataVisualizationPage(),
+    "Chemical Diversity Visualization": DataVisualizationPage(),
     "Pathway Assignment": PathwayAssignmentPage(),
     "BinSim Analysis": BinSimPage(),
+    "Graph-based Analysis": GraphAnalysisPage(),
     "Compound Finder": CompoundFinderPage(),
     "Report Generation": ReportGenerationPage(),
 }
@@ -8311,15 +8339,16 @@ page2_1_button = pn.widgets.Button(name="Formula Assignment", button_type="prima
 page2_2_button = pn.widgets.Button(name="Annotation De-Duplication", button_type="primary", disabled=True)
 page3_button = pn.widgets.Button(name="Data Pre-Treatment", button_type="primary", disabled=True)
 page4_button = pn.widgets.Button(name="Class Colours", button_type="primary", disabled=True)
-page5_button = pn.widgets.Button(name="Common/Exclusive Comp.", button_type="default", disabled=True)
+page5_button = pn.widgets.Button(name="Class Intersection Analysis", button_type="default", disabled=True)
 page6_button = pn.widgets.Button(name="Unsupervised Analysis", button_type="default", disabled=True)
 page7_button = pn.widgets.Button(name="Supervised Analysis", button_type="default", disabled=True)
 page8_button = pn.widgets.Button(name="Univariate Analysis", button_type="default", disabled=True)
-page9_button = pn.widgets.Button(name="Data Visualization", button_type="default", disabled=True)
+page9_button = pn.widgets.Button(name="Chemical Diversity Visualization", button_type="default", disabled=True)
 page10_button = pn.widgets.Button(name="Pathway Assignment", button_type="default", disabled=True)
 page11_button = pn.widgets.Button(name="BinSim Analysis", button_type="default", disabled=True)
-page12_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
-page13_button = pn.widgets.Button(name="Report Generation + Param. Saving", button_type="default", disabled=True)
+page12_button = pn.widgets.Button(name="Graph-based Analysis", button_type="default", disabled=True)
+page13_button = pn.widgets.Button(name="Compound Finder", button_type="default", disabled=True)
+page14_button = pn.widgets.Button(name="Report Generation + Param. Saving", button_type="default", disabled=True)
 RESET_button = pn.widgets.Button(name="RESET", button_type="danger", disabled=False)
 
 # Set up button click callbacks
@@ -8333,21 +8362,22 @@ page2_1_button.on_click(lambda event: show_page(pages["Formula Assignment"]))
 page2_2_button.on_click(lambda event: show_page(pages["Annotation De-Duplication"]))
 page3_button.on_click(lambda event: show_page(pages["Data Pre-Treatment"]))
 page4_button.on_click(lambda event: show_page(pages["Class Colours"]))
-page5_button.on_click(lambda event: show_page(pages["Common and Exclusive Compounds"]))
+page5_button.on_click(lambda event: show_page(pages["Class Intersection Analysis"]))
 page6_button.on_click(lambda event: show_page(pages["Unsupervised Analysis"]))
 page7_button.on_click(lambda event: show_page(pages["Supervised Analysis"]))
 page8_button.on_click(lambda event: show_page(pages["Univariate Analysis"]))
-page9_button.on_click(lambda event: show_page(pages["Data Visualization"]))
+page9_button.on_click(lambda event: show_page(pages["Chemical Diversity Visualization"]))
 page10_button.on_click(lambda event: show_page(pages["Pathway Assignment"]))
 page11_button.on_click(lambda event: show_page(pages["BinSim Analysis"]))
-page12_button.on_click(lambda event: show_page(pages["Compound Finder"]))
-page13_button.on_click(lambda event: show_page(pages["Report Generation"]))
+page12_button.on_click(lambda event: show_page(pages["Graph-based Analysis"]))
+page13_button.on_click(lambda event: show_page(pages["Compound Finder"]))
+page14_button.on_click(lambda event: show_page(pages["Report Generation"]))
 RESET_button.on_click(RESET)
 
 
 sidebar = pn.Column(index_button, instruction_button, '## Data Pre-Processing and Pre-Treatment', page1_button, page1_1_button, page1_2_button, page2_button, page2_1_button,
                     page2_2_button, page3_button, page4_button, '## Statistical Analysis', page5_button, page6_button, page7_button, page8_button, page9_button, page10_button,
-                    page11_button, page12_button, '## Report Generation', page13_button, '## To Reset', RESET_button)
+                    page11_button, page12_button, page13_button, '## Report Generation', page14_button, '## To Reset', RESET_button)
 
 
 app = pn.template.BootstrapTemplate(title='NEMeSIS', sidebar=[sidebar], main=[main_area])
