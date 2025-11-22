@@ -1677,7 +1677,7 @@ def optim_PLSDA_n_components(df, labels, regres=False, encode2as1vector=True, ma
             # Obtain results with the test group
             #y_pred = plsda.predict(X_test)
             cv.append(plsda.score(X_test, y_test))
-            cvr2.append(r2_score(plsda.predict(X_train), y_train))
+            cvr2.append(r2_score(y_train, plsda.predict(X_train)))
 
         # Storing results for each number of components
         CVs.append(np.mean(cv))

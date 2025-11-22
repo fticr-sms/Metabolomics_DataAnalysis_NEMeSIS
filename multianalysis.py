@@ -86,7 +86,7 @@ def compute_pvalues_2groups(data, labels, equal_var=True, alpha=0.05, useMW=Fals
         raise ValueError('The number of groups in the data is not two')
     locs0 = [i for i, lbl in enumerate(labels) if lbl == unique_labels[0]]
     locs1 = [i for i, lbl in enumerate(labels) if lbl == unique_labels[1]]
-    
+
     pvalues = []
     for i, col in enumerate(data.columns):
         v0, v1 = data.iloc[locs0, i], data.iloc[locs1, i]
@@ -273,7 +273,6 @@ def correct_1stcluster_fraction(Z, sample_labels):
     for i in range(ns):
         # Get the iteration of HCA where the sample was first clustered with another cluster - `itera`
         itera, _ = np.where(Z[:,:2] == i)
-        #print(itera, Z[2][itera, 1-pos])
 
         # Length of cluster made and see if it is bigger than the label with the most samples (just to speed up calculation)
         len_cluster = Z[itera,3]
@@ -342,8 +341,8 @@ def Kmeans(dfdata, n_labels, iter_num, best_fraction):
     """Performs K-means clustering (scikit learn) n times and returns the best x fraction of them (based on their SSE).
 
        Auxiliary funtion to Kmeans_discrim.
-       SSE - Sum of Squared distances each sample and their closest centroid - Function to be minimized by the algorithm (inertia_ in
-    the scikit-learn function).
+       SSE - Sum of Squared distances each sample and their closest centroid - Function to be minimized by the algorithm (
+    inertia_ in the scikit-learn function).
 
        dfdata: Pandas DataFrame.
        n_labels: integer; number of different labels in the data (number of clusters)
@@ -1010,7 +1009,7 @@ def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=50, n_f
             # Obtain results with the test group
             y_pred = plsda.predict(X_test)
             cv.append(plsda.score(X_test, y_test))
-            cvr2.append(r2_score(plsda.predict(X_train), y_train))
+            cvr2.append(r2_score(y_train, plsda.predict(X_train)))
             mse.append(mean_squared_error(y_test, y_pred))
 
             # Decision rule for classification
@@ -1196,10 +1195,10 @@ def permutation_PLSDA(df, labels, n_comp=10, n_fold=5, iter_num=100, encode2as1v
         estimated predictive accuracy of all permuted PLS-DA models
         p-value ((number of permutations with accuracy > original accuracy) + 1)/(number of permutations + 1).
     """
-    
+
     # get a bit generator
     rng = default_rng()
-    
+
     # list to store results
     Accuracy = []
 
