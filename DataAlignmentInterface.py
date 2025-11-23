@@ -35,14 +35,21 @@ alignment_description_string = """
 <p>This Data Alignment software is geared towards <strong>Direct Infusion mass spectrometry data</strong>. That is,
 metabolic features will be aligned based on their mass values alone, and it does not accept other parameters such as
 retention time or collision cross-section.</p>
-<p>The input can be either an Excel with a sample per sheet with the mass peak list in each or spectral raw data in mzML format.</p>
-<p>To perform data alignment from a <em>m/z</em> lists, a single <strong>Excel</strong> file (.xlsx or .xls) is the input. This
+<p>The input can be either samples represented as lists of <em>m/z</em> peaks (as an Excel with a sample per sheet with the mass
+peak list in each or as a csv file per sample) or as spectral raw data in mzML format.</p>
+<p>To perform data alignment from <em>m/z</em> lists with a single <strong>Excel</strong> file (.xlsx or .xls), this
 file should follow the format: <strong>one sample per Excel sheet</strong>; the <strong>name</strong> of the Excel
 sheet should correspond to the <strong>sample name</strong>; each sheet should have in its <strong>first column the mass
 values</strong> (<em>m/z</em>, neutral mass or equivalent) and in its <strong>second column&nbsp;</strong>the corresponding
 <strong>intensity values</strong>; and finally, the <strong>first row</strong> should have the <strong>name of the two
 columns</strong>, for example, &apos;<em>m/z</em>&apos; and &apos;I&apos; (this name should be consistent between samples).
 The example file &apos;example_samples_to_align.xlsx&apos; is available in the Files_To_Align folder as guidance.</p>
+<p>To perform data alignment from <em>m/z</em> lists from a set of <strong>csv</strong> files, each file should have the
+following format: <strong>one sample per csv</strong> where the first column has the mass values</strong> (<em>m/z</em>,
+neutral mass or equivalent) and the <strong>second column&nbsp;</strong>the corresponding <strong>intensity values</strong>.
+The <strong>first row</strong> should have the name of the <em>m/z</em> column (usually m/z, this name should be consistent
+between samples) and <strong>the second the name of the sample</strong>. The example file &apos;placeholder.csv&apos; is
+available in the Files_To_Align folder as guidance.</p>
 <p>To use spectral raw data in mzML format, <strong>multiple mzML files</strong> are expected. Converting spectral raw data into
 the open mzML format can be done using freely available tools such as Proteowizard's MSConvert
 (<a href=https://proteowizard.sourceforge.io/download.html target="_blank" rel="nofollow">https://proteowizard.sourceforge.io/download.html</a>).
@@ -307,7 +314,7 @@ class DataAlignmentObject(param.Parameterized):
     "Class to contain all relevant parameters regarding Data Alignment."
 
     # Filename
-    file = param.String()
+    files = param.List()
 
     # Samples in the list
     samples = param.List()
@@ -325,10 +332,10 @@ class DataAlignmentObject(param.Parameterized):
     aligned_desc = param.String(default='')
 
 
-    def update_widgets(self, filename):
+    def update_widgets(self, filenames):
         "Updated min_samples widget based on number of samples in read file."
 
-        self.file = filename
+        self.files = filenames
         self.controls.widgets['min_samples'].end = len(self.samples)
         if len(self.samples) < self.min_samples:
             self.controls.widgets['min_samples'].value = len(self.samples)
@@ -440,71 +447,126 @@ def _confirm_button_filename(event):
     while len(data_reading_section)>2:
         data_reading_section.pop(-1)
 
+    # Number of mzML files
+    n_mzML_files = 0
+    for i in filename.value:
+        if i.endswith('mzML'):
+            n_mzML_files += 1
+
     # No Files Provided
     if len(filename.value) == 0:
         pn.state.notifications.error(f'No Files were provided to perform spectral raw data conversion or data alignment.')
 
-    # One file  is provided - Data Alignment Pipeline
-    elif len(filename.value) == 1:
-        file = filename.value[0]
-        if file.endswith('.xlsx') or file.endswith('xls'):
-            try:
-                # Reading the file
-                data = pd.read_excel(file, engine="openpyxl", sheet_name=None)
+    # One Excel file is provided or multiple csv files (no mzML files) - Data Alignment
+    elif n_mzML_files == 0:
+        # A single Excel File
+        if len(filename.value) == 1:
+            file = filename.value[0]
+            if file.endswith('.xlsx') or file.endswith('xls'):
+                try:
+                    # Reading the file
+                    data = pd.read_excel(file, engine="openpyxl", sheet_name=None)
 
-                # Editing the file format a bit
-                full_data = []
-                for i in range(len(data)):
-                    single_sample = list(data.values())[i]
-                    single_sample = single_sample.set_index(single_sample.columns[0])
-                    single_sample.columns = [list(data.keys())[i]]
-                    full_data.append(single_sample)
+                    # Editing the file format a bit
+                    full_data = []
+                    for i in range(len(data)):
+                        single_sample = list(data.values())[i]
+                        single_sample = single_sample.set_index(single_sample.columns[0])
+                        single_sample.columns = [list(data.keys())[i]]
+                        full_data.append(single_sample)
 
-                # Storing the samples
-                alignment_storage.samples = full_data
+                    # Storing the samples
+                    alignment_storage.samples = full_data
+                    small_name = file.split("Files_To_Align\\")[1]
+                    data_reading_section.append(
+                        f'**{len(full_data)} samples** were read from {small_name}.')
+
+                    # Plotting a bar plot
+                    samp_bar_plot = px.bar(x=[len(i) for i in alignment_storage.samples],
+                        y=[i.columns[0] for i in alignment_storage.samples], orientation='h',
+                        title='Metabolic Features per Sample')
+                    samp_bar_plot.update_layout(
+                        xaxis_title="Number of Metabolic Features",
+                        yaxis_title="Samples",
+                        height=25*len(alignment_storage.samples))
+                    data_reading_section.append(pn.pane.Plotly(samp_bar_plot, config={'toImageButtonOptions': {
+                            'filename': f'FeaturePerSamplePlot_{small_name}', 'scale':4}}))
+
+                    # Update the possible minimum number of samples and the layout
+                    alignment_storage.update_widgets(filename.value)
+                    alignment_page.append(data_alignment_section)
+                    spectra_store.show_spectra = False
+
+                    pn.state.notifications.success(f'Samples successfully read from {small_name}.')
+
+                except:
+                    small_name = file.split("Files_To_Align\\")[1]
+                    pn.state.notifications.error(
+                        f'Could not successfully read samples from {small_name}. Confirm formatting.')
+            else:
                 small_name = file.split("Files_To_Align\\")[1]
                 data_reading_section.append(
-                    f'**{len(full_data)} samples** were read from {small_name}.')
-
-                # Plotting a bar plot
-                samp_bar_plot = px.bar(x=[len(i) for i in alignment_storage.samples],
-                     y=[i.columns[0] for i in alignment_storage.samples], orientation='h',
-                    title='Metabolic Features per Sample')
-                samp_bar_plot.update_layout(
-                    xaxis_title="Number of Metabolic Features",
-                    yaxis_title="Samples",
-                    height=25*len(alignment_storage.samples))
-                data_reading_section.append(pn.pane.Plotly(samp_bar_plot, config={'toImageButtonOptions': {
-                           'filename': f'FeaturePerSamplePlot_{small_name}', 'scale':4}}))
-
-                # Update the possible minimum number of samples and the layout
-                alignment_storage.update_widgets(file)
-                alignment_page.append(data_alignment_section)
-                spectra_store.show_spectra = False
-
-                pn.state.notifications.success(f'Samples successfully read from {small_name}.')
-
-            except:
-                small_name = file.split("Files_To_Align\\")[1]
+                        f'**{small_name}** provided is not .xlsx or .xls file so Data Alignment cannot be performed.')
                 pn.state.notifications.error(
-                    f'Could not successfully read samples from {small_name}. Confirm formatting.')
+                        f'Single File provided is not .xlsx or .xls file so Data Alignment cannot be performed.')
+
+        # Multiple csv files
         else:
-            small_name = file.split("Files_To_Align\\")[1]
-            data_reading_section.append(
-                    f'**{small_name}** provided is not .xlsx or .xls file so Data Alignment cannot be performed.')
-            pn.state.notifications.error(
-                    f'Single File provided is not .xlsx or .xls file so Data Alignment cannot be performed.')
+            # Number of csv files
+            n_csv_files = 0
+            for i in filename.value:
+                if i.endswith('csv'):
+                    n_csv_files += 1
+
+            # All csv files
+            if n_csv_files == len(filename.value):
+                try:
+                    full_data = []
+                    for file in filename.value:
+                        # Reading the file
+                        data = pd.read_csv(file)
+                        # Editing the file format a bit
+                        data = data.set_index(data.columns[0])
+                        full_data.append(data)
+
+                    # Storing the samples
+                    alignment_storage.samples = full_data
+                    data_reading_section.append(
+                        f'**{len(full_data)} samples** were read.')
+
+                    # Plotting a bar plot
+                    samp_bar_plot = px.bar(x=[len(i) for i in alignment_storage.samples],
+                        y=[i.columns[0] for i in alignment_storage.samples], orientation='h',
+                        title='Metabolic Features per Sample')
+                    samp_bar_plot.update_layout(
+                        xaxis_title="Number of Metabolic Features",
+                        yaxis_title="Samples",
+                        height=25*len(alignment_storage.samples))
+                    data_reading_section.append(pn.pane.Plotly(samp_bar_plot, config={'toImageButtonOptions': {
+                            'filename': f'FeaturePerSamplePlot_set_csv_files', 'scale':4}}))
+
+                    # Update the possible minimum number of samples and the layout
+                    alignment_storage.update_widgets(filename.value)
+                    alignment_page.append(data_alignment_section)
+                    spectra_store.show_spectra = False
+
+                    pn.state.notifications.success(f'Samples successfully read.')
+
+                except:
+                    pn.state.notifications.error(
+                        f'Could not successfully read samples from the set of csv files. Confirm formatting.')
+
+            # Not all csv files
+            else:
+                data_reading_section.append(
+                    f'Multiple files were provided but they are not all sample csv files. Check Files provided.')
+                pn.state.notifications.error(
+                    f'Multiple files were provided but not all are csv (nor all mzML) files.')
 
     # Multiple files provided
     else:
-        # See if all files to be read
-        all_mzML = True
-        for i in filename.value:
-            if not i.endswith('mzML'):
-                all_mzML = False
-
         # All mzML files
-        if all_mzML:
+        if n_mzML_files == len(filename.value):
             # Updating layout
             while len(alignment_page)>2:
                 alignment_page.pop(-1)
@@ -521,7 +583,7 @@ def _confirm_button_filename(event):
             data_reading_section.append(
             f'Multiple files were provided but they are not all mzML spectral raw data files to convert. Check Files provided.')
             pn.state.notifications.error(
-                    f'Multiple files were provided but not all are mzML files.')
+                    f'Multiple files were provided but not all are mzML (nor all csv) files.')
 
 
 
