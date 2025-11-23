@@ -26,8 +26,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# metanalysis_standard.py file
 import metanalysis_standard as metsta
+import MDiN_functions as md
 
 # The initial pages, especially the read file one does not have the nomenclature that I started using later on
 # for the different widgets as well as organization
@@ -2352,6 +2352,39 @@ def _plot_mapped_pathway(map_pathways, pathway_graph, treated_data, pathway_assi
                 label=f'Treated Intensity ({chosen_classes[0]} - {chosen_classes[1]})')
 
     return fig
+
+
+
+
+### Functions related to the Graph-based Analysis page of the graphical interface
+
+# Function related to reading the MDB list
+def read_MDB(filename, file_bytes):
+    "Function to read the file given."
+
+    # No File Inputted
+    if filename == '':
+        MDBs_to_use = pd.DataFrame()
+
+    # If it is a .txt file
+    elif filename.endswith('.txt'):
+
+        if filename == 'MDB_list.txt':
+            MDBs_to_use = pd.read_csv(filename, sep='\t', header=None)
+        else:
+            MDBs_to_use = pd.read_csv(BytesIO(file_bytes), sep='\t', header=None)
+
+        MDBs_to_use.columns = ['Label', 'Transformation', 'Mass', 'Selected']
+        MDBs_to_use = MDBs_to_use.set_index('Label')
+        comp = []
+        for i in MDBs_to_use.index:
+            comp.append(md.formula_process(i))
+        MDBs_to_use['Comp.'] = comp
+
+    else:
+        pn.state.notifications.error('Provided file is not a txt file.')
+
+    return MDBs_to_use
 
 
 

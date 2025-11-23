@@ -3,6 +3,7 @@
 import pandas as pd
 import numpy as np
 import panel as pn
+from panel.reactive import ReactiveHTML
 import param
 import seaborn as sns
 import holoviews as hv
@@ -17,6 +18,7 @@ import matplotlib as mpl
 import networkx as nx
 from upsetplot import from_contents
 from fractions import Fraction
+import random
 import pickle
 import json
 import os
@@ -29,6 +31,7 @@ import report_generation
 import metanalysis_standard as metsta
 import form_assign_func as form_afunc
 import multianalysis as ma
+import MDiN_functions as md
 
 # The initial pages, especially the read file one does not have the nomenclature that I started using later on
 # for the different widgets as well as organization
@@ -484,7 +487,7 @@ tooltip_example_df = pn.widgets.TooltipIcon(
 
 
 def _load_example_df_button(event):
-    "Reads the example file ofthe software."
+    "Reads the example file of the software."
 
     # Read the file, updating widgets and parameters
     file.read_df, file.temp_target, file.neutral_mass_column_inserted = iaf.read_file('5yeasts_notnorm.csv', '', False,
@@ -2702,7 +2705,7 @@ confirm_button_next_step_transitionalpage = pn.widgets.Button(icon=iaf.img_confi
                                                      button_type='success', disabled=False)
 # Confirm colours, go to next step function and calling it, enabling all buttons for analysis and performing initial computations for each analysis
 def _confirm_button_next_step_5(event):
-    "Performs actions to pass from step 4 page to transitional page, while preparing all statistical analysis (and making HCA and PCA analysis)."
+    "Performs actions to pass from step 4 page to transitional page, while preparing all statistical analysis."
 
     # Pass the colours picked to the target storage
     n_classes = len(target_list.color_classes)
@@ -2711,6 +2714,7 @@ def _confirm_button_next_step_5(event):
         for col in range(n_max):
             key = list(target_list.color_classes.keys())[row+col]
             target_list.color_classes[key] = page4[row//5][col].value
+
 
     # Resetting all statistical analysis performed before (if repeating analysis)
     if reset_time.value == 0:
@@ -2834,6 +2838,15 @@ def _confirm_button_next_step_5(event):
             rf_results_section_binsim[3] = pn.pane.DataFrame(RF_store_binsim.feat_impor)
             RF_store_binsim.binsim_flag = True
 
+            # Graph-based Analysis page
+            graph_store.reset()
+            while len(graph_analysis_page) > 3:
+                graph_analysis_page.pop(-1)
+            graph_store.controls.widgets['confirm_mdin'].disabled = True
+            mdb_filename.value = ''
+            node_desc[0] = 'Placeholder'
+            edge_desc[0] = 'Placeholder'
+
             # Compound Finder search tool page
             comp_finder.reset()
             comp_finder_page[1] = 'DataFrame of the Searched Compound'
@@ -2914,6 +2927,15 @@ def _confirm_button_next_step_5(event):
     if PLSDA_store_binsim.n_fold == 5:
         PLSDA_store_binsim._update_max_comp_n_comp()
     RF_store_binsim.n_folds_limits_and_class_update(target_list)
+
+    # Graph-based analysis updating widgets
+    formula_cols = checkbox_formula.value + [i for i in DataFrame_Store.metadata_df.columns if i.startswith('Matched') and i.endswith('formulas')]
+    if len(FormAssign_store.current_parameters) > 0:
+        if FormAssign_store.current_parameters['form_col'] in DataFrame_Store.metadata_df:
+            formula_cols.append(FormAssign_store.current_parameters['form_col'])
+    graph_store.controls.widgets['reliable_formulas'].options = formula_cols
+    graph_store.controls.widgets['reliable_formulas'].value = [formula_cols[-1],]
+    graph_store.reliable_formulas = [formula_cols[-1],]
 
     # Obtaining possibilities to search for based on type of identifier for the compound finder tool
     comp_finder._calculate_possible_options(DataFrame_Store.metadata_df, checkbox_annotation,
@@ -7480,8 +7502,470 @@ binsim_analysis_page = pn.Column(pn.Tabs(('PCA', page_binsim_PCA), ('HCA', page_
 
 # Page for Graph-Based Analysis
 
-# Complete BinSim Analysis Page Layout
-graph_analysis_page = pn.Column()
+# Class to store graph-based analysis related parameters
+class GraphStorage(param.Parameterized):
+    "Class to contain parameters and figures related to the graph-based analysis."
+
+    # MDB list to use for the graph
+    MDBs = param.DataFrame(pd.DataFrame())
+
+    # Parameters for graph building
+    mdin_type = param.String(default='Univocal')
+    ppm_thresh = param.Number(default=0.5)
+    reliable_formulas = param.List(default=[])
+    confirm_mdin = param.Boolean(default=False)
+
+    # Parameters for graph visualization
+    min_comp_size = param.Number(default=5)
+    mdbs_to_see_text = param.String('Choose MDB edges to be visible')
+    mdbs_to_see = param.List([])
+    plot_mdin = param.Boolean(default=False)
+
+    # Storing Graphs
+    mdin_graphs = param.List(default=['To plot a bar plot with sample intensities'])
+    mdin_desc = param.List(default=['Description placeholder'])
+    mdin_desc_after = param.List(default=['Description placeholder'])
+
+    # Storing Parameters
+    curr_params = param.Dict({})
+
+
+    def _generate_MDiN(self, DataFrame_Store, radiobox_neutral_mass):
+        "Generates the Mass-Difference Network (or Formula-Difference Network)."
+
+        # Mass-Difference Networks
+        if self.mdin_type != 'Formula':
+
+            if radiobox_neutral_mass == 'None':
+                pn.state.notifications.error('MDiN cannot be generated without a selected Neutral mass or m/z column.')
+                return
+
+            # Get masses for generating network
+            masses_list = list(DataFrame_Store.processed_df[radiobox_neutral_mass].values)
+
+            # Simple MDiN method
+            if self.mdin_type == 'Simple':
+                general_MDiN = md.simple_MDiN(masses_list, trans_groups=self.MDBs, ppm=self.ppm_thresh)
+            # Univocal MDiN method
+            elif self.mdin_type == 'Univocal':
+                general_MDiN = md.univocal_MDiN(masses_list, trans_groups=self.MDBs, ppm=self.ppm_thresh)
+
+
+            # Relabelling nodes
+            re_nodes = {v: k for k, v in DataFrame_Store.processed_df[radiobox_neutral_mass].to_dict().items()}
+            general_MDiN = nx.relabel_nodes(general_MDiN, re_nodes)
+
+        # Description
+        n_nodes, n_edges = len(general_MDiN.nodes()), len(general_MDiN.edges())
+        comp_len = []
+        n_isolated_nodes = 0
+        for i in sorted(nx.connected_components(general_MDiN), key=len, reverse=True):
+            if len(i) > 1:
+                comp_len.append(len(i))
+            else:
+                n_isolated_nodes += 1
+        self.mdin_desc.clear()
+        self.mdin_desc.append('<strong>Characteristics of the Generated MDiN/FDiN</strong>:<br>')
+        self.mdin_desc.append(f'<strong>Number of Nodes</strong>: {n_nodes}.')
+        self.mdin_desc.append(f'<strong>Number of Edges</strong>: {n_edges}.')
+        self.mdin_desc.append(f'<strong>Number of Isolated Nodes</strong>: {n_isolated_nodes}.')
+        self.mdin_desc.append(f'<strong>Size of components to largest to smallest</strong>: {comp_len}.')
+
+        # Parameter Updating
+        self.mdin_graphs[0] = general_MDiN
+        self.curr_params = {'mdin_type' : self.mdin_type, 'ppm_thresh': self.ppm_thresh}
+        # Layout Update
+        while len(graph_analysis_page) > 3:
+            graph_analysis_page.pop(-1)
+        graph_analysis_page.append(pn.pane.HTML('<br>'.join(self.mdin_desc)))
+        graph_analysis_page.append(self.controls_fig)
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name",]:
+                setattr(self, param, self.param[param].default)
+
+
+    @param.depends('MDBs', watch=True)
+    def _update_generateMDB_button(self):
+        "Enable/Disable generate MDB button based on if there are read MDBs."
+        if len(self.MDBs) == 0:
+            self.controls.widgets['confirm_mdin'].disabled = True
+        else:
+            self.controls.widgets['confirm_mdin'].disabled = False
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'mdin_type': pn.widgets.Select(name='Algorithm to Build the MDiN',
+                                           options=['Simple', 'Univocal', 'Mass Formula Propagation', 'Formula']),
+            'ppm_thresh': pn.widgets.FloatInput(name='Maximum PPM Deviation for Establishing Edges', value=0.5, step=0.1, start=0.1),
+            'reliable_formulas': pn.widgets.MultiChoice(name='Formula Assignment Columns to Consider while Building FDiN/MDiN (see tooltip)',
+                                                       value=[], options=[],
+                description='Only useful for **Mass Formula Propagation** algorithm and **Formula Algorithm**.' \
+                ' In the former, **only 1 column can be picked**. The formulas assigned will be deemed as reliable starting points for network propagation. If more than 1 formula is assigned in a peak, then it is not considered as reliable.'
+                ' In the latter, **multiple columns can be chosen** and they will be prioritized from the 1st chosen to the last. That is, the formula assigned in the column chosen first will have precedence over others.'
+                ' If more than 1 formula is assigned for a certain peak, the formula that is assigned in the following column in precedence will be the first criteria to disambiguate. If it continues to be ambiguous, this is performed until it can.'
+                ' If no more columns can help disambiguate, a formula that only contains C, H, O, N, S and P elements are prioritized. If it continues to be ambiguous, the formula with the least N, S and P atoms are chosen.'
+                ' Finally, if multiple formula are still possible, the first one assigned in the list will take precedence.'),
+            'confirm_mdin': pn.widgets.Button(name="Build Mass-Difference Network", button_type='primary', disabled=True),
+        }
+
+        # Widget Figure params
+        widgets_graph = {
+            'min_comp_size': pn.widgets.IntInput(name='Minimum Size of Component to Keep in MDiN',
+                                                 value=5, step=1, start=1, end=1000),
+            'mdbs_to_see_text': pn.widgets.StaticText(name='Choose MDB edges to be visible', value=''),
+            'mdbs_to_see': pn.widgets.CheckBoxGroup(name='MDBs to see', value=[], options=[]),
+            'plot_mdin': pn.widgets.Button(name="Filter and Plot Mass-Difference Network", button_type='primary'),
+        }
+
+        self.controls = pn.Param(self, parameters=['mdin_type', 'ppm_thresh', 'reliable_formulas', 'confirm_mdin'],
+                                 widgets=widgets, name='Parameters to Build the Mass-Difference Networks')
+
+        self.controls_fig = pn.Param(self, parameters=['min_comp_size', #'mdbs_to_see_text',
+                                                       #'mdbs_to_see',
+                                                       'plot_mdin'],
+                                 widgets=widgets_graph, name='Further Edit the Graph Representation')
+
+# Initialize Store
+graph_store = GraphStorage()
+
+# Calling the function to generate MDiNs
+def _confirm_mdin(event):
+    'Function to call the generate MDiN function.'
+    graph_store._generate_MDiN(DataFrame_Store, radiobox_neutral_mass.value)
+graph_store.controls.widgets['confirm_mdin'].on_click(_confirm_mdin)
+
+# Widget to read the MDBs
+mdb_filename = pn.widgets.FileInput(name='List of MDB file', accept='.txt')
+
+# Alternatively, provide option to use the default MDB list
+load_default_mdb_button = pn.widgets.Button(name='Load Default Lists of MDBs', button_type='warning', disabled=False, height=50)
+tooltip_default_mdb = pn.widgets.TooltipIcon(
+    value="Default MDB list consists of 15 common and ubiquitous biochemical transformations. See 'MDB_list.txt' file in NEMeSIS folder.")
+
+
+# Update MDB list when filename is inputted
+@pn.depends(mdb_filename.param.filename, watch=True)
+def _update_MDB_list(filename):
+    "Loads the list of MDBs inputted and stores it in the appropriate store."
+
+    if filename == '':
+        return
+    # Read the MDB list file, updating parameters
+    graph_store.MDBs = iaf.read_MDB(mdb_filename.filename, mdb_filename.value)
+
+    # Parameters to store for Report Generation
+    RepGen.MDB_filename_read = mdb_filename.filename
+
+    # Updating layout and widgets
+    graph_store.controls_fig.widgets['mdbs_to_see'].options = list(graph_store.MDBs.index)
+    graph_store.controls_fig.widgets['mdbs_to_see'].value = list(graph_store.MDBs.index)
+    graph_analysis_page[1] = pn.widgets.DataFrame(graph_store.MDBs, disabled=True, sortable=True, reorderable=True)
+
+def _load_default_mdb_button(event):
+    "Loads the default list of MDBs and stores it in the appropriate store."
+
+    # Read the MDB list file, updating parameters
+    graph_store.MDBs = iaf.read_MDB('MDB_list.txt', '')
+
+    # Parameters to store for Report Generation
+    RepGen.MDB_filename_read = 'MDB_list.txt'
+
+    # Updating layout
+    graph_store.controls_fig.widgets['mdbs_to_see'].options = list(graph_store.MDBs.index)
+    graph_store.controls_fig.widgets['mdbs_to_see'].value = list(graph_store.MDBs.index)
+    graph_analysis_page[1] = pn.widgets.DataFrame(graph_store.MDBs, disabled=True, sortable=True, reorderable=True)
+
+# Function happens when you press the button
+load_default_mdb_button.on_click(_load_default_mdb_button)
+
+
+# Cytoscape class - copied and adapted from https://panel.holoviz.org/how_to/custom_components/reactive_html/reactive_html_panes.html
+class Cytoscape(ReactiveHTML):
+    "Class for Cytoscape Interactive Graph."
+
+    object = param.List()
+
+    layout = param.Selector(default="cose", objects=["breadthfirst", "circle", "concentric", "cose",
+                                                     "grid", "random"])
+    cyResize = param.Boolean(False)
+    style = param.List([], doc="Use to set the styles of the nodes/edges")
+
+    zoom = param.Number(0.35, bounds=(0,2))
+    pan = param.Dict({"x": 400, "y": 300})
+
+    data = param.List(doc="Use to send node's data/attributes to Cytoscape")
+
+    selected_nodes = param.List()
+    selected_edges = param.List()
+    figs = param.List(['A Fig'])
+
+    _template = '<div id="cy" style="width: 100%; height: 100%; position: relative; border: 1px solid"></div>'
+
+    __javascript__ = ['https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.umd.js']
+
+    _scripts = {
+        "render": """
+          if (state.cy == undefined) {
+            state.cy = cytoscape({
+              container: cy,
+              layout: {name: data.layout},
+              elements: data.object,
+              zoom: data.zoom,
+              pan: data.pan,
+              wheelSensitivity: 0.25
+            });
+            state.cy.on('select unselect', function (evt) {
+              data.selected_nodes = state.cy.elements('node:selected').map(el => el.id())
+              data.selected_edges = state.cy.elements('edge:selected').map(el => el.id())
+            });
+            self.style()
+            const mainEle = document.querySelector("body")
+            mainEle.addEventListener("scrollend", (event) => {state.cy.resize().fit()})
+          };
+        """,
+        "remove": """
+          state.cy.destroy()
+          delete state.cy
+        """,
+        "cyResize": "state.cy.resize().fit()",
+        "object": "state.cy.json({elements: data.object});state.cy.resize().fit()",
+        "layout": "state.cy.layout({name: data.layout}).run()",
+        "zoom": "state.cy.zoom(data.zoom)",
+        "pan": "state.cy.pan(data.pan)",
+        "style": "state.cy.style().resetToDefault().append(data.style).update()",
+    }
+
+    _extension_name = 'cytoscape'
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'layout': pn.widgets.Select(name="Graph Layout",
+                            value = "cose",
+                            options=["breadthfirst", "circle", "concentric", "cose", "grid", "random"],),
+            'cyResize': pn.widgets.Button(name="Press if you cannot pan/select nodes in the graph or it is de-synced (Resize Cytoscape). Avoid scrolling when interacting with graph.",
+                                               button_type='warning')
+        }
+
+        self.controls = pn.Param(self, widgets=widgets, parameters=['layout', 'cyResize', 'resize_button'], name='Parameters')
+
+
+pn.extension('cytoscape', sizing_mode='stretch_width')
+
+
+# Set up the description section of the page
+node_desc = pn.Column('Placeholder')
+edge_desc = pn.Column('Placeholder')
+
+sup_section = pn.Column('# Information', node_desc, edge_desc)
+
+
+def _plot_MDiN(event):
+    "Plots the graph_store into an interactive graph."
+
+    while len(graph_analysis_page) > 5:
+        graph_analysis_page.pop(-1)
+    graph_analysis_page.append(vis_graph_page)
+
+    # Filter the MDiN
+    comps = []
+    for i in sorted(nx.connected_components(graph_store.mdin_graphs[0]), key=len, reverse=True):
+        if len(i) > graph_store.min_comp_size:
+            comps.extend(i)
+    graph_store.mdin_graphs[0] = graph_store.mdin_graphs[0].subgraph(comps)
+
+    # Description After Filter
+    n_nodes, n_edges = len(graph_store.mdin_graphs[0].nodes()), len(graph_store.mdin_graphs[0].edges())
+    comp_len = []
+    for i in sorted(nx.connected_components(graph_store.mdin_graphs[0]), key=len, reverse=True):
+        if len(i) > 1:
+            comp_len.append(len(i))
+    graph_store.mdin_desc_after.clear()
+    graph_store.mdin_desc_after.append('<strong>Characteristics of the Generated MDiN/FDiN after filter</strong>:<br>')
+    graph_store.mdin_desc_after.append(f'<strong>Number of Nodes</strong>: {n_nodes}.')
+    graph_store.mdin_desc_after.append(f'<strong>Number of Edges</strong>: {n_edges}.')
+    graph_store.mdin_desc_after.append(f'<strong>Size of components to largest to smallest</strong>: {comp_len}.')
+
+    # Transform MDiN/FDiN into Cytoscape data
+    cs_data = nx.cytoscape_data(graph_store.mdin_graphs[0])
+
+    # Colours per MDB
+    MDB_colour = {}
+    for m in range(len(graph_store.MDBs)):
+
+        # The first 10 different MDBs will follow the tab10 default colours
+        if m < len(colours):
+            MDB_colour[graph_store.MDBs.index[m]] = iaf.RGB(np.array(colours[m])*255)
+
+        # Generate random colours after the first 10
+        else:
+            color_in_hex = ''
+            while len(color_in_hex) != 7:
+                # From https://www.geeksforgeeks.org/create-random-hex-color-code-using-python/
+                # Generating a random number in between 0 and 2^24
+                color = random.randrange(0, 2**24)
+                # Converting that number from base-10 (decimal) to base-16 (hexadecimal)
+                hex_color = hex(color)
+                color_in_hex = "#" + hex_color[2:]
+            MDB_colour[graph_store.MDBs.index[m]] = color_in_hex
+
+    ## Get color and opacity of edges
+    edge_colors = {}
+    for i in graph_store.mdin_graphs[0].edges():
+        edge_colors[i] = MDB_colour[graph_store.mdin_graphs[0].edges()[i]['Transformation']]
+    for n, c in zip(cs_data["elements"]["edges"], edge_colors.values()):
+        n['data']["color"] = c
+
+    elements = cs_data["elements"]["nodes"] + cs_data["elements"]["edges"]
+
+    # Setting the graph
+    graph = Cytoscape(object=elements, sizing_mode="stretch_width", height=600, style=[])
+    graph.style = [{'selector': 'node',
+                'style': {'background-color': 'data(color)',
+                    'shape': 'circle',}},
+            {'selector': 'edge',
+                'style': {'line-color': 'data(color)',}}]
+    #graph.controls.widgets['resize_button'].on_click(graph._resize_button)
+
+
+### Get an initial setup of the graph
+
+#colors_nodes = {}
+#cname_nodes = {}
+#opacity_nodes = {}
+#for i in FDiN.nodes():
+#    if i in imp_mzs:
+#        if pathway in FDiN.nodes()[i]['Pathways']:
+#            colors_nodes[i] ='red'
+##        else:
+#            colors_nodes[i] ='lightcoral'
+#        cname_nodes[i] = FDiN.nodes()[i]['Formula']
+#        opacity_nodes[i] = 1
+#    else:
+#        if pathway in FDiN.nodes()[i]['Pathways']:
+#            colors_nodes[i] ='grey'
+#            opacity_nodes[i] = 1
+#        else:
+#            colors_nodes[i] = 'lightgrey'
+#            opacity_nodes[i] = 0.4
+#        cname_nodes[i] =''
+#for n, c in zip(cs_data["elements"]["nodes"], colors_nodes.values()):
+#    n['data']["color"] = c
+#for n, c in zip(cs_data["elements"]["nodes"], cname_nodes.values()):
+#    n['data']["cname"] = c
+#for n, c in zip(cs_data["elements"]["nodes"], opacity_nodes.values()):
+#    n['data']["opacity"] = c
+
+
+    @pn.depends(graph.param.selected_nodes, watch=True)
+    def displayTapNodeData(sel_nodes):
+        "Display information on the node, plot an average intensity bar chart and display feature occurrence information."
+        if len(sel_nodes) > 0:
+            ## Node Information Section
+            construct_string = [f'<strong>Most recently clicked node: {sel_nodes[-1]}</strong><br><br>',
+                            f'<strong>ID</strong>: {sel_nodes[-1]}<br>']
+            for cat in DataFrame_Store.metadata_df.columns:
+                if cat != 'Has Match?':
+                    construct_string.append(f'<strong>{cat}</strong>: {str(DataFrame_Store.metadata_df.loc[sel_nodes[-1], cat])}<br>')
+
+            ## Normalized Intensity Bar Plot Section
+            plt.close()
+            gfinder = DataFrame_Store.processed_df.copy().loc[sel_nodes[-1], target_list.sample_cols]
+            percentages = {}
+            # Calculate average intensities (and std)
+            for cl in target_list.classes:
+                section = gfinder.iloc[[i for i in range(len(target_list.sample_cols)) if target_list.target[i]==cl]]#.mean()
+                percentages[cl] = section.notnull().sum()/len(section)*100
+                gfinder[cl+' Average'] = section.mean()
+                gfinder[cl+' sem'] = section.std() / np.sqrt(section.notnull().sum())
+            avg_cols = [col for col in gfinder.index if 'Average' in col]
+            sem_cols = [col for col in gfinder.index if 'sem' in col]
+            # Plot the graph
+            bar_plot_info = gfinder.replace({np.nan:0})
+            factor = 1
+            maxi_v = (np.array(bar_plot_info.loc[avg_cols])*10**factor).max()
+            while maxi_v < 1:
+                factor+=1
+                maxi_v = (np.array(bar_plot_info.loc[avg_cols])*10**factor).max()
+            fig, ax = plt.subplots(1,1, figsize=(3,3), constrained_layout=True)
+            x = np.arange(len(avg_cols))
+            colors_for_plot = [target_list.color_classes[i] for i in target_list.classes]
+            ax.bar(x, np.array(bar_plot_info.loc[avg_cols])*10**factor, color=colors_for_plot,
+                yerr=np.array(bar_plot_info.loc[sem_cols])*10**factor, capsize=12)
+            ax.set_ylabel(f'Intensity (x$10^{factor}$)', fontsize=15)
+            ax.set_title(sel_nodes[-1], fontsize=15)
+            ax.set_xticks(x)
+            ax.set_xticklabels(target_list.classes, fontsize=12)
+
+            ## Feature Occurrence Section
+            node_pres = [f'<strong>Node Present in % of Class Samples</strong>:<br><br>',]
+            for cl in percentages:
+                node_pres.append(f'<strong>{cl}</strong>: {percentages[cl]:.3f}<br>')
+
+            while len(node_desc)>0:
+                node_desc.pop(-1)
+            node_desc.append(pn.pane.HTML(''.join(construct_string)))
+            node_desc.append(pn.pane.Matplotlib(fig, dpi=300, height=250))
+            node_desc.append(pn.pane.HTML(''.join(node_pres)))
+
+
+    #@pn.depends(graph.param.selected_edges, watch=True)
+    #def displayTapEdgeData(sel_edges):
+    #    "Display information on the edge."
+    #    if len(sel_edges) > 0:
+    #        ## Edge Information Section
+    #        construct_string = [f'<strong>Most recently clicked node: {sel_edges[-1]}</strong><br><br>',
+    #                        f'<strong>ID</strong>: {sel_edges}<br>']
+    #        for cat in ['Transformation', ]:
+    #            construct_string.append(f'<strong>{cat}</strong>: {str(graph_store.mdin_graphs[0].edges()[sel_edges[-1]][cat])}<br>')
+
+    #        while len(edge_desc)>0:
+    #            edge_desc.pop(-1)
+    #        edge_desc.append(pn.pane.HTML(''.join(construct_string)))
+
+    #while len(graph_section) > 0:
+    #    graph_section.pop(-1)
+    #graph_section.append(graph.controls)
+    #graph_section.append(graph)
+    #graph_section.append(save_graph_button)
+    #graph_analysis_page.append(pn.pane.HTML('<br>'.join(graph_store.mdin_desc_after)))
+
+# Calling the function to plot MDiNs
+graph_store.controls_fig.widgets['plot_mdin'].on_click(_plot_MDiN)
+
+# Widget to save graph
+save_graph_button = pn.widgets.Button(name='Save current graph view as a png', button_type='success',
+                                         icon=iaf.download_icon)
+# When pressing the button, downloads the figure
+#def _save_graph_button(event):
+#    "Save Graph."
+#    print('a')
+#    graph_section[1].save('Network.png')
+#    pn.state.notifications.success(f'Graph successfully saved.')
+#save_graph_button.on_click(_save_graph_button)
+
+# Setting the Graph Visualization Section of the page
+graph_section = pn.Column()
+
+# Setting the layout of the Graph Visualization page
+vis_graph_page = pn.GridSpec()
+vis_graph_page[:, :2] = graph_section
+vis_graph_page[:, 2] = sup_section
+
+# Complete Graph-based Analysis Page Layout
+graph_analysis_page = pn.Column(pn.Row(mdb_filename, pn.Row(load_default_mdb_button, tooltip_default_mdb)),'',
+                                graph_store.controls)
 
 
 
@@ -7531,6 +8015,9 @@ class CompoundFinder(param.Parameterized):
             i for i in metadata_df.columns if i.startswith('Matched') and i.endswith('names')]
         formula_cols = checkbox_formula.value + [
             i for i in metadata_df.columns if i.startswith('Matched') and i.endswith('formulas')]
+        if len(FormAssign_store.current_parameters) > 0:
+            if FormAssign_store.current_parameters['form_col'] in DataFrame_Store.metadata_df:
+                formula_cols.append(FormAssign_store.current_parameters['form_col'])
 
         # Obtain the dictionaries (keys are type of identifiers and values are the idxs where they appear)
         self.name_to_idxs = iaf.build_annotation_to_idx_dict(metadata_df, name_cols)
@@ -7880,6 +8367,9 @@ class ReportGeneration(param.Parameterized):
     # Related to Annotation De-Duplication
     deduplication_performed = param.String('Annotation De-Duplication was not performed')
 
+    # Related to the MDB file
+    MDB_filename_read = param.String('')
+
     # Checkboxes to select which analysis will be shown
     com_exc_analysis = param.List(default=[])
     unsup_analysis = param.List(default=[])
@@ -7888,6 +8378,7 @@ class ReportGeneration(param.Parameterized):
     dataviz_analysis =param.List(default=[])
     pathassign_analysis = param.Boolean(default=False)
     BinSim_analysis = param.List(default=[])
+    graph_analysis = param.List(default=[])
 
 
     def reset(self):
@@ -7909,14 +8400,16 @@ class ReportGeneration(param.Parameterized):
             'sup_analysis': pn.widgets.CheckBoxGroup(name='Supervised Analysis',
                     value=[], options=['PLS-DA', 'Random Forest']),
             'univ_analysis': pn.widgets.Checkbox(name='Univariate Analysis', value=False),
-            'dataviz_analysis': pn.widgets.CheckBoxGroup(name='Data Diversity Visualization Analysis',
+            'dataviz_analysis': pn.widgets.CheckBoxGroup(name='Chemical Diversity Visualization Analysis',
                     value=[], options=['Van Krevelen', 'Kendrick Mass Defect', 'Chem. Comp. Series']),
             'pathassign_analysis': pn.widgets.Checkbox(name='HMDB Pathway Assignment', value=False),
             'BinSim_analysis': pn.widgets.CheckBoxGroup(name='BinSim Analysis',
                     value=[], options=['PCA', 'HCA', 'PLS-DA', 'Random Forest']),
+            'graph_analysis': pn.widgets.CheckBoxGroup(name='Graph-based Analysis',
+                    value=[], options=['MDiN and FDiN Generation', 'sMDiN']),
         }
         self.controls = pn.Param(self, parameters=['com_exc_analysis', 'unsup_analysis', 'sup_analysis', 'univ_analysis',
-                                                   'dataviz_analysis', 'pathassign_analysis', 'BinSim_analysis'],
+                                                   'dataviz_analysis', 'pathassign_analysis', 'BinSim_analysis', 'graph_analysis'],
                                 widgets=widgets, name='', default_layout=pn.Row)
 
 
@@ -7930,7 +8423,8 @@ desc_repgen = pn.Row('#### Class Intersection Analysis',
               '#### Univariate Analysis',
               '#### Chemical Diversity Visualization Analysis',
               '#### HMDB Pathways Assignment',
-              '#### BinSim Analysis',)
+              '#### BinSim Analysis',
+              '#### Graph-based Analysis')
 
 # Widget to select folder where report figures and tables will be created in
 folder_selection = pn.widgets.TextAreaInput(name='Folder Name where Report and associated Figures and Tables will be Downloaded to (Do Not put a name of a pre-existing folder)',
@@ -8203,6 +8697,15 @@ def Yes_Reset(event):
     rf_results_section_binsim[0][1][1] = RF_store_binsim.n_results
     rf_results_section_binsim[3] = pn.pane.DataFrame(RF_store_binsim.feat_impor)
     RF_store_binsim.binsim_flag = True
+
+    # Graph-based Analysis page
+    graph_store.reset()
+    while len(graph_analysis_page) > 3:
+        graph_analysis_page.pop(-1)
+    graph_store.controls.widgets['confirm_mdin'].disabled = True
+    mdb_filename.value = ''
+    node_desc[0] = 'Placeholder'
+    edge_desc[0] = 'Placeholder'
 
     # Compound Finder search tool page
     comp_finder.reset()
