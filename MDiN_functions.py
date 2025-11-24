@@ -991,7 +991,7 @@ def create_element_counts(data, formula_subset=['Formula',], compute_ratios=True
     return result
 
 
-def FDiN_builder(df, filt_elems, trans_groups):
+def FDiN_builder(df, filt_elems, trans_groups, col_formula='Formula_Assignment'):
     """Builds a Formula-Difference Network based on the list of formulas provided.
 
        df: pandas DataFrame; DataFrame with the features as index and formulas in string format in the first column.
@@ -1005,7 +1005,7 @@ def FDiN_builder(df, filt_elems, trans_groups):
     FDiN.add_nodes_from(filt_elems.index) # Each formula is a node
 
     # Adding relevant attributes
-    nx.set_node_attributes(FDiN, df[df.columns[0]].to_dict(), name='Formula')
+    nx.set_node_attributes(FDiN, df['Formula_Assignment'].to_dict(), name='Formula')
     for formula in tqdm(filt_elems.index):
         poss_formulas = filt_elems.loc[formula] + trans_groups
         for i in poss_formulas.index:

@@ -606,7 +606,58 @@ In this section, BinSim treated data is used to perform <strong>PCA</strong>, <s
 # Graph-based Analysis Page Description HTML in string format
 
 Graph_opening_string = '''Here, extreme-resolution direct-infusion metabolomics data can be used to generate either
-Mass-Difference Networks or Formula-Difference Networks.
+Mass-Difference Networks (MDiNs) or Formula-Difference Networks (FDiNs). Moreover, in the later section, these generated
+networks can be used to perform the sMDiN analysis according to the network analysis methods provided (more on that in
+the appropriate section).
+<br>
+<br>
+These MDiNs/FDiNs are built from the complete dataset using detected metabolites as nodes and establishing connections
+between them if their mass (or formula) difference corresponds to one of the presented biochemical transformations used
+to generate them. These transformations are called Mass-Difference based Building blocks or MDBs. As such, the <em>ab
+initio</em> networks are similar to metabolic networks in a way that they represent the chemical diversity in the dataset.
+However, their connections are not guaranteed to represent reactions that actually happen <em>in vivo</em>. On the other
+hand, they do not require any sort of previous knowledge or information from metabolic pathways that are many times
+incomplete (especially on less studied biological systems) to establish connections and can represent all sorts fo reactions
+including non-enzymatic ones.
+<br>
+<br>
+The MDBs are the list of chemical transformations that are used to build Mass-Difference Networks. This list can be inputted
+to the software to use a set of transformations desired for the dataset in question. Moreover, a default list `MDB_list.txt`
+with 15 common biochemical transformation can be used as default. This file can also be used as a guide for the formatting
+required to create an MDB list. In short, it should have <strong>4 columns without headers</strong>. The first one
+corresponds to the absolute change in the compound that the chemical transformation causes (for example, methylation is CH2).
+<strong>See `MDB_list.txt` how to represent these changes</strong>, especially when there is a negative change of some atoms.
+In these cases, such as O(N-H-), make sure the atoms where there is a negative change are between brackets and that thye have
+a '-' after their symbol. The second column has the name of the Mass-Difference-based building Block (MDB), that is of the
+chemical transformation, the third column the mass difference associated to the column (for methylation, it would be
+14.015650064399999 for example) and the fourth column should say true. Each column should be tab separated.
+<br>
+<br>
+To build the networks, there are 4 possible algorithms available:
+<br>
+<br>
+- <strong>Simple MDiN</strong>: This is the simplest and fastest type of MDiN. It only requires a list of mass values (and MDBs)
+and creates connections (edges) in the network if the mass difference between metabolic features (nodes) corresponds to one of
+the MDBs used.
+<br>
+- <strong>Univocal MDiN</strong>: It also only requires a list of mass values (and MDBs). It starts by building a simple MDiN but
+then it trims this simple MDiN by seeing cases where one node has multiple edges representing the same chemical transformation in
+the same 'direction' (that is addition or subtraction of a chemical group) and only keeping the one who has a lower associated
+error. This is based on the idea that each metabolite feature should have a unique formula, since direct infusion mass
+spectrometry would indicate that for each unique formula, you should only have one metabolic feature. If there are multiples of
+the same 'edge' MDB from the same node, this principle would be violated.
+<br>
+- <strong>Mass Formula Propagation (Mass Form. Prop.) MDiN</strong>: It requires a list of mass values and a list of reliably (or
+more reliably) identificated metabolic features (for example, formulas from annotated metabolites). It builds a Univocal MDiN but
+uses it for formula propagation in the network starting from those reliably identificated metabolic features. It eliminates edges
+to both avoid incoherencies and contradictions. The former by leading to very improbable formulas as defined by different
+criterias such as the usual elemental ratios, Valency restrictions or maximum number of different elements. The latter by
+eliminating edges where the propagation from two starting nodes leads to different formulas.
+<br>
+- <strong>Formula Difference Networks</strong>: This network is built from assigned formulas in the data instead of the mass
+differences. It requires only a DataFrame or Series with the formula associated to each metabolic feature. It restricts the data
+to only the formula assigned metabolites but also reduces possible errors in link creation since there is no deviation associated
+with formula differences.
 '''
 
 

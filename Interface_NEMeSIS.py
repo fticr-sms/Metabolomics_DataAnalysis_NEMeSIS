@@ -15,6 +15,7 @@ import scipy.cluster.hierarchy as hier
 import sklearn.model_selection
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.ticker as ticker
 import networkx as nx
 from upsetplot import from_contents
 from fractions import Fraction
@@ -2609,7 +2610,7 @@ confirm_button_next_step_4.on_click(_confirm_button_next_step_4)
 
 # Widget to save dataframes in .csv format (specifically annotated data, treated data and metadata)
 save_data_dataframes_button = pn.widgets.Button(
-    name='Save Dataframes and class target (can be used for side modules) (in current folder)',
+    name='Save Dataframes and class target (can be used for other analyses)',
     button_type='warning', icon=iaf.download_icon, disabled=True)
 
 # When pressing the button, downloads the dataframes
@@ -7510,7 +7511,7 @@ class GraphStorage(param.Parameterized):
     MDBs = param.DataFrame(pd.DataFrame())
 
     # Parameters for graph building
-    mdin_type = param.String(default='Univocal')
+    mdin_type = param.String(default='Simple')
     ppm_thresh = param.Number(default=0.5)
     reliable_formulas = param.List(default=[])
     confirm_mdin = param.Boolean(default=False)
@@ -7550,10 +7551,148 @@ class GraphStorage(param.Parameterized):
             elif self.mdin_type == 'Univocal':
                 general_MDiN = md.univocal_MDiN(masses_list, trans_groups=self.MDBs, ppm=self.ppm_thresh)
 
+            # Mass Formula Propagation Method
+            elif self.mdin_type == 'Mass Formula Propagation':
+                # DF for reliable formulas
+                reliable_forms_df = pd.DataFrame(columns=['Formula'])
+                # Drop Columns without Match in the Formula column selected
+                form_col = self.reliable_formulas[0]
+                temp_df = DataFrame_Store.processed_df.loc[DataFrame_Store.processed_df[form_col].dropna().index]
+
+                # Sees if Formula is in string or in list format
+                type_of_formula = type(temp_df.iloc[0].loc[form_col])
+
+                # Grab the formula
+                # If formula is string format, it is easy. Grab the value for each index and move along
+                if type_of_formula == str:
+                    for i in temp_df.index:
+                        form = temp_df.loc[i, form_col]
+                        reliable_forms_df.loc[temp_df.loc[i, radiobox_neutral_mass]] = form
+
+                # If formula is in list format, see if there are more than 1 different candidate in each list
+                # If there is not, mark the formula as reliable. If there is, then the formula assignment is not reliable.
+                elif type_of_formula == list:
+                    for i in temp_df.index:
+                        form = temp_df.loc[i, form_col]
+                        form = list(set(form))
+                        # Only keep indexes that have 1 possible formula
+                        if len(form) == 1:
+                            reliable_forms_df.loc[temp_df.loc[i, radiobox_neutral_mass]] = form[0]
+
+                # If the formulas are not in string or list format
+                else:
+                    raise ValueError('Formulas in column provided are neither in string format or in list format, so they cannot be read.')
+
+                # Build the actual MDiN
+                general_MDiN = md.formula_MDiN(masses_list, reliable_forms_df, trans_groups=self.MDBs,
+                                               ppm=self.ppm_thresh)
 
             # Relabelling nodes
             re_nodes = {v: k for k, v in DataFrame_Store.processed_df[radiobox_neutral_mass].to_dict().items()}
             general_MDiN = nx.relabel_nodes(general_MDiN, re_nodes)
+
+        # Formula-Difference Networks
+        else:
+            # Drop Columns without Match in the Formula columns selected
+            temp_df = DataFrame_Store.processed_df.loc[
+                DataFrame_Store.processed_df.loc[:, self.reliable_formulas].dropna(how='all').index]
+
+            # Go through every peak with an assigned formula
+            for i in temp_df.index:
+                form = '' # Store Formula of the peak
+                temp_form = [] # Store possible formulas
+                col = 0 # Current Formula column
+                while form == '' and col < len(self.reliable_formulas): # While no Formula is assigned
+                    # See formulas of annotated compounts
+                    fs = temp_df.loc[i, self.reliable_formulas[col]]
+
+                    # If list
+                    if type(fs) == list:
+                        # Get formulas
+                        fs = list(set(fs))
+                        # If there was already previous candidates, see the common ones
+                        if len(temp_form) != 0:
+                            fs = np.intersect1d(temp_form, fs)
+                        # If only one formula in the intersection, then that is the formula used
+                        if len(fs) == 1:
+                            form = fs[0]
+                            temp_form = []
+                            temp_df.loc[i, 'New Formulas'] = fs[0]
+                        # If the intersection has more than one candidate keep it, if it has 0, let the original have precedence
+                        elif len(fs) > 1:
+                            temp_form = fs
+
+                    # If string
+                    elif type(fs) == str:
+                        # If it is the first one with formula
+                        if len(temp_form) == 0:
+                            form = fs
+                            temp_form = []
+                            temp_df.loc[i, 'New Formulas'] = fs
+                        # If it is not the first one, assign if it was in the candidates
+                        else:
+                            if fs in temp_form:
+                                form = fs[0]
+                                temp_form = []
+                                temp_df.loc[i, 'New Formulas'] = fs
+
+                    # Adjust reliable formulas col
+                    col +=1
+
+                # If the columns were not enough to disambiguate, disambiguate based on formula characteristics
+                if len(temp_form) > 0:
+                    new_f = [] # Store new formulas
+                    hetatm_counts = {}
+                    # See formulas that only have C, H, O, N, S, P elements while having 1 C and 1 H at least
+                    for f in temp_form:
+                        a = md.formula_process(f) # Formula to Dict
+                        # Count Heteroatoms per formula
+                        hetatm_counts[f] = pd.Series(a).sum()
+                        counts = pd.Series(a).sum() - a['C'] - a['H']
+                        if 'C' in a:
+                            counts = counts - a['C']
+                        if 'H' in a:
+                            counts = counts - a['H']
+                        if 'O' in a:
+                            counts = counts - a['O']
+                        hetatm_counts[f] = counts
+
+                        if a['C'] != 0 and a['H'] != 0: # No C or H
+                            if len(a) == 8: # Normal length C,H,O,N,S,P,Cl,F
+                                if a['Cl'] == 0 and a['F'] == 0: # No Cl or F
+                                    new_f.append(f)
+
+                    # If no Formula fulfills the restrictions
+                    if len(new_f) == 0:
+                        new_f = temp_form
+                    # If only 1 formula is in these conditions, assign it
+                    if len(new_f) == 1:
+                        temp_df.loc[i, 'New Formulas'] = new_f[0]
+                    # If more than one, assign the first one that has a number of heteroatoms equal to the minimum observed between candidates
+                    else:
+                        hetatm_counts = {k: v for k,v in hetatm_counts.items() if k in new_f}
+                        min_hetatm = min(list(hetatm_counts.values()))
+                        for f in new_f:
+                            if hetatm_counts[f] == min_hetatm:
+                                temp_df.loc[i, 'New Formulas'] = f
+                                break
+
+            # Build the necessary formula DataFrame with the correct formulas now
+            elems = md.create_element_counts(temp_df, formula_subset=['New Formulas',], compute_ratios=False)
+            filt_elems = elems.iloc[:,:-1]
+
+            # Transform the MDB file and the filt_elems file to have the same columns
+            MDB_df = pd.DataFrame(dict(self.MDBs['Comp.'])).T
+            for col in filt_elems.columns:
+                if col not in MDB_df:
+                    MDB_df[col] = 0
+            for col in MDB_df.columns:
+                if col not in filt_elems.columns:
+                    filt_elems[col] = 0
+            MDB_df = MDB_df[filt_elems.columns]
+
+            # Build the actual network
+            general_MDiN = md.FDiN_builder(temp_df, filt_elems, MDB_df, col_formula='New Formulas')
 
         # Description
         n_nodes, n_edges = len(general_MDiN.nodes()), len(general_MDiN.edges())
@@ -7566,6 +7705,10 @@ class GraphStorage(param.Parameterized):
                 n_isolated_nodes += 1
         self.mdin_desc.clear()
         self.mdin_desc.append('<strong>Characteristics of the Generated MDiN/FDiN</strong>:<br>')
+        if self.mdin_type == 'Mass Formula Propagation':
+            self.mdin_desc.append(f'<strong>Number of Reliable Formulas used as starting points</strong>: {len(reliable_forms_df)}.')
+        elif self.mdin_type == 'Formula':
+            self.mdin_desc.append(f'<strong>Order of Formula Assignment columns used for selecting formulas</strong>: {self.reliable_formulas}.')
         self.mdin_desc.append(f'<strong>Number of Nodes</strong>: {n_nodes}.')
         self.mdin_desc.append(f'<strong>Number of Edges</strong>: {n_edges}.')
         self.mdin_desc.append(f'<strong>Number of Isolated Nodes</strong>: {n_isolated_nodes}.')
@@ -7697,6 +7840,7 @@ class Cytoscape(ReactiveHTML):
                                                      "grid", "random"])
     cyResize = param.Boolean(False)
     style = param.List([], doc="Use to set the styles of the nodes/edges")
+    show_labels = param.Boolean(False)
 
     zoom = param.Number(0.35, bounds=(0,2))
     pan = param.Dict({"x": 400, "y": 300})
@@ -7754,11 +7898,12 @@ class Cytoscape(ReactiveHTML):
             'layout': pn.widgets.Select(name="Graph Layout",
                             value = "cose",
                             options=["breadthfirst", "circle", "concentric", "cose", "grid", "random"],),
+            'show_labels': pn.widgets.Checkbox(name='Show node labels in the graph plot'),
             'cyResize': pn.widgets.Button(name="Press if you cannot pan/select nodes in the graph or it is de-synced (Resize Cytoscape). Avoid scrolling when interacting with graph.",
                                                button_type='warning')
         }
 
-        self.controls = pn.Param(self, widgets=widgets, parameters=['layout', 'cyResize', 'resize_button'], name='Parameters')
+        self.controls = pn.Param(self, widgets=widgets, parameters=['layout', 'show_labels', 'cyResize'], name='Parameters')
 
 
 pn.extension('cytoscape', sizing_mode='stretch_width')
@@ -7784,6 +7929,7 @@ def _plot_MDiN(event):
         if len(i) > graph_store.min_comp_size:
             comps.extend(i)
     graph_store.mdin_graphs[0] = graph_store.mdin_graphs[0].subgraph(comps)
+    graph_store.curr_params['min_comp_size'] = graph_store.min_comp_size
 
     # Description After Filter
     n_nodes, n_edges = len(graph_store.mdin_graphs[0].nodes()), len(graph_store.mdin_graphs[0].edges())
@@ -7838,34 +7984,67 @@ def _plot_MDiN(event):
                 'style': {'line-color': 'data(color)',}}]
     #graph.controls.widgets['resize_button'].on_click(graph._resize_button)
 
+    # Label for MDB edges - Taken from seaborn palplot but to get an ax
+    edge_desc.clear()
+    n = len(MDB_colour)
+    f, ax = plt.subplots(1, 1, figsize=(n, 2), constrained_layout=True)
+    MDB_colour_trunc_keys = list(MDB_colour.keys())
+    MDB_colour_trunc_values = list(MDB_colour.values())
+    ax.imshow(np.arange(len(MDB_colour_trunc_keys)).reshape(1, len(MDB_colour_trunc_keys)),
+            cmap=mpl.colors.ListedColormap(list(MDB_colour_trunc_values)),
+            interpolation="nearest", aspect="auto")
+    ax.set_xticks(np.arange(n) - .5)
+    ax.set_yticks([-.5, .5])
+    ax.yaxis.set_major_locator(ticker.NullLocator())
+    ax.set_xticks(range(len(MDB_colour_trunc_keys)), MDB_colour_trunc_keys, fontsize=20, rotation=90)
+    edge_desc.append(pn.pane.Matplotlib(f))
 
-### Get an initial setup of the graph
 
-#colors_nodes = {}
-#cname_nodes = {}
-#opacity_nodes = {}
-#for i in FDiN.nodes():
-#    if i in imp_mzs:
-#        if pathway in FDiN.nodes()[i]['Pathways']:
-#            colors_nodes[i] ='red'
-##        else:
-#            colors_nodes[i] ='lightcoral'
-#        cname_nodes[i] = FDiN.nodes()[i]['Formula']
-#        opacity_nodes[i] = 1
-#    else:
-#        if pathway in FDiN.nodes()[i]['Pathways']:
-#            colors_nodes[i] ='grey'
-#            opacity_nodes[i] = 1
-#        else:
-#            colors_nodes[i] = 'lightgrey'
-#            opacity_nodes[i] = 0.4
-#        cname_nodes[i] =''
-#for n, c in zip(cs_data["elements"]["nodes"], colors_nodes.values()):
-#    n['data']["color"] = c
-#for n, c in zip(cs_data["elements"]["nodes"], cname_nodes.values()):
-#    n['data']["cname"] = c
-#for n, c in zip(cs_data["elements"]["nodes"], opacity_nodes.values()):
-#    n['data']["opacity"] = c
+    @pn.depends(graph.param.cyResize, watch=True)
+    def _cyResize(cyResize):
+        "Change cyResize to False."
+        graph.cyResize = False
+
+
+    @pn.depends(graph.param.show_labels, watch=True)
+    def _showlabels(show_labels):
+        "Show labels or not show labels in the graph."
+
+        if show_labels:
+            cname_nodes = {}
+            for i in graph_store.mdin_graphs[0].nodes():
+                cname_nodes[i] = str(i)[:9]
+            for n, c in zip(cs_data["elements"]["nodes"], cname_nodes.values()):
+                n['data']["cname"] = c
+
+            elements = cs_data["elements"]["nodes"] + cs_data["elements"]["edges"]
+
+            # Setting the graph
+            graph = Cytoscape(object=elements, sizing_mode="stretch_width", height=600, style=[])
+            graph.style = [{'selector': 'node',
+                        'style': {'label': 'data(cname)',
+                            'background-color': 'data(color)',
+                            'shape': 'circle',}},
+                    {'selector': 'edge',
+                        'style': {'line-color': 'data(color)',}}]
+
+        else:
+            graph = Cytoscape(object=elements, sizing_mode="stretch_width", height=600, style=[])
+            graph.style = [{'selector': 'node',
+                        'style': {'background-color': 'data(color)',
+                            'shape': 'circle',}},
+                    {'selector': 'edge',
+                        'style': {'line-color': 'data(color)',}}]
+
+        while len(graph_analysis_page) > 5:
+            graph_analysis_page.pop(-1)
+        graph_analysis_page.append(vis_graph_page)
+        while len(graph_section) > 0:
+            graph_section.pop(-1)
+        graph_section.append(graph.controls)
+        graph_section.append(graph)
+        graph_section.append(save_graph_button)
+        graph_analysis_page.append(pn.pane.HTML('<br>'.join(graph_store.mdin_desc_after)))
 
 
     @pn.depends(graph.param.selected_nodes, watch=True)
@@ -7906,7 +8085,7 @@ def _plot_MDiN(event):
             ax.set_ylabel(f'Intensity (x$10^{factor}$)', fontsize=15)
             ax.set_title(sel_nodes[-1], fontsize=15)
             ax.set_xticks(x)
-            ax.set_xticklabels(target_list.classes, fontsize=12)
+            ax.set_xticklabels(target_list.classes, fontsize=10)
 
             ## Feature Occurrence Section
             node_pres = [f'<strong>Node Present in % of Class Samples</strong>:<br><br>',]
@@ -7934,26 +8113,27 @@ def _plot_MDiN(event):
     #            edge_desc.pop(-1)
     #        edge_desc.append(pn.pane.HTML(''.join(construct_string)))
 
-    #while len(graph_section) > 0:
-    #    graph_section.pop(-1)
-    #graph_section.append(graph.controls)
-    #graph_section.append(graph)
-    #graph_section.append(save_graph_button)
-    #graph_analysis_page.append(pn.pane.HTML('<br>'.join(graph_store.mdin_desc_after)))
+    while len(graph_section) > 0:
+        graph_section.pop(-1)
+    graph_section.append(graph.controls)
+    graph_section.append(graph)
+    graph_section.append(save_graph_button)
+    graph_analysis_page.append(pn.pane.HTML('<br>'.join(graph_store.mdin_desc_after)))
 
 # Calling the function to plot MDiNs
 graph_store.controls_fig.widgets['plot_mdin'].on_click(_plot_MDiN)
 
 # Widget to save graph
-save_graph_button = pn.widgets.Button(name='Save current graph view as a png', button_type='success',
+save_graph_button = pn.widgets.Button(name='Save current graph view as a html', button_type='success',
                                          icon=iaf.download_icon)
 # When pressing the button, downloads the figure
-#def _save_graph_button(event):
-#    "Save Graph."
-#    print('a')
-#    graph_section[1].save('Network.png')
-#    pn.state.notifications.success(f'Graph successfully saved.')
-#save_graph_button.on_click(_save_graph_button)
+def _save_graph_button(event):
+    "Saves Graph Outputted as HTML."
+    filename_string = f'MDiN_{graph_store.curr_params["mdin_type"]}_ppm{graph_store.curr_params["ppm_thresh"]}'
+    filename_string = filename_string + f'_{graph_store.curr_params["min_comp_size"]}_'
+    graph_section[1].save(path_dl + '/' + filename_string)
+    pn.state.notifications.success(f'Graph successfully saved.')
+save_graph_button.on_click(_save_graph_button)
 
 # Setting the Graph Visualization Section of the page
 graph_section = pn.Column()
