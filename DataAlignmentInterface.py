@@ -234,7 +234,7 @@ class ReadingMZML_Files(param.Parameterized):
 
         # Prepare the Data Alignment Step
         alignment_storage.samples = [self.samples[s]['centroided'] for s in self.samples]
-        alignment_storage.update_widgets('converted_df')
+        alignment_storage.update_widgets(['converted_df',])
         alignment_page.append(data_alignment_section)
 
         pn.state.notifications.success(f'Files successfully saved and prepared for Data Alignment.')
@@ -490,7 +490,7 @@ def _confirm_button_filename(event):
                         yaxis_title="Samples",
                         height=25*len(alignment_storage.samples))
                     data_reading_section.append(pn.pane.Plotly(samp_bar_plot, config={'toImageButtonOptions': {
-                            'filename': f'FeaturePerSamplePlot_{small_name}', 'scale':4}}))
+                            'filename': f'FeaturePerSamplePlot_{small_name}', 'scale':4}}, height=20*len(alignment_storage.samples)+200))
 
                     # Update the possible minimum number of samples and the layout
                     alignment_storage.update_widgets(filename.value)
@@ -543,7 +543,7 @@ def _confirm_button_filename(event):
                         yaxis_title="Samples",
                         height=25*len(alignment_storage.samples))
                     data_reading_section.append(pn.pane.Plotly(samp_bar_plot, config={'toImageButtonOptions': {
-                            'filename': f'FeaturePerSamplePlot_set_csv_files', 'scale':4}}))
+                            'filename': f'FeaturePerSamplePlot_set_csv_files', 'scale':4}}, height=20*len(alignment_storage.samples)+200))
 
                     # Update the possible minimum number of samples and the layout
                     alignment_storage.update_widgets(filename.value)
