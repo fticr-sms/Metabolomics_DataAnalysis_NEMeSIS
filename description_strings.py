@@ -34,7 +34,7 @@ Universidade de Lisboa</strong> (<a href="http://ft-icr.rd.ciencias.ulisboa.pt/"
 rel="nofollow">ft-icr.rd.ciencias.ulisboa.pt/</a>)
 <br>
 <br>
-If you use this software in your untargeted metabolomcis data analysis, we would be grateful if you cite our paper
+If you use this software in your untargeted metabolomics data analysis, we would be grateful if you cite our paper
 introducing it:
 <br>
 <br>

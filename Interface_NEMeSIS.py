@@ -2847,6 +2847,49 @@ def _confirm_button_next_step_5(event):
             mdb_filename.value = ''
             node_desc[0] = 'Placeholder'
             edge_desc[0] = 'Placeholder'
+            # sMDiN Analysis page
+            while len(smdin_page) > 3:
+                smdin_page.pop(-1)
+            # PCA
+            n_components_compute_sMDiN.value = 10
+            PCA_params_sMDiN.compute_fig = False
+            PCA_params_sMDiN.reset()
+            PCA_params_sMDiN.sMDiN_flag = True
+            for _, w in PCA_params_sMDiN.controls.widgets.items():
+                w.disabled = True
+            middle_page_PCA_sMDiN[0,1:3] = 'To plot a PCA'
+            end_page_PCA_sMDiN[0] = 'To plot explained variance figure'
+            end_page_PCA_sMDiN[1] = 'To plot matrices of PCA projections'
+            # HCA
+            HCA_params_sMDiN.compute_fig = False
+            HCA_params_sMDiN.reset()
+            HCA_params_sMDiN.sMDiN_flag = True
+            # PLS-DA
+            plsda_feat_imp_show_annots_only_sMDiN.value = False
+            plsda_feat_imp_show_annots_only_sMDiN.disabled = True
+            rec_comp_indicator_sMDiN_widget.value = None
+            PLSDA_store_sMDiN.soft_reset()
+            pls_optim_section_sMDiN[1] = PLSDA_store_sMDiN.optim_figure[0]
+            save_plsda_feat_imp_sMDiN_button.disabled = True
+            while len(pls_results_section_sMDiN) > 5:
+                pls_results_section_sMDiN.pop(-1)
+            pls_results_section_sMDiN[0][1][1] = PLSDA_store_sMDiN.n_results
+            pls_results_section_sMDiN[3] = pn.pane.DataFrame(PLSDA_store_sMDiN.feat_impor)
+            PLSDA_store_sMDiN.sMDiN_flag = True
+            PLSDA_store_sMDiN.controls.widgets['scale'].disabled = True
+            PLSDA_store_sMDiN.controls_optim.widgets['scale'].disabled = True
+            # RF
+            rf_feat_imp_show_annots_only_sMDiN.value = False
+            rf_feat_imp_show_annots_only_sMDiN.disabled = True
+            RF_store_sMDiN.reset()
+            rf_optim_section_sMDiN[1] = RF_store_sMDiN.optim_figure[0]
+            save_rf_feat_imp_sMDiN_button.disabled = True
+            while len(rf_results_section_sMDiN) > 5:
+                rf_results_section_sMDiN.pop(-1)
+            rf_results_section_sMDiN[0][1][1] = RF_store_sMDiN.n_results
+            rf_results_section_sMDiN[3] = pn.pane.DataFrame(RF_store_sMDiN.feat_impor)
+            RF_store_sMDiN.sMDiN_flag = True
+            sMDiN_store.reset()
 
             # Compound Finder search tool page
             comp_finder.reset()
@@ -2937,6 +2980,13 @@ def _confirm_button_next_step_5(event):
     graph_store.controls.widgets['reliable_formulas'].options = formula_cols
     graph_store.controls.widgets['reliable_formulas'].value = [formula_cols[-1],]
     graph_store.reliable_formulas = [formula_cols[-1],]
+    # sMDiN analysis updating widgets
+    HCA_params_sMDiN.controls.widgets['dist_metric'].options = ['euclidean', 'cityblock', 'minkowski', 'seuclidean',
+                    'sqeuclidean', 'braycurtis', 'canberra', 'chebyshev', 'correlation', 'cosine']
+    PLSDA_store_sMDiN.n_folds_limits_and_class_update(target_list)
+    if PLSDA_store_sMDiN.n_fold == 5:
+        PLSDA_store_sMDiN._update_max_comp_n_comp()
+    RF_store_sMDiN.n_folds_limits_and_class_update(target_list)
 
     # Obtaining possibilities to search for based on type of identifier for the compound finder tool
     comp_finder._calculate_possible_options(DataFrame_Store.metadata_df, checkbox_annotation,
@@ -3517,8 +3567,9 @@ class PCA_Storage(param.Parameterized):
     exp_var_fig_plot = param.List(default=['a'])
     scatter_PCA_plot = param.List(default=['a'])
 
-    # BinSim Flag
+    # BinSim/sMDiN Flag
     binsim_flag = param.Boolean(default=False)
+    sMDiN_flag = param.Boolean(default=False)
     current_pages_associated = param.List(default=[])
 
     # Extra Attribute to see if figures should be computed automatically
@@ -3539,6 +3590,8 @@ class PCA_Storage(param.Parameterized):
                     filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
             if self.binsim_flag:
                 filename_string = filename_string + f'_BinSim'
+            elif self.sMDiN_flag:
+                filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
             self.current_pages_associated[0][0,1:3] = pn.pane.Plotly(self.PCA_plot[0], config = {
                 'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
@@ -3574,6 +3627,8 @@ class PCA_Storage(param.Parameterized):
             filename_string = 'PCA_exp_var_plot'
             if self.binsim_flag:
                 filename_string = filename_string + f'_BinSim'
+            elif self.sMDiN_flag:
+                filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
             self.current_pages_associated[1][0] = pn.pane.Plotly(self.exp_var_fig_plot[0],
                                                 config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
 
@@ -3584,6 +3639,8 @@ class PCA_Storage(param.Parameterized):
                 filename_string = 'PCA_scatter_plot'
                 if self.binsim_flag:
                     filename_string = filename_string + f'_BinSim'
+                elif self.sMDiN_flag:
+                    filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
                 self.current_pages_associated[1][1] = pn.pane.Plotly(self.scatter_PCA_plot[0],
                                             config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
             else:
@@ -3592,7 +3649,10 @@ class PCA_Storage(param.Parameterized):
                     filename_string = 'PCA_scatter_plot'
                     if self.binsim_flag:
                         filename_string = filename_string + f'_BinSim'
-                    self.current_pages_associated[1][1] = pn.pane.Plotly(self.scatter_PCA_plot[0], config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
+                    elif self.sMDiN_flag:
+                        filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
+                    self.current_pages_associated[1][1] = pn.pane.Plotly(self.scatter_PCA_plot[0], config = {
+                        'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
 
 
     # Function enabling/disabling the confidence level parameters for ellipses
@@ -3682,6 +3742,8 @@ def _compute_PCA_button(event):
     # Select DataFrame
     if PCA_params.binsim_flag:
         df = DataFrame_Store.binsim_df
+    elif PCA_params.sMDiN_flag:
+        df = sMDiN_store.smdin_df
     else:
         df = DataFrame_Store.treated_df
 
@@ -3778,8 +3840,9 @@ class HCA_Storage(param.Parameterized):
     # Storing figure
     HCA_plot = param.List(default=['Pane to Plot a HCA Dendrogram'])
 
-    # BinSim Flag
+    # BinSim/sMDiN Flag
     binsim_flag = param.Boolean(default=False)
+    sMDiN_flag = param.Boolean(default=False)
     current_pages_associated = param.List(default=[])
 
     # Extra Attribute to see if figures should be computed automatically
@@ -3791,15 +3854,22 @@ class HCA_Storage(param.Parameterized):
     def _update_HCA_compute_plot(self):
         "Computes and updates HCA based on distance and linkage metrics."
         if self.compute_fig:
-            # Recompute Distance and Linkage matrices
-            if self.binsim_flag:
-                self.dists = dist.pdist(DataFrame_Store.binsim_df, metric=self.dist_metric)
-            else:
-                self.dists = dist.pdist(DataFrame_Store.treated_df, metric=self.dist_metric)
-            self.Z = hier.linkage(self.dists, method=self.link_metric)
-            # Plot the new HCA
-            self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
-            self.current_pages_associated[0][0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+            try:
+                # Recompute Distance and Linkage matrices
+                if self.binsim_flag:
+                    self.dists = dist.pdist(DataFrame_Store.binsim_df, metric=self.dist_metric)
+                elif self.sMDiN_flag:
+                    self.dists = dist.pdist(sMDiN_store.smdin_df, metric=self.dist_metric)
+                else:
+                    self.dists = dist.pdist(DataFrame_Store.treated_df, metric=self.dist_metric)
+                self.Z = hier.linkage(self.dists, method=self.link_metric)
+                # Plot the new HCA
+                self.HCA_plot[0] = iaf._plot_HCA(self, target_list)
+                self.current_pages_associated[0][0:6,1:4] = pn.pane.Matplotlib(self.HCA_plot[0], dpi=self.dpi)
+            except:
+                pn.state.notifications.error('Dendrogram could not be built with current distance metric and linkage combo.')
+                self.HCA_plot[0] = 'Non-Valid Dendrogram'
+                self.current_pages_associated[0][0:6,1:4] = self.HCA_plot[0]
 
 
     @param.depends('fig_text', 'fig_x', 'fig_y', 'col_threshold', 'dpi', watch=True)
@@ -3895,6 +3965,7 @@ class PLSDA_Storage(param.Parameterized):
 
     # PLS-DA flag and dataset to treat
     binsim_flag = param.Boolean(default=False)
+    sMDiN_flag = param.Boolean(default=False)
     current_pages_associated = param.List()
 
     # PLS-DA Optimization
@@ -4001,6 +4072,8 @@ class PLSDA_Storage(param.Parameterized):
         # See what dataset to use
         if self.binsim_flag:
             plsda_df = DataFrame_Store.binsim_df
+        elif self.sMDiN_flag:
+            plsda_df = sMDiN_store.smdin_df
         else:
             plsda_df = DataFrame_Store.treated_df
 
@@ -4036,6 +4109,8 @@ class PLSDA_Storage(param.Parameterized):
         filename_string = filename_string + f'{self.n_fold}-foldstratCV_scale{self.scale}'
         if self.binsim_flag:
             filename_string = filename_string + '_BinSim'
+        elif self.sMDiN_flag:
+                filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
         self.current_pages_associated[0][1] = pn.pane.Plotly(self.optim_figure[0],
                                               config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
         self.current_pages_associated[0][0][1].value = self.rec_components
@@ -4089,6 +4164,8 @@ class PLSDA_Storage(param.Parameterized):
         # See what dataset to use
         if self.binsim_flag:
             plsda_df = DataFrame_Store.binsim_df
+        elif self.sMDiN_flag:
+            plsda_df = sMDiN_store.smdin_df
         else:
             plsda_df = DataFrame_Store.treated_df
 
@@ -4119,7 +4196,11 @@ class PLSDA_Storage(param.Parameterized):
         self.n_results = results_summary
 
         # Important Feature Table
-        self.feat_impor = iaf.creating_importance_feat_table(self.imp_feature_metric, DataFrame_Store, PLSDA_results['imp_feat'])
+        if not self.sMDiN_flag:
+            self.feat_impor = iaf.creating_importance_feat_table(self.imp_feature_metric, DataFrame_Store, PLSDA_results['imp_feat'])
+        else:
+            self.feat_impor = iaf.creating_importance_feat_table_sMDiN(
+                self.imp_feature_metric, sMDiN_store, DataFrame_Store, PLSDA_results['imp_feat'])
 
         # Store Parameters used for the model
         self.current_plsda_params = {'n_components': self.n_components, 'n_folds': self.n_fold,
@@ -4152,6 +4233,8 @@ class PLSDA_Storage(param.Parameterized):
                     filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
         if self.binsim_flag:
             filename_string = filename_string + '_BinSim'
+        elif self.sMDiN_flag:
+            filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
 
         self.x_scores['Sample'] = target_list.sample_cols
         self.PLS_plot[0] = iaf._plot_PLS(self, target_list)
@@ -4185,9 +4268,12 @@ class PLSDA_Storage(param.Parameterized):
                         filename_string = filename_string + f'_ellipse({self.confidence_std}std)'
             if self.binsim_flag:
                 filename_string = filename_string + '_BinSim'
+            elif self.sMDiN_flag:
+                filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
 
             self.PLS_plot[0] = iaf._plot_PLS(self, target_list)
-            self.current_pages_associated[2][0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
+            self.current_pages_associated[2][0,1:3] = pn.pane.Plotly(self.PLS_plot[0], config={
+                'toImageButtonOptions': {'filename': filename_string, 'scale':4}})
 
 
     # Set of Functions controlling parameters for PLS Projection
@@ -4261,6 +4347,8 @@ class PLSDA_Storage(param.Parameterized):
         # See what dataset to use
         if self.binsim_flag:
             plsda_df = DataFrame_Store.binsim_df
+        elif self.sMDiN_flag:
+            plsda_df = sMDiN_store.smdin_df
         else:
             plsda_df = DataFrame_Store.treated_df
 
@@ -4300,6 +4388,8 @@ class PLSDA_Storage(param.Parameterized):
         # See what dataset to use
         if self.binsim_flag:
             plsda_df = DataFrame_Store.binsim_df
+        elif self.sMDiN_flag:
+            plsda_df = sMDiN_store.smdin_df
         else:
             plsda_df = DataFrame_Store.treated_df
 
@@ -4307,6 +4397,8 @@ class PLSDA_Storage(param.Parameterized):
         roc_fig, filename = iaf._plot_PLSDA_ROC_curve(self, plsda_df, target_list)
         if self.binsim_flag:
             filename = filename + '_BinSim'
+        elif self.sMDiN_flag:
+            filename = filename + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
         self.ROC_figure = [roc_fig,]
 
         # Saving filename
@@ -4482,6 +4574,8 @@ def _save_figure_button_permutation_PLSDA(event):
     filename_string = filename_string + f'{PLSDA_store.current_plsda_params_permutation["perm_metric"]}'
     if PLSDA_store.binsim_flag:
         filename_string = filename_string + '_BinSim'
+    elif PLSDA_store.sMDiN_flag:
+        filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
     PLSDA_store.perm_figure[0].savefig(path_dl + '/' + filename_string+'.png', dpi=PLSDA_store.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 
@@ -4535,6 +4629,8 @@ def _save_plsda_feat_imp_button(event):
         filename_string = filename_string + f'_scale{plsda_params["scale"]}'
         if PLSDA_store.binsim_flag:
             filename_string = filename_string + '_BinSim'
+        elif PLSDA_store.sMDiN_flag:
+            filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
         filename_string = filename_string + f'.xlsx'
 
         # Saving the file
@@ -4593,6 +4689,7 @@ class RF_Storage(param.Parameterized):
 
     # PLS-DA flag and dataset to treat
     binsim_flag = param.Boolean(default=False)
+    sMDiN_flag = param.Boolean(default=False)
     current_pages_associated = param.List()
 
     # RF Optimization
@@ -4676,6 +4773,8 @@ class RF_Storage(param.Parameterized):
         # See what dataset to use
         if self.binsim_flag:
             rf_df = DataFrame_Store.binsim_df
+        elif self.sMDiN_flag:
+            rf_df = sMDiN_store.smdin_df
         else:
             rf_df = DataFrame_Store.treated_df
 
@@ -4701,6 +4800,8 @@ class RF_Storage(param.Parameterized):
         filename_string = filename_string + f'({self.n_interval}interval)'
         if self.binsim_flag:
             filename_string = filename_string + '_BinSim'
+        elif self.sMDiN_flag:
+            filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
         self.current_pages_associated[0][1] = pn.pane.Plotly(self.optim_figure[0],
                                               config = {'toImageButtonOptions': {'filename': filename_string, 'scale':4,}})
 
@@ -4730,6 +4831,8 @@ class RF_Storage(param.Parameterized):
         # See what dataset to use
         if self.binsim_flag:
             rf_df = DataFrame_Store.binsim_df
+        elif self.sMDiN_flag:
+            rf_df = sMDiN_store.smdin_df
         else:
             rf_df = DataFrame_Store.treated_df
 
@@ -4750,7 +4853,11 @@ class RF_Storage(param.Parameterized):
         self.n_results = results_summary
 
         # Important Feature Table
-        self.feat_impor = iaf.creating_importance_feat_table('Gini Importance', DataFrame_Store, RF_results['imp_feat'])
+        if not self.sMDiN_flag:
+            self.feat_impor = iaf.creating_importance_feat_table('Gini Importance', DataFrame_Store, RF_results['imp_feat'])
+        else:
+            self.feat_impor = iaf.creating_importance_feat_table_sMDiN(
+                    'Gini Importance', sMDiN_store, DataFrame_Store, RF_results['imp_feat'])
 
         # Store model
         self.models[0] = RF_results['model']
@@ -4797,6 +4904,8 @@ class RF_Storage(param.Parameterized):
         # See what dataset to use
         if self.binsim_flag:
             rf_df = DataFrame_Store.binsim_df
+        elif self.sMDiN_flag:
+            rf_df = sMDiN_store.smdin_df
         else:
             rf_df = DataFrame_Store.treated_df
 
@@ -4834,6 +4943,8 @@ class RF_Storage(param.Parameterized):
         # See what dataset to use
         if self.binsim_flag:
             rf_df = DataFrame_Store.binsim_df
+        elif self.sMDiN_flag:
+            rf_df = sMDiN_store.smdin_df
         else:
             rf_df = DataFrame_Store.treated_df
 
@@ -4841,6 +4952,8 @@ class RF_Storage(param.Parameterized):
         roc_fig, filename = iaf._plot_RF_ROC_curve(self, rf_df, target_list)
         if self.binsim_flag:
             filename = filename + '_BinSim'
+        elif self.sMDiN_flag:
+            filename = filename + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
         self.ROC_figure = [roc_fig,]
 
         # Saving filename
@@ -4965,6 +5078,8 @@ def _save_figure_button_permutation_RF(event):
     filename_string = filename_string + f'{RF_store.current_rf_params_permutation["perm_metric"]}'
     if RF_store.binsim_flag:
         filename_string = filename_string + '_BinSim'
+    elif RF_store.sMDiN_flag:
+        filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
     RF_store.perm_figure[0].savefig(path_dl + '/' + filename_string+'.png', dpi=RF_store.dpi)
     pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
 
@@ -5013,6 +5128,8 @@ def _save_rf_feat_imp_button(event):
         filename_string = filename_string + f'iterations{rf_params["n_iterations"]}'
         if RF_store.binsim_flag:
             filename_string = filename_string + '_BinSim'
+        elif RF_store.sMDiN_flag:
+            filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
         filename_string = filename_string + '.xlsx'
 
         # Saving the file
@@ -7213,7 +7330,7 @@ middle_page_PCA_binsim[0,1:3] = 'To plot a PCA'
 end_page_PCA_binsim = pn.Column('To plot explained variance figure',
                                 'To plot matrices of PCA projections')
 
-# Page sections that will change based on HCA_params
+# Page sections that will change based on PCA_params
 PCA_params_binsim.current_pages_associated.append(middle_page_PCA_binsim)
 PCA_params_binsim.current_pages_associated.append(end_page_PCA_binsim)
 
@@ -7487,7 +7604,7 @@ RF_store_binsim.current_pages_associated.append(rf_feat_imp_show_annots_only_bin
 RF_store_binsim.current_pages_associated.append(save_rf_feat_imp_binsim_button)
 
 
-# Complete layout of the PLS-DA section of BinSim analysis
+# Complete layout of the PLS-DA section of Random Forest analysis
 page_binsim_RF = pn.Column(pn.pane.HTML(rf_opening_string),
                            rf_optim_section_binsim,
                            rf_results_section_binsim)
@@ -8020,7 +8137,8 @@ def _plot_MDiN(event):
             elements = cs_data["elements"]["nodes"] + cs_data["elements"]["edges"]
 
             # Setting the graph
-            graph = Cytoscape(object=elements, sizing_mode="stretch_width", height=600, style=[])
+            #graph = Cytoscape(object=elements, sizing_mode="stretch_width", height=600, style=[])
+            graph.object = elements
             graph.style = [{'selector': 'node',
                         'style': {'label': 'data(cname)',
                             'background-color': 'data(color)',
@@ -8029,7 +8147,8 @@ def _plot_MDiN(event):
                         'style': {'line-color': 'data(color)',}}]
 
         else:
-            graph = Cytoscape(object=elements, sizing_mode="stretch_width", height=600, style=[])
+            #graph = Cytoscape(object=elements, sizing_mode="stretch_width", height=600, style=[])
+            graph.object = elements
             graph.style = [{'selector': 'node',
                         'style': {'background-color': 'data(color)',
                             'shape': 'circle',}},
@@ -8045,6 +8164,7 @@ def _plot_MDiN(event):
         graph_section.append(graph)
         graph_section.append(save_graph_button)
         graph_analysis_page.append(pn.pane.HTML('<br>'.join(graph_store.mdin_desc_after)))
+        graph_analysis_page.append(smdin_page)
 
 
     @pn.depends(graph.param.selected_nodes, watch=True)
@@ -8310,8 +8430,57 @@ def _generate_sMDiNs_perform_network_analysis(event):
     # Store Parameters
     sMDiN_store.curr_params = {'network_analysis': sMDiN_store.network_analysis}
 
+    # Get a sample HCA
+    HCA_params_sMDiN._update_HCA_compute_plot()
+
     # Layout Update
     smdin_page[-1] =  pn.pane.DataFrame(sMDiN_store.smdin_df)
+
+    # Reset Analysis
+    # PCA
+    n_components_compute_sMDiN.value = 10
+    PCA_params_sMDiN.compute_fig = False
+    PCA_params_sMDiN.reset()
+    PCA_params_sMDiN.sMDiN_flag = True
+    for _, w in PCA_params_sMDiN.controls.widgets.items():
+        w.disabled = True
+    middle_page_PCA_sMDiN[0,1:3] = 'To plot a PCA'
+    end_page_PCA_sMDiN[0] = 'To plot explained variance figure'
+    end_page_PCA_sMDiN[1] = 'To plot matrices of PCA projections'
+    # HCA
+    HCA_params_sMDiN.compute_fig = False
+    HCA_params_sMDiN.reset()
+    HCA_params_sMDiN.sMDiN_flag = True
+    # PLS-DA
+    plsda_feat_imp_show_annots_only_sMDiN.value = False
+    plsda_feat_imp_show_annots_only_sMDiN.disabled = True
+    rec_comp_indicator_sMDiN_widget.value = None
+    PLSDA_store_sMDiN.soft_reset()
+    pls_optim_section_sMDiN[1] = PLSDA_store_sMDiN.optim_figure[0]
+    save_plsda_feat_imp_sMDiN_button.disabled = True
+    while len(pls_results_section_sMDiN) > 5:
+        pls_results_section_sMDiN.pop(-1)
+    pls_results_section_sMDiN[0][1][1] = PLSDA_store_sMDiN.n_results
+    pls_results_section_sMDiN[3] = pn.pane.DataFrame(PLSDA_store_sMDiN.feat_impor)
+    PLSDA_store_sMDiN.sMDiN_flag = True
+    PLSDA_store_sMDiN.controls.widgets['scale'].disabled = True
+    PLSDA_store_sMDiN.controls_optim.widgets['scale'].disabled = True
+    # RF
+    rf_feat_imp_show_annots_only_sMDiN.value = False
+    rf_feat_imp_show_annots_only_sMDiN.disabled = True
+    RF_store_sMDiN.reset()
+    rf_optim_section_sMDiN[1] = RF_store_sMDiN.optim_figure[0]
+    save_rf_feat_imp_sMDiN_button.disabled = True
+    while len(rf_results_section_sMDiN) > 5:
+        rf_results_section_sMDiN.pop(-1)
+    rf_results_section_sMDiN[0][1][1] = RF_store_sMDiN.n_results
+    rf_results_section_sMDiN[3] = pn.pane.DataFrame(RF_store_sMDiN.feat_impor)
+    RF_store_sMDiN.sMDiN_flag = True
+    PLSDA_store_sMDiN.n_folds_limits_and_class_update(target_list)
+    if PLSDA_store_sMDiN.n_fold == 5:
+        PLSDA_store_sMDiN._update_max_comp_n_comp()
+    RF_store_sMDiN.n_folds_limits_and_class_update(target_list)
+
     smdin_page.append(smdin_analysis_page)
 
 
@@ -8324,10 +8493,366 @@ smdin_page = pn.Column('# Sample Mass-Difference Networks (sMDiNs) Analysis',
                        sMDiN_store.controls)
 
 
-page_sMDiN_PCA = pn.Column()
-page_sMDiN_HCA = pn.Column()
-page_sMDiN_PLSDA = pn.Column()
-page_sMDiN_RF = pn.Column()
+# Unsupervised and Supervised Analysis of sMDiN tab section.
+# Page will have 4 tabs, one for each of the main statistical analysis: PCA, HCA, PLS-DA and Random Forest
+
+# Starting with the PCA section
+
+# Running initial param to store PCA details - sMDiN version
+PCA_params_sMDiN = PCA_Storage()
+PCA_params_sMDiN.sMDiN_flag = True # Raising  flag
+# Making PCA Projection Controlling widgets disabled
+for n, w in PCA_params_sMDiN.controls.widgets.items():
+    w.disabled = True
+
+# Extra widgets for the page
+compute_PCA_sMDiN_button = pn.widgets.Button(name='Compute', button_type='success')
+n_components_compute_sMDiN = pn.widgets.IntInput(name='Number of Components to Compute:',
+                                           value=10, step=1, start=2, end=20,
+                                          description='Select 2-20 components.')
+
+
+# When pressing the button, runs the PCA with the designated number of components and the sMDiN treated data
+def _compute_PCA_sMDiN_button(event):
+    "Computes PCA, plots the figures in the respective pages if not present."
+
+    df = sMDiN_store.smdin_df
+
+    # Calculate PCA and store results
+    principaldf, var, loadings = metsta.compute_df_with_PCs_VE_loadings(df,
+                                       n_components=n_components_compute_sMDiN.value,
+                                       whiten=True, labels=target_list.target, return_var_ratios_and_loadings=True)
+    PCA_params_sMDiN.pca_scores = principaldf
+    PCA_params_sMDiN.pca_scores['Sample'] = target_list.sample_cols
+    PCA_params_sMDiN.explained_variance = var
+    PCA_params_sMDiN.pca_loadings = pd.DataFrame(loadings)
+    PCA_params_sMDiN.n_components = n_components_compute_sMDiN.value # This may catalyse the 'change in n_components' react function
+    PCA_params_sMDiN.controls.widgets['n_components'].value = n_components_compute_sMDiN.value
+
+    # Plot the figures - PCA Projection
+    PCA_params_sMDiN.PCA_plot[0] = iaf._plot_PCA(PCA_params_sMDiN, target_list)
+    PCA_filename_string = 'PCA_plot'
+    if PCA_params_sMDiN.ellipse_draw:
+        if PCA_params_sMDiN.confidence != 0:
+            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params_sMDiN.confidence*100}%confidence)'
+        else:
+            PCA_filename_string = PCA_filename_string + f'_ellipse({PCA_params_sMDiN.confidence_std}std)'
+    PCA_filename_string = PCA_filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
+    middle_page_PCA_sMDiN[0,1:3] = pn.pane.Plotly(PCA_params_sMDiN.PCA_plot[0],
+                                    config = {'toImageButtonOptions': {'filename': PCA_filename_string, 'scale':4,}})
+
+    # Expected Variance Plot
+    if type(PCA_params_sMDiN.scatter_PCA_plot[0]) == str:
+        PCA_params_sMDiN.exp_var_fig_plot[0] = iaf._plot_PCA_explained_variance(PCA_params_sMDiN)
+    end_page_PCA_sMDiN[0] = pn.pane.Plotly(PCA_params_sMDiN.exp_var_fig_plot[0],config = {
+        'toImageButtonOptions': {'filename':
+            f'PCA_exp_var_plot_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}', 'scale':4,}})
+
+    # PCA Scatter Plot
+    if type(PCA_params_sMDiN.scatter_PCA_plot[0]) == str:
+        PCA_params_sMDiN.scatter_PCA_plot[0] = iaf._scatter_PCA_plot(PCA_params_sMDiN, target_list)
+    end_page_PCA_sMDiN[1] = pn.pane.Plotly(PCA_params_sMDiN.scatter_PCA_plot[0],
+                            config = {'toImageButtonOptions': {'filename':
+                                f'PCA_scatter_plot_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}',
+                                'scale':4,}})
+
+    # Enabling Widgets to control the PCA Projection
+    for n, w in PCA_params_sMDiN.controls.widgets.items():
+        if n not in ['PCz', 'confidence_std']:
+            w.disabled = False
+
+    PCA_params_sMDiN._update_ellipse_options()
+    PCA_params_sMDiN._update_PCz_disabled()
+
+compute_PCA_sMDiN_button.on_click(_compute_PCA_sMDiN_button)
+
+
+# Initializing layout of the PCA section
+# First section of the page
+initial_page_PCA_sMDiN = pn.GridSpec(mode='override')
+initial_page_PCA_sMDiN[0,:2] = n_components_compute_sMDiN
+initial_page_PCA_sMDiN[0,2] = compute_PCA_sMDiN_button
+
+# Middle section of the page
+middle_page_PCA_sMDiN = pn.GridSpec(mode='override')
+middle_page_PCA_sMDiN[0,0] = PCA_params_sMDiN.controls
+middle_page_PCA_sMDiN[0,1:3] = 'To plot a PCA'
+
+# Final section of the page
+end_page_PCA_sMDiN = pn.Column('To plot explained variance figure',
+                                'To plot matrices of PCA projections')
+
+# Page sections that will change based on PCA_params
+PCA_params_sMDiN.current_pages_associated.append(middle_page_PCA_sMDiN)
+PCA_params_sMDiN.current_pages_associated.append(end_page_PCA_sMDiN)
+
+
+# Complete PCA page
+page_sMDiN_PCA = pn.Column(pn.pane.HTML("<strong>Principal Component Analysis (PCA)</strong>"),
+                            initial_page_PCA_sMDiN,
+                            middle_page_PCA_sMDiN,
+                            end_page_PCA_sMDiN)
+
+
+
+# HCA section of the sMDiN analysis
+HCA_params_sMDiN = HCA_Storage()
+HCA_params_sMDiN.sMDiN_flag = True # Setting the sMDiN flag
+
+# Widget to save HCA plot sMDiN treated (needed since it is a matplotlib plot instead of a plotly plot)
+save_HCA_plot_sMDiN_button = pn.widgets.Button(name='Save as a png', button_type='success',
+                                         icon=iaf.download_icon)
+
+# When pressing the button, downloads the figure
+def _save_HCA_plot_sMDiN_button(event):
+    "Saves HCA plot (sMDiN version)."
+    filename = f'HCA_plot_{HCA_params_sMDiN.dist_metric}Dist_{HCA_params_sMDiN.link_metric}Linkage'
+    filename = filename + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}.png'
+    HCA_params_sMDiN.HCA_plot[0].savefig(path_dl + '/' + filename, dpi=HCA_params_sMDiN.dpi)
+    pn.state.notifications.success(f'Dendrogram successfully saved.')
+
+save_HCA_plot_sMDiN_button.on_click(_save_HCA_plot_sMDiN_button)
+
+# Organization for the HCA page section in sMDiN Analysis
+HCA_sMDiN = pn.GridSpec(mode='override')
+HCA_sMDiN[0:5,0] = HCA_params_sMDiN.controls
+HCA_sMDiN[0:6,1:4] = HCA_params_sMDiN.HCA_plot[0]
+HCA_sMDiN[5,0] = save_HCA_plot_sMDiN_button
+
+# Page sections that will change based on HCA_params_sMDiN
+HCA_params_sMDiN.current_pages_associated.append(HCA_sMDiN)
+
+# Complete HCA page
+page_sMDiN_HCA = pn.Column("<strong>Hierarchical Clustering Analysis (HCA)</strong>",
+                           HCA_sMDiN)
+
+
+
+# PLS-DA section of the sMDiN analysis
+
+# Running initial param to store PLSDA details - sMDiN version
+PLSDA_store_sMDiN = PLSDA_Storage()
+PLSDA_store_sMDiN.sMDiN_flag = True # Setting the sMDiN flag
+
+# Click button to confirm PLS Optimization
+PLSDA_store_sMDiN.controls_optim.widgets['confirm_optim_button'].on_click(PLSDA_store_sMDiN._confirm_optim_button)
+
+# Click button to fit the PLS-DA model and obtain model performance metrics
+PLSDA_store_sMDiN.controls.widgets['confirm_plsda_button'].on_click(PLSDA_store_sMDiN._confirm_plsda_button)
+
+# Click button to perform PLS-DA Permutation Test
+PLSDA_store_sMDiN.controls_permutation.widgets['confirm_button_permutation'].on_click(
+    PLSDA_store_sMDiN._confirm_button_permutation)
+
+# Function to save the Permutation Test figure as png
+def _save_figure_button_permutation_PLSDA_sMDiN(event):
+    "Save PLS-DA permutation figure - sMDiN version."
+    filename_string = f'PLS-DA_permutation_test_{PLSDA_store_sMDiN.current_plsda_params_permutation["n_permutations"]}perm_'
+    filename_string = filename_string + f'{PLSDA_store_sMDiN.current_plsda_params_permutation["n_components"]}comp_'
+    filename_string = filename_string + f'{PLSDA_store_sMDiN.current_plsda_params_permutation["n_folds"]}-foldstratCV_scale'
+    filename_string = filename_string + f'{PLSDA_store_sMDiN.current_plsda_params_permutation["scale"]}_metric'
+    filename_string = filename_string + f'{PLSDA_store_sMDiN.current_plsda_params_permutation["perm_metric"]}'
+    filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
+    PLSDA_store_sMDiN.perm_figure[0].savefig(path_dl + '/' + filename_string+'.png', dpi=PLSDA_store_sMDiN.dpi)
+    pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
+
+# Click button to save the aforementioned figure
+PLSDA_store_sMDiN.controls_permutation.widgets['save_figure_button_permutation'].on_click(
+    _save_figure_button_permutation_PLSDA_sMDiN)
+
+# Click button to compute PLS-DA model ROC curves and obtain the corresponding plots
+PLSDA_store_sMDiN.controls_roc.widgets['confirm_button_roc'].on_click(PLSDA_store_sMDiN._confirm_button_roc)
+
+# Widget to add recommended number of components to page
+rec_comp_indicator_sMDiN_widget = pn.indicators.Number(name='Recommended Components (based on max. Q2)',
+                                    font_size='14pt', title_size='14pt', value=PLSDA_store_sMDiN.rec_components)
+
+
+# Initial layout of the optimization section of PLS-DA sMDiN analysis
+pls_optim_section_sMDiN = pn.Row(pn.Column(PLSDA_store_sMDiN.controls_optim, rec_comp_indicator_sMDiN_widget,
+                                    'A lower number of components with a similar Q2 may be preferable than the number shown'),
+                           PLSDA_store_sMDiN.optim_figure[0])
+
+
+# Results Section of the PLS-DA section of sMDiN analysis
+# Specific Widget for PLS results section of the page, shows DataFrame with only annotated metabolites or all metabolites
+plsda_feat_imp_show_annots_only_sMDiN = pn.widgets.Checkbox(
+    name='Only show annotated metabolites in feature importance table', value=False, disabled=True)
+
+# Change the DataFrame shown based on checkbox
+@pn.depends(plsda_feat_imp_show_annots_only_sMDiN.param.value, watch=True)
+def _layout_plsda_feat_import_dataframe_sMDiN(plsda_feat_imp_show_annots_only_sMDiN):
+    "Update the layout based on if we are showing all metabolites or only annotated ones."
+    # Select DataFrame
+    if plsda_feat_imp_show_annots_only_sMDiN:
+        f_imp = PLSDA_store_sMDiN.feat_impor.iloc[:2000]
+        df_to_show = f_imp[f_imp['Has Match?']]
+    else:
+        df_to_show = PLSDA_store_sMDiN.feat_impor.iloc[:2000]
+
+    # Update the layout
+    pls_results_section_sMDiN[3] = pn.pane.DataFrame(df_to_show, height=600)
+
+
+# Widget to save dataframe with features ordered by importance
+save_plsda_feat_imp_sMDiN_button = pn.widgets.Button(
+    name='Save PLS-DA Feature Importance (full) table (sMDiN version) obtained as .xlsx',
+    button_type='warning', icon=iaf.download_icon, disabled=True)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_plsda_feat_imp_sMDiN_button(event):
+    "Save PLS-DA Feature Importance results as an Excel."
+    try:
+        plsda_params = PLSDA_store_sMDiN.current_plsda_params
+        # Building the datafile name
+        filename_string = f'PLS-DA_FeatImp_{plsda_params["feat_imp"]}_model_params_components{plsda_params["n_components"]}'
+        filename_string = filename_string + f'_{plsda_params["n_folds"]}-foldstratCV_iterations{plsda_params["n_iterations"]}'
+        filename_string = filename_string + f'_scale{plsda_params["scale"]}'
+        filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
+        filename_string = filename_string + f'.xlsx'
+
+        # Saving the file
+        PLSDA_store_sMDiN.feat_impor.to_excel(path_dl + '/' + filename_string)
+        pn.state.notifications.success(f'{filename_string} successfully saved.')
+    except:
+        pn.state.notifications.error(f'File could not be saved.')
+
+save_plsda_feat_imp_sMDiN_button.on_click(_save_plsda_feat_imp_sMDiN_button)
+
+
+# PLS projection section of the page - sMDiN Version
+pls_proj_page_sMDiN = pn.GridSpec(mode='override')
+pls_proj_page_sMDiN[0,0] = PLSDA_store_sMDiN.controls_projection
+pls_proj_page_sMDiN[0,1:3] = 'To plot a PLS'
+
+# Layout of the full results section (Partial, more is added when fitting PLS-DA model)
+pls_results_section_sMDiN = pn.Column(pn.Row(PLSDA_store_sMDiN.controls,
+                                       pn.Column('### Model Performance Metrics', PLSDA_store_sMDiN.n_results)),
+                                '### Feature Importance Table (Shown here only the Top 2000 Features)',
+                                plsda_feat_imp_show_annots_only_sMDiN,
+                               pn.pane.DataFrame(PLSDA_store_sMDiN.feat_impor),
+                               save_plsda_feat_imp_sMDiN_button,)
+
+# Page sections / Widgets that will change based on PLSDA_store_sMDiN
+PLSDA_store_sMDiN.current_pages_associated.append(pls_optim_section_sMDiN)
+PLSDA_store_sMDiN.current_pages_associated.append(pls_results_section_sMDiN)
+PLSDA_store_sMDiN.current_pages_associated.append(pls_proj_page_sMDiN)
+PLSDA_store_sMDiN.current_pages_associated.append(plsda_feat_imp_show_annots_only_sMDiN)
+PLSDA_store_sMDiN.current_pages_associated.append(save_plsda_feat_imp_sMDiN_button)
+
+
+# Complete layout of the PLS-DA section of sMDiN analysis
+page_sMDiN_PLSDA = pn.Column(pn.pane.HTML(plsda_opening_string),
+                              pls_optim_section_sMDiN,
+                              pls_results_section_sMDiN)
+
+
+
+# Random Forest section of the sMDiN Analysis
+
+# Running initial param to store RF details - sMDiN version
+RF_store_sMDiN = RF_Storage()
+RF_store_sMDiN.sMDiN_flag = True # Setting the sMDiN Flag
+
+# Click button to confirm Random Forest Optimization
+RF_store_sMDiN.controls_optim.widgets['confirm_optim_button'].on_click(RF_store_sMDiN._confirm_optim_button)
+
+# Click button to fit the Random Forest model and obtain model performance metrics
+RF_store_sMDiN.controls.widgets['confirm_rf_button'].on_click(RF_store_sMDiN._confirm_rf_button)
+
+# Click button to perform Random Forest Permutation Test
+RF_store_sMDiN.controls_permutation.widgets['confirm_button_permutation'].on_click(
+    RF_store_sMDiN._confirm_button_permutation)
+
+# Function to save the Permutation Test figure as png
+def _save_figure_button_permutation_RF_sMDiN(event):
+    "Saves Random Forest permutation figure - sMDiN version."
+    filename_string = f'RF_permutation_test_{RF_store_sMDiN.current_rf_params_permutation["n_permutations"]}perm_'
+    filename_string = filename_string + f'{RF_store_sMDiN.current_rf_params_permutation["n_trees"]}trees_'
+    filename_string = filename_string + f'{RF_store_sMDiN.current_rf_params_permutation["n_folds"]}-foldstratCV_metric'
+    filename_string = filename_string + f'{RF_store_sMDiN.current_rf_params_permutation["perm_metric"]}'
+    filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
+    RF_store_sMDiN.perm_figure[0].savefig(path_dl + '/' + filename_string+'.png', dpi=RF_store_sMDiN.dpi)
+    pn.state.notifications.success(f'Figure {filename_string} successfully saved.')
+
+
+# Click button to save the aforementioned figure
+RF_store_sMDiN.controls_permutation.widgets['save_figure_button_permutation'].on_click(
+    _save_figure_button_permutation_RF_sMDiN)
+
+# Click button to compute Random Forest model ROC curves and obtain the corresponding plots
+RF_store_sMDiN.controls_roc.widgets['confirm_button_roc'].on_click(RF_store_sMDiN._confirm_button_roc)
+
+
+# Initial layout of the optimization section of Random Forest sMDiN analysis
+rf_optim_section_sMDiN = pn.Row(RF_store_sMDiN.controls_optim, RF_store_sMDiN.optim_figure[0])
+
+
+# Results Section of the Random Forest section of sMDiN analysis
+# Specific Widget for Random Forest results section of the page, shows DataFrame with only annotated metabolites or all metabolites
+rf_feat_imp_show_annots_only_sMDiN = pn.widgets.Checkbox(
+    name='Only show annotated metabolites in feature importance table', value=False, disabled=True)
+
+# Change the DataFrame shown based on checkbox
+@pn.depends(rf_feat_imp_show_annots_only_sMDiN.param.value, watch=True)
+def _layout_rf_feat_import_dataframe_sMDiN(rf_feat_imp_show_annots_only_sMDiN):
+    "Update the layout based on if we are showing all metabolites or only annotated ones."
+    # Select DataFrame
+    if rf_feat_imp_show_annots_only_sMDiN:
+        f_imp = RF_store_sMDiN.feat_impor.iloc[:2000]
+        df_to_show = f_imp[f_imp['Has Match?']]
+    else:
+        df_to_show = RF_store_sMDiN.feat_impor.iloc[:2000]
+
+    # Update the layout
+    rf_results_section_sMDiN[3] = pn.pane.DataFrame(df_to_show, height=600)
+
+
+# Widget to save dataframe with features ordered by importance
+save_rf_feat_imp_sMDiN_button = pn.widgets.Button(
+    name='Save Random Forest Feature Importance (full) table (sMDiN version) obtained as .xlsx',
+    button_type='warning', icon=iaf.download_icon, disabled=True)
+
+# When pressing the button, downloads the dataframe (builds the appropriate filename)
+def _save_rf_feat_imp_sMDiN_button(event):
+    "Save Random Forest Feature Importance results as an Excel."
+    try:
+        rf_params = RF_store_sMDiN.current_rf_params
+        # Building the datafile name
+        filename_string = f'RF_FeatImp_Gini_model_params_{rf_params["n_trees"]}trees_{rf_params["n_folds"]}-foldstratCV_'
+        filename_string = filename_string + f'iterations{rf_params["n_iterations"]}'
+        filename_string = filename_string + f'_{graph_store.curr_params["mdin_type"]}sMDiN_{sMDiN_store.curr_params["network_analysis"]}'
+        filename_string = filename_string + '.xlsx'
+
+        # Saving the file
+        RF_store_sMDiN.feat_impor.to_excel(path_dl + '/' + filename_string)
+        pn.state.notifications.success(f'{filename_string} successfully saved.')
+    except:
+        pn.state.notifications.error(f'File could not be saved.')
+
+save_rf_feat_imp_sMDiN_button.on_click(_save_rf_feat_imp_sMDiN_button)
+
+
+# Layout of the full results section (Partial, more is added when fitting RF model)
+rf_results_section_sMDiN = pn.Column(pn.Row(RF_store_sMDiN.controls,
+                                       pn.Column('### Model Performance Metrics', RF_store_sMDiN.n_results)),
+                                '### Feature Importance Table (Shown here only the Top 2000 Features)',
+                                rf_feat_imp_show_annots_only_sMDiN,
+                               pn.pane.DataFrame(RF_store_sMDiN.feat_impor),
+                               save_rf_feat_imp_sMDiN_button,)
+
+# Page sections / Widgets that will change based on RF_store_sMDiN
+RF_store_sMDiN.current_pages_associated.append(rf_optim_section_sMDiN)
+RF_store_sMDiN.current_pages_associated.append(rf_results_section_sMDiN)
+RF_store_sMDiN.current_pages_associated.append(rf_feat_imp_show_annots_only_sMDiN)
+RF_store_sMDiN.current_pages_associated.append(save_rf_feat_imp_sMDiN_button)
+
+
+# Complete layout of the PLS-DA section of sMDiN analysis
+page_sMDiN_RF = pn.Column(pn.pane.HTML(rf_opening_string),
+                           rf_optim_section_sMDiN,
+                           rf_results_section_sMDiN)
+
 
 smdin_analysis_page = pn.Tabs(('PCA', page_sMDiN_PCA), ('HCA', page_sMDiN_HCA),
                                         ('PLS-DA', page_sMDiN_PLSDA), ('RF ', page_sMDiN_RF))
@@ -9076,6 +9601,49 @@ def Yes_Reset(event):
     mdb_filename.value = ''
     node_desc[0] = 'Placeholder'
     edge_desc[0] = 'Placeholder'
+    # sMDiN Analysis page
+    while len(smdin_page) > 3:
+        smdin_page.pop(-1)
+    # PCA
+    n_components_compute_sMDiN.value = 10
+    PCA_params_sMDiN.compute_fig = False
+    PCA_params_sMDiN.reset()
+    PCA_params_sMDiN.sMDiN_flag = True
+    for _, w in PCA_params_sMDiN.controls.widgets.items():
+        w.disabled = True
+    middle_page_PCA_sMDiN[0,1:3] = 'To plot a PCA'
+    end_page_PCA_sMDiN[0] = 'To plot explained variance figure'
+    end_page_PCA_sMDiN[1] = 'To plot matrices of PCA projections'
+    # HCA
+    HCA_params_sMDiN.compute_fig = False
+    HCA_params_sMDiN.reset()
+    HCA_params_sMDiN.sMDiN_flag = True
+    # PLS-DA
+    plsda_feat_imp_show_annots_only_sMDiN.value = False
+    plsda_feat_imp_show_annots_only_sMDiN.disabled = True
+    rec_comp_indicator_sMDiN_widget.value = None
+    PLSDA_store_sMDiN.soft_reset()
+    pls_optim_section_sMDiN[1] = PLSDA_store_sMDiN.optim_figure[0]
+    save_plsda_feat_imp_sMDiN_button.disabled = True
+    while len(pls_results_section_sMDiN) > 5:
+        pls_results_section_sMDiN.pop(-1)
+    pls_results_section_sMDiN[0][1][1] = PLSDA_store_sMDiN.n_results
+    pls_results_section_sMDiN[3] = pn.pane.DataFrame(PLSDA_store_sMDiN.feat_impor)
+    PLSDA_store_sMDiN.sMDiN_flag = True
+    PLSDA_store_sMDiN.controls.widgets['scale'].disabled = True
+    PLSDA_store_sMDiN.controls_optim.widgets['scale'].disabled = True
+    # RF
+    rf_feat_imp_show_annots_only_sMDiN.value = False
+    rf_feat_imp_show_annots_only_sMDiN.disabled = True
+    RF_store_sMDiN.reset()
+    rf_optim_section_sMDiN[1] = RF_store_sMDiN.optim_figure[0]
+    save_rf_feat_imp_sMDiN_button.disabled = True
+    while len(rf_results_section_sMDiN) > 5:
+        rf_results_section_sMDiN.pop(-1)
+    rf_results_section_sMDiN[0][1][1] = RF_store_sMDiN.n_results
+    rf_results_section_sMDiN[3] = pn.pane.DataFrame(RF_store_sMDiN.feat_impor)
+    RF_store_sMDiN.sMDiN_flag = True
+    sMDiN_store.reset()
 
     # Compound Finder search tool page
     comp_finder.reset()

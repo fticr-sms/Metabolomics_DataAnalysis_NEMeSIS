@@ -1392,6 +1392,33 @@ def creating_importance_feat_table(imp_feat_metric, DataFrame_Store, model_feat_
     return imp_feats
 
 
+def creating_importance_feat_table_sMDiN(imp_feat_metric, sMDiN_store, DataFrame_Store, model_feat_results):
+    "Creates and organizes the DataFrame with the feature importance for supervised models for sMDiN analysis."
+
+    imp_feat_colname = imp_feat_metric + ' Score' # Name of Importance Column
+
+    if len(np.intersect1d(sMDiN_store.smdin_df.columns, DataFrame_Store.metadata_df.index)) > 0:
+        imp_feats = DataFrame_Store.metadata_df.loc[sMDiN_store.smdin_df.columns].copy() # Starting df
+        imp_feats.insert(0, imp_feats.index.name, imp_feats.index) # Include Column
+    else:
+        imp_feats = pd.DataFrame(index=sMDiN_store.smdin_df.columns) # Starting df
+        imp_feats.insert(0, sMDiN_store.network_analysis, imp_feats.index) # Include Column
+
+    imp_feats.insert(1, imp_feat_colname, np.nan) # Include Column for importance
+
+    # Fill importance column
+    for n in range(len(model_feat_results)):
+        imp_feats[imp_feat_colname].iloc[model_feat_results[n][0]] = model_feat_results[n][1]
+    imp_feats = imp_feats.dropna(subset=imp_feat_colname)
+    # Sort from highest to lowest importance
+    imp_feats = imp_feats.sort_values(by=imp_feat_colname, ascending=False)
+    # Make Index be the place/position of each feature in the importance list
+    imp_feats.index = range(1, len(imp_feats)+1)
+    imp_feats.index.name = 'Place'
+
+    return imp_feats
+
+
 def _plot_permutation_test(perm_results, df, n_fold, metric, title='Permutation Test'):
     "Plots the permutation test results with matplotlib."
 
