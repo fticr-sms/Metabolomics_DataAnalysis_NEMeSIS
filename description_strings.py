@@ -661,6 +661,44 @@ with formula differences.
 '''
 
 
+# sMDiN Analysis Page Description HTML in string format
+
+sMDiN_opening_string = '''The generated MDiN/FDiN can here be used to perform sample Mass-Difference Network (sMDiN)
+analysis. This methodology creates a graph for each sample on the dataset by subgraphing the generated MDiN/FDiN with
+only the detected metabolites found within the sample, that is, using only feature occurrence information. The
+resulting graphs, if the dataset is of high quality, should be representative of the sample and characteristic of its
+biological class since it contains their characteristic set of metabolites. Then, the generated graphs can be analysed
+by different network analysis methods to obtain a tabular representation again where the information extracted is
+dependent on the network analysis performed. Traditional Unsupersived and Supervised analysis can be performed on this
+tabular representation to extract information. Depending on the method employed, information on the graph structure,
+that is, information regarding metabolite relationships through chemical transformations can be obtained.
+<br>
+<br>
+For more detailed information on this methodology, check out our paper on it: <strong><a data-fr-linked="true"
+href="https://doi.org/10.3389/fmolb.2022.917911">https://doi.org/10.3389/fmolb.2022.917911</a></strong>.
+<br>
+<strong>Citation</strong>: Traquete F, Luz J, Cordeiro C, Sousa Silva M, Ferreira AEN. Graph Properties of
+Mass-Difference Networks for Profiling and Discrimination in Untargeted Metabolomics. <em>Front Mol Biosci.</em>. 2022;9.
+<a data-fr-linked="true" href="https://doi.org/10.3389/fmolb.2022.917911">https://doi.org/10.3389/fmolb.2022.917911</a>.
+<br>
+<br>
+Here, we have available <strong>5 different typess of network analysis</strong> to be performed on the sMDiNs that were
+the ones detailed in the above paper. Three of these are centrality measures focusing on local characteristics
+(<strong>Degree, Betweenness Centrality and Closeness Centrality</strong>) and two focus on global characteristics:
+<strong>MDBI and GCD-11</strong>. MDBI or Mass-Difference based Building Block Impact is a measure that focuses on the
+impact each biochemical transformation (MDB) used to build the graphs to build each sample, being the percentage of
+edges established by each MDB in a certain sample. GCD-11 is the Graphlet Correlation distance, which includes the 11
+non-redundant orbits of up to four-node graphlets as a global measure of the overall network topology (for details see
+<a data-fr-linked="true" href="https://doi.org/10.1038/srep04547">https://doi.org/10.1038/srep04547</a>). Results of
+the paper above indicate that Degree Analysis usually lead to the best performing model and that MDBI metric can be used
+to extract relevant information on prominence of different biochemical transformations across samples while GCD-11 leads
+to worse and less interpretable results.
+<br>
+<br>
+<strong>Note</strong>: Betweenness Centrality calculation can take a considerable amount of time.
+'''
+
+
 # Report Generation Page Description HTML in string format
 
 report_opening_string = '''This section can provide a <strong>report of the metabolomics dataset</strong> analysed here. It

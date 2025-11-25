@@ -7511,7 +7511,7 @@ class GraphStorage(param.Parameterized):
     MDBs = param.DataFrame(pd.DataFrame())
 
     # Parameters for graph building
-    mdin_type = param.String(default='Simple')
+    mdin_type = param.String(default='Univocal')
     ppm_thresh = param.Number(default=0.5)
     reliable_formulas = param.List(default=[])
     confirm_mdin = param.Boolean(default=False)
@@ -7745,7 +7745,7 @@ class GraphStorage(param.Parameterized):
         super().__init__(**params)
         # Base Widgets
         widgets = {
-            'mdin_type': pn.widgets.Select(name='Algorithm to Build the MDiN',
+            'mdin_type': pn.widgets.Select(name='Algorithm to Build the MDiN', value='Univocal',
                                            options=['Simple', 'Univocal', 'Mass Formula Propagation', 'Formula']),
             'ppm_thresh': pn.widgets.FloatInput(name='Maximum PPM Deviation for Establishing Edges', value=0.5, step=0.1, start=0.1),
             'reliable_formulas': pn.widgets.MultiChoice(name='Formula Assignment Columns to Consider while Building FDiN/MDiN (see tooltip)',
@@ -8119,6 +8119,7 @@ def _plot_MDiN(event):
     graph_section.append(graph)
     graph_section.append(save_graph_button)
     graph_analysis_page.append(pn.pane.HTML('<br>'.join(graph_store.mdin_desc_after)))
+    graph_analysis_page.append(smdin_page)
 
 # Calling the function to plot MDiNs
 graph_store.controls_fig.widgets['plot_mdin'].on_click(_plot_MDiN)
@@ -8142,6 +8143,195 @@ graph_section = pn.Column()
 vis_graph_page = pn.GridSpec()
 vis_graph_page[:, :2] = graph_section
 vis_graph_page[:, 2] = sup_section
+
+
+
+
+# Class to store sMDiN analysis related parameters
+class sMDiNStorage(param.Parameterized):
+    "Class to contain parameters and figures related to the sMDiN analysis."
+
+    # Parameters for sMDiN
+    network_analysis = param.String(default='Degree')
+    confirm_sMDiNs = param.Boolean(default=False)
+
+    # Storing Graphs
+    smdin_graphs = param.Dict(default={})
+    smdin_desc = param.List(default=['Description placeholder'])
+
+    # Storing Parameters
+    smdin_df = param.DataFrame()
+    curr_params = param.Dict({})
+
+
+    def _subgraphing_MDiN(self, DataFrame_Store, graph_store, radiobox_neutral_mass):
+        "Generates the sample Mass-Difference Network by subgraphing the MDiN."
+
+        # Dict to store sMDiNs
+        sMDiNs = {}
+        for samp in DataFrame_Store.treated_df.index:
+            # Subgraphing sMDiN
+            idxs = [i for i in DataFrame_Store.processed_df[
+                DataFrame_Store.processed_df.loc[:,samp].replace({np.nan:0}) != 0].index]
+            ints = {i: DataFrame_Store.treated_df.loc[samp, i] for i in DataFrame_Store.processed_df[
+                DataFrame_Store.processed_df.loc[:,samp].replace({np.nan:0}) != 0].index}
+            sMDiNs[samp] = graph_store.mdin_graphs[0].copy().subgraph(idxs)
+
+            # Storing intensity of feature in sample on the nodes
+            intensity_attr = dict.fromkeys(sMDiNs[samp].nodes(),0)
+            for m in ints:
+                int_v = ints[m]
+                intensity_attr[m] = {'mass':DataFrame_Store.processed_df.loc[m, radiobox_neutral_mass], 'intensity': int_v}
+            nx.set_node_attributes(sMDiNs[samp], intensity_attr)
+
+        # Description
+        self.smdin_desc.clear()
+        self.smdin_desc.append('<strong>Characteristics of the Generated sMDiNs/sFDiNs</strong>:<br>')
+        for s, g in sMDiNs.items():
+            self.smdin_desc.append(f'Sample <strong>{s}</strong>: <strong>{len(g.nodes())}</strong> nodes and <strong>{len(g.edges())}</strong> edges.')
+
+        self.smdin_graphs = sMDiNs
+
+
+    def _analysing_sMDiNs(self, graph_store):
+        'Performs network analysis on the sMDiNs created.'
+
+        # Degree Analysis
+        if self.network_analysis == 'Degree':
+            degree = {}
+            for samp in self.smdin_graphs:
+                degree[samp] = dict(self.smdin_graphs[samp].degree())
+            # DataFrame
+            self.smdin_df = pd.DataFrame.from_dict(degree).replace({np.nan:0}).T
+
+        # Betweenness Centrality Analysis
+        if self.network_analysis == 'Betweenness Centrality':
+            betw = {}
+            for samp in self.smdin_graphs:
+                betw[samp] = nx.betweenness_centrality(self.smdin_graphs[samp], k=None)
+            # DataFrame
+            self.smdin_df = pd.DataFrame.from_dict(betw).replace({np.nan:0}).T
+
+        # Closeness Centrality Analysis
+        if self.network_analysis == 'Closeness Centrality':
+            cc = {}
+            for samp in self.smdin_graphs:
+                cc[samp] =  nx.closeness_centrality(self.smdin_graphs[samp])
+            # DataFrame
+            self.smdin_df = pd.DataFrame.from_dict(cc).replace({np.nan:0}).T
+
+        # MDB Impact Analysis
+        if self.network_analysis == 'MDB Impact':
+            MDBI = {}
+            for samp in self.smdin_graphs:
+                MDBI[samp] = dict.fromkeys(graph_store.MDBs.index, 0) # MDBs from the transformation list
+                for i in self.smdin_graphs[samp].edges():
+                    MDBI[samp][self.smdin_graphs[samp].edges()[i]['Transformation']] += 1
+            # DataFrame
+            self.smdin_df = pd.DataFrame.from_dict(MDBI).replace({np.nan:0})
+            self.smdin_df = (self.smdin_df/self.smdin_df.sum()).T
+
+        # GCD-11 Analysis
+        if self.network_analysis == 'GCD-11':
+            GCD = {}
+            for samp in self.smdin_graphs:
+                # Corr_Mat
+                orbits_t = md.calculating_orbits(self.smdin_graphs[samp]) # Calculating orbit number for each node
+                orbits_df = pd.DataFrame.from_dict(orbits_t).T # Transforming into a dataframe
+
+                # Signature matrices
+                corrMat_ar = stats.spearmanr(orbits_df)[0] # Calculating spearman correlation to obtain 11x11 signature of the network - GCM
+                corrMat_tri = np.triu(corrMat_ar, k=0) # Both parts of the matrix are equal, so reducing the info to the upper triangle
+
+                # Pulling the signature orbit n (u) - orbit m (v) correlations from the upper triangular matrix of the GCM
+                # Making the signature of the sample MDiN into a column of the dataset
+                samp_col = {}
+                orbits = [0,1,2,4,5,6,7,8,9,10,11]
+                for u in range(len(corrMat_tri)):
+                    for v in range(u+1, len(corrMat_tri)):
+                        samp_col[str(orbits[u]) + '-' + str(orbits[v])] = corrMat_tri[u,v]
+                    GCD[samp] = samp_col
+
+            # DataFrame
+            self.smdin_df = pd.DataFrame.from_dict(GCD).replace({np.nan:0}).T
+
+
+    def reset(self):
+        "Reset parameters."
+        for param in self.param:
+            if param not in ["name",]:
+                setattr(self, param, self.param[param].default)
+
+
+    def __init__(self, **params):
+
+        super().__init__(**params)
+        # Base Widgets
+        widgets = {
+            'network_analysis': pn.widgets.Select(name='Network Analysis to Perform on sMDiNs', value='Degree',
+                                           options=['Degree', 'Betweenness Centrality', 'Closeness Centrality', 'MDB Impact', 'GCD-11']),
+            'confirm_sMDiNs': pn.widgets.Button(name="Build sample Mass-Difference Networks and Perform Network Analysis",
+                                                button_type='primary'),
+        }
+
+        self.controls = pn.Param(self, parameters=['network_analysis', 'confirm_sMDiNs'],
+                                 widgets=widgets, name='Network Anlaysis Method to Perform on sMDiNs')
+
+# Initialize Store
+sMDiN_store = sMDiNStorage()
+
+
+# Function to build the sMDiNs and then perform network analysis
+def _generate_sMDiNs_perform_network_analysis(event):
+    "Generates the sMDiNs by subgraphing the MDiN and performing network analysis on them. Also updates page layout."
+
+    # Section 1: Generate sMDiNs
+    # Clean layout
+    while len(smdin_page) > 3:
+        smdin_page.pop(-1)
+    # Loading Widget while sMDiNs ae generated is being generated
+    smdin_page.append(pn.indicators.LoadingSpinner(value=True, size=100,
+        name='sMDiNs/sFDiNs being generated from the global MDiN/FDiN...'))
+
+    # Generating
+    sMDiN_store._subgraphing_MDiN(DataFrame_Store, graph_store, radiobox_neutral_mass.value)
+
+    # Layout Update
+    smdin_page[-1] =  pn.pane.HTML('<br>'.join(sMDiN_store.smdin_desc))
+
+    # Section 2: Performing Network Analysis
+    # Loading Widget while Network Analysis is being performed
+    smdin_page.append(pn.indicators.LoadingSpinner(value=True, size=100,
+        name=f'sMDiNs/sFDiNs {sMDiN_store.network_analysis} network analysis being performed...'))
+
+    # Network Analysis
+    sMDiN_store._analysing_sMDiNs(graph_store)
+
+    # Store Parameters
+    sMDiN_store.curr_params = {'network_analysis': sMDiN_store.network_analysis}
+
+    # Layout Update
+    smdin_page[-1] =  pn.pane.DataFrame(sMDiN_store.smdin_df)
+    smdin_page.append(smdin_analysis_page)
+
+
+# Call the function when the appropriated button is touched
+sMDiN_store.controls.widgets['confirm_sMDiNs'].on_click(_generate_sMDiNs_perform_network_analysis)
+
+# sMDiN Analysis page
+smdin_page = pn.Column('# Sample Mass-Difference Networks (sMDiNs) Analysis',
+                       pn.pane.HTML(desc_str.sMDiN_opening_string),
+                       sMDiN_store.controls)
+
+
+page_sMDiN_PCA = pn.Column()
+page_sMDiN_HCA = pn.Column()
+page_sMDiN_PLSDA = pn.Column()
+page_sMDiN_RF = pn.Column()
+
+smdin_analysis_page = pn.Tabs(('PCA', page_sMDiN_PCA), ('HCA', page_sMDiN_HCA),
+                                        ('PLS-DA', page_sMDiN_PLSDA), ('RF ', page_sMDiN_RF))
+
 
 # Complete Graph-based Analysis Page Layout
 graph_analysis_page = pn.Column(pn.Row(mdb_filename, pn.Row(load_default_mdb_button, tooltip_default_mdb)),'',
