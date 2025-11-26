@@ -557,7 +557,9 @@ def _confirm_param_file_button(event):
                     RepGen, adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
                     com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
                     dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, n_components_compute_binsim, HCA_params_binsim,
-                    PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in.value, params_analysis_loaded_in.value)
+                    PLSDA_store_binsim, RF_store_binsim, n_components_compute_sMDiN, graph_store, sMDiN_store, PCA_params_sMDiN,
+                    HCA_params_sMDiN, PLSDA_store_sMDiN, RF_store_sMDiN, params_pre_treat_loaded_in.value, params_analysis_loaded_in.value,
+                    )
 
         # Adjust necessary widgets
         if 'BinSim Analysis' in params_to_load.value.keys():
@@ -2909,7 +2911,8 @@ def _confirm_button_next_step_5(event):
                                 RepGen, adducts_to_search_widget, DB_dict, FormAssign_store, PreTreatment_Method, checkbox_com_exc,
                                 com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
                                 dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, n_components_compute_binsim,
-                                HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, False, params_analysis_loaded_in.value)
+                                HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, n_components_compute_sMDiN, graph_store, sMDiN_store,
+                                PCA_params_sMDiN, HCA_params_sMDiN, PLSDA_store_sMDiN, RF_store_sMDiN, False, params_analysis_loaded_in.value)
 
                     # Adjust necessary widgets
                     if 'BinSim Analysis' in params_to_load.value.keys():
@@ -3016,7 +3019,8 @@ def _save_parameters_pretreat_button(event):
         report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget,
                         DB_dict, FormAssign_store, checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store,
                         RF_store, dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim,
-                        PLSDA_store_binsim, RF_store_binsim, include_data_analysis=False)
+                        PLSDA_store_binsim, RF_store_binsim, graph_store, sMDiN_store, PCA_params_sMDiN, HCA_params_sMDiN,
+                        PLSDA_store_sMDiN, RF_store_sMDiN, include_data_analysis=False)
 
         pn.state.notifications.success(f'Pre-Treatment Parameters successfully saved in {filename}.json')
 
@@ -3806,7 +3810,7 @@ middle_page_PCA[0,1:3] = 'To plot a PCA'
 # Final section of the page
 end_page_PCA = pn.Column('To plot explained variance figure', 'To plot matrices of PCA projections')
 
-# Page sections that will change based on HCA_params
+# Page sections that will change based on PCA_params
 PCA_params.current_pages_associated.append(middle_page_PCA)
 PCA_params.current_pages_associated.append(end_page_PCA)
 
@@ -7833,7 +7837,7 @@ class GraphStorage(param.Parameterized):
 
         # Parameter Updating
         self.mdin_graphs[0] = general_MDiN
-        self.curr_params = {'mdin_type' : self.mdin_type, 'ppm_thresh': self.ppm_thresh}
+        self.curr_params = {'mdin_type' : self.mdin_type, 'ppm_thresh': self.ppm_thresh, 'reliable_formulas': self.reliable_formulas}
         # Layout Update
         while len(graph_analysis_page) > 3:
             graph_analysis_page.pop(-1)
@@ -8025,6 +8029,7 @@ class Cytoscape(ReactiveHTML):
 
 pn.extension('cytoscape', sizing_mode='stretch_width')
 
+graph = Cytoscape(object=[], sizing_mode="stretch_width", height=600, style=[])
 
 # Set up the description section of the page
 node_desc = pn.Column('Placeholder')
@@ -8093,7 +8098,7 @@ def _plot_MDiN(event):
     elements = cs_data["elements"]["nodes"] + cs_data["elements"]["edges"]
 
     # Setting the graph
-    graph = Cytoscape(object=elements, sizing_mode="stretch_width", height=600, style=[])
+    graph.object = elements# = Cytoscape(object=elements, sizing_mode="stretch_width", height=600, style=[])
     graph.style = [{'selector': 'node',
                 'style': {'background-color': 'data(color)',
                     'shape': 'circle',}},
@@ -8251,7 +8256,7 @@ save_graph_button = pn.widgets.Button(name='Save current graph view as a html', 
 def _save_graph_button(event):
     "Saves Graph Outputted as HTML."
     filename_string = f'MDiN_{graph_store.curr_params["mdin_type"]}_ppm{graph_store.curr_params["ppm_thresh"]}'
-    filename_string = filename_string + f'_{graph_store.curr_params["min_comp_size"]}_'
+    filename_string = filename_string + f'_MinCompSize{graph_store.curr_params["min_comp_size"]}_'
     graph_section[1].save(path_dl + '/' + filename_string)
     pn.state.notifications.success(f'Graph successfully saved.')
 save_graph_button.on_click(_save_graph_button)
@@ -8280,7 +8285,7 @@ class sMDiNStorage(param.Parameterized):
     smdin_desc = param.List(default=['Description placeholder'])
 
     # Storing Parameters
-    smdin_df = param.DataFrame()
+    smdin_df = param.DataFrame(pd.DataFrame())
     curr_params = param.Dict({})
 
 
@@ -8430,17 +8435,18 @@ def _generate_sMDiNs_perform_network_analysis(event):
     # Store Parameters
     sMDiN_store.curr_params = {'network_analysis': sMDiN_store.network_analysis}
 
-    # Get a sample HCA
-    HCA_params_sMDiN._update_HCA_compute_plot()
-
     # Layout Update
     smdin_page[-1] =  pn.pane.DataFrame(sMDiN_store.smdin_df)
+    smdin_page.append(save_smdin_df_button)
 
-    # Reset Analysis
+    # Reset Figures
     # PCA
-    n_components_compute_sMDiN.value = 10
     PCA_params_sMDiN.compute_fig = False
-    PCA_params_sMDiN.reset()
+    for i in ['pca_scores', 'explained_variance', 'pca_loadings', 'PCA_plot']:
+        setattr(PCA_params_sMDiN, i, PCA_params_sMDiN.param[i].default)
+    PCA_params_sMDiN.PCA_plot = ['a']
+    PCA_params_sMDiN.exp_var_fig_plot = ['a']
+    PCA_params_sMDiN.scatter_PCA_plot = ['a']
     PCA_params_sMDiN.sMDiN_flag = True
     for _, w in PCA_params_sMDiN.controls.widgets.items():
         w.disabled = True
@@ -8448,14 +8454,20 @@ def _generate_sMDiNs_perform_network_analysis(event):
     end_page_PCA_sMDiN[0] = 'To plot explained variance figure'
     end_page_PCA_sMDiN[1] = 'To plot matrices of PCA projections'
     # HCA
-    HCA_params_sMDiN.compute_fig = False
-    HCA_params_sMDiN.reset()
-    HCA_params_sMDiN.sMDiN_flag = True
+    HCA_params_sMDiN._update_HCA_compute_plot()
     # PLS-DA
     plsda_feat_imp_show_annots_only_sMDiN.value = False
     plsda_feat_imp_show_annots_only_sMDiN.disabled = True
     rec_comp_indicator_sMDiN_widget.value = None
-    PLSDA_store_sMDiN.soft_reset()
+    for i in ['optim_q2', 'optim_r2', 'rec_components', 'n_results', 'feat_impor', 'models', 'x_scores', ]:
+        setattr(PLSDA_store_sMDiN, i, PLSDA_store_sMDiN.param[i].default)
+    PLSDA_store_sMDiN.current_plsda_params = {}
+    PLSDA_store_sMDiN.current_other_plsda_params = {}
+    PLSDA_store_sMDiN.current_plsda_params_permutation = {}
+    PLSDA_store_sMDiN.optim_figure = ['To Plot the Optimization PLS Figure']
+    PLSDA_store_sMDiN.PLS_plot = ['To Plot the PLS Projection Figure']
+    PLSDA_store_sMDiN.ROC_figure = ['To Plot the ROC Curve(s)']
+    PLSDA_store_sMDiN.perm_figure = ['To Plot the Permutation Test Figure']
     pls_optim_section_sMDiN[1] = PLSDA_store_sMDiN.optim_figure[0]
     save_plsda_feat_imp_sMDiN_button.disabled = True
     while len(pls_results_section_sMDiN) > 5:
@@ -8463,12 +8475,17 @@ def _generate_sMDiNs_perform_network_analysis(event):
     pls_results_section_sMDiN[0][1][1] = PLSDA_store_sMDiN.n_results
     pls_results_section_sMDiN[3] = pn.pane.DataFrame(PLSDA_store_sMDiN.feat_impor)
     PLSDA_store_sMDiN.sMDiN_flag = True
-    PLSDA_store_sMDiN.controls.widgets['scale'].disabled = True
-    PLSDA_store_sMDiN.controls_optim.widgets['scale'].disabled = True
     # RF
     rf_feat_imp_show_annots_only_sMDiN.value = False
     rf_feat_imp_show_annots_only_sMDiN.disabled = True
-    RF_store_sMDiN.reset()
+    for i in ['optim_scores', 'optim_ntrees', 'n_results', 'feat_impor', 'models', ]:
+        setattr(RF_store_sMDiN, i, RF_store_sMDiN.param[i].default)
+    RF_store_sMDiN.current_rf_params = {}
+    RF_store_sMDiN.current_other_rf_params = {}
+    RF_store_sMDiN.current_rf_params_permutation = {}
+    RF_store_sMDiN.optim_figure = ['To Plot the Optimization RF Figure']
+    RF_store_sMDiN.ROC_figure = ['To Plot the ROC Curve(s)']
+    RF_store_sMDiN.perm_figure = ['To Plot the Permutation Test Figure']
     rf_optim_section_sMDiN[1] = RF_store_sMDiN.optim_figure[0]
     save_rf_feat_imp_sMDiN_button.disabled = True
     while len(rf_results_section_sMDiN) > 5:
@@ -8476,16 +8493,25 @@ def _generate_sMDiNs_perform_network_analysis(event):
     rf_results_section_sMDiN[0][1][1] = RF_store_sMDiN.n_results
     rf_results_section_sMDiN[3] = pn.pane.DataFrame(RF_store_sMDiN.feat_impor)
     RF_store_sMDiN.sMDiN_flag = True
-    PLSDA_store_sMDiN.n_folds_limits_and_class_update(target_list)
-    if PLSDA_store_sMDiN.n_fold == 5:
-        PLSDA_store_sMDiN._update_max_comp_n_comp()
-    RF_store_sMDiN.n_folds_limits_and_class_update(target_list)
 
     smdin_page.append(smdin_analysis_page)
 
 
 # Call the function when the appropriated button is touched
 sMDiN_store.controls.widgets['confirm_sMDiNs'].on_click(_generate_sMDiNs_perform_network_analysis)
+
+# Widget to save the sMDiN df
+save_smdin_df_button = pn.widgets.Button(name='Save current DataFrame based on network analysis of sMDiNs', button_type='warning',
+                                         icon=iaf.download_icon)
+# Button to save the sMDiN df
+def _save_smdin_df_button(event):
+    "Saves the dataset obtained from network analysis of sMDiNs."
+    filename = f'sMDiN_{graph_store.curr_params["mdin_type"]}_ppm{graph_store.curr_params["ppm_thresh"]}_'
+    filename = filename + f'MinCompSize{graph_store.curr_params["min_comp_size"]}_'
+    filename = filename + f'{sMDiN_store.curr_params["network_analysis"]}.xlsx'
+    sMDiN_store.smdin_df.to_excel(path_dl + '/' + filename)
+    pn.state.notifications.success(f'DataFrame successfully saved.')
+save_smdin_df_button.on_click(_save_smdin_df_button)
 
 # sMDiN Analysis page
 smdin_page = pn.Column('# Sample Mass-Difference Networks (sMDiNs) Analysis',
@@ -8500,7 +8526,7 @@ smdin_page = pn.Column('# Sample Mass-Difference Networks (sMDiNs) Analysis',
 
 # Running initial param to store PCA details - sMDiN version
 PCA_params_sMDiN = PCA_Storage()
-PCA_params_sMDiN.sMDiN_flag = True # Raising  flag
+PCA_params_sMDiN.sMDiN_flag = True # Raising flag
 # Making PCA Projection Controlling widgets disabled
 for n, w in PCA_params_sMDiN.controls.widgets.items():
     w.disabled = True
@@ -9349,7 +9375,8 @@ def _report_generation_button(event):
                                         checkbox_others, target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict,
                                         verbose_annotated_compounds, FormAssign_store, data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store,
                                         RF_store, dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim,
-                                        RF_store_binsim, rep_gen_page)
+                                        RF_store_binsim, graph_store, sMDiN_store, PCA_params_sMDiN, HCA_params_sMDiN, PLSDA_store_sMDiN, RF_store_sMDiN,
+                                        graph_section, rep_gen_page)
     except:
         while len(rep_gen_page) > 6:
             rep_gen_page.pop(5)
@@ -9376,7 +9403,8 @@ def _save_parameters_analysis_button(event):
         filename = params_filename.value
         report_generation.save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, FormAssign_store,
                         checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store, PathAssign_store,
-                        pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, include_data_analysis=True)
+                        pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, graph_store, sMDiN_store,
+                        PCA_params_sMDiN, HCA_params_sMDiN, PLSDA_store_sMDiN, RF_store_sMDiN, include_data_analysis=True)
 
         pn.state.notifications.success(f'Parameters successfully saved in {filename}.json')
 

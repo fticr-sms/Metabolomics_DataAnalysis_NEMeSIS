@@ -13,7 +13,8 @@ import json
 def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula, radiobox_neutral_mass, checkbox_QCsamples, checkbox_others,
                      target_list, UnivarA_Store, characteristics_df, DataFrame_Store, n_databases, DB_dict, verbose_annotated_compounds,
                      FormAssign_store, data_ann_deduplicator, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store,
-                     PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, rep_gen_page):
+                     PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, graph_store,
+                     sMDiN_store, PCA_params_sMDiN, HCA_params_sMDiN, PLSDA_store_sMDiN, RF_store_sMDiN, graph_section, rep_gen_page):
     "Makes a read-only Word file with the metabolomics data analysis performed of selected statistical analysis."
 
     # Create Folder to put the report in
@@ -491,6 +492,8 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
         stat_methods.append('HMDB Pathway Assignment')
     for i in RepGen.BinSim_analysis:
         stat_methods.append('BinSim - ' + i)
+    for i in RepGen.graph_analysis:
+        stat_methods.append(i)
 
     document.add_paragraph(f'This section includes the statistical analysis chosen to be in this report. These are: {", ".join(stat_methods)}.')
 
@@ -1822,6 +1825,495 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 
 
 
+    # Graph-based Analysis Section
+    if len(np.intersect1d(['MDiN and FDiN Generation', 'sMDiN'], stat_methods)) != 0:
+        document.add_heading('Graph-based Analysis', level=2)
+
+        # MDiN and FDiN Generation
+        if 'MDiN and FDiN Generation' in stat_methods:
+            # Heading
+            document.add_heading('MDiN and FDiN Generation and Visualization', level=3)
+
+            # See if the MDiN was actually generated
+            if type(graph_store.mdin_graphs[0]) != str:
+                cp = graph_store.curr_params
+                # Description
+                if cp['mdin_type'] != 'Formula':
+                    graph_pg = document.add_paragraph(f'Mass-Difference Networks were generated using the algorithm ')
+                    graph_pg.add_run(f'{cp['mdin_type']}').bold = True
+                    graph_pg.add_run(f' allowing for a ')
+                    graph_pg.add_run(f'{cp['ppm_thresh']} ppm mass deviation.').bold = True
+                    if cp['mdin_type'] == 'Mass Formula Propagation':
+                        graph_pg.add_run(f' The column used to consider a Formula reliable was ')
+                        graph_pg.add_run(f'{cp['reliable_formulas'][0]}.').bold = True
+                        graph_pg.add_run(f' The number of reliable formulas used as starting points was ')
+                        graph_pg.add_run(f'{graph_store.mdin_desc[1].split(': ')[1][:-1]}').bold = True
+
+                else:
+                    graph_pg = document.add_paragraph(f'Formula-Difference Networks were generated using the ')
+                    graph_pg.add_run(f'following formula assignment columns in order of priority to use the assigned formula: ')
+                    a=0
+                    for f in cp['reliable_formulas']:
+                        if a != 0:
+                            graph_pg.add_run(f', ')
+                        graph_pg.add_run(f'{f}').bold = True
+
+                graph_pg.add_run(f'. MDiN was filtered to remove components smaller than or equal to ')
+                graph_pg.add_run(f'{cp['min_comp_size']} nodes.').bold = True
+
+                # Description of the graph
+                a = 0
+                for el in graph_store.mdin_desc_after:
+                    el = el.replace('<strong>', '')
+                    el = el.replace('</strong>', '')
+                    el = el.replace('<br>', '')
+                    if a == 0:
+                        document.add_paragraph(el)
+                    else:
+                        document.add_paragraph(el, style='List Bullet')
+                    a+=1
+
+                # Visualization of the graph
+                filename_string = f'/Report_MDiN_{graph_store.curr_params["mdin_type"]}_ppm{graph_store.curr_params["ppm_thresh"]}'
+                filename_string = filename_string + f'_MinCompSize{graph_store.curr_params["min_comp_size"]}_'
+                graph_section[1].save(folder+filename_string)
+
+                document.add_paragraph(f'The graph is saved as an html that can be visualized in {filename_string[1:]}.html.')
+
+            # No MDiN/FDiN detected
+            else:
+                graph_pg = document.add_paragraph(f'No Mass-Difference Networks were generated or detected in the analysis. ')
+                graph_pg.add_run('Thus, this section is skipped.')
+
+            # End of Generation of sMDiN and FDiN section
+            document.add_page_break()
+
+
+
+        # sMDiN analysis
+        if 'sMDiN' in stat_methods:
+
+            if len(sMDiN_store.smdin_df) > 0:
+
+                # Introducing sMDiNs
+                smdin_pg = document.add_paragraph(f'Sample Mass-Difference Networks (sMDiNs) were generated from the MDiN/FDiN built ')
+                smdin_pg.add_run('prior from the dataset using feature occurrence, that is, a network from a sample was created by ')
+                smdin_pg.add_run("sub-graphing the dataset's MDiN with only the metabolites that appear in that sample. ")
+
+                # sMDiN characteristics
+                a = 0
+                for el in sMDiN_store.smdin_desc:
+                    el = el.replace('<strong>', '')
+                    el = el.replace('</strong>', '')
+                    el = el.replace('<br>', '')
+                    if a == 0:
+                        document.add_paragraph(el)
+                    else:
+                        document.add_paragraph(el, style='List Bullet')
+                    a+=1
+
+                # sMDiN saving
+                net_an = sMDiN_store.curr_params["network_analysis"]
+                if graph_store.curr_params["mdin_type"] != 'Mass Formula Propagation':
+                    base_filename_sMDiN = f'sMDiN_{graph_store.curr_params["mdin_type"]}_ppm{graph_store.curr_params["ppm_thresh"]}_'
+                else:
+                    base_filename_sMDiN = f'sMDiN_MFormProp_ppm{graph_store.curr_params["ppm_thresh"]}_'
+                base_filename_sMDiN = base_filename_sMDiN + f'MinCompSize{graph_store.curr_params["min_comp_size"]}_{net_an}'
+                smdin_pg2 = document.add_paragraph(f'The Network Analysis "')
+                smdin_pg2.add_run(f'{sMDiN_store.curr_params["network_analysis"]}').bold = True
+                smdin_pg2.add_run(f'" was performed on the obtained sMDiNs. The resulting DataFrame can then be processed ')
+                filename_string = f'/Report_' + base_filename_sMDiN + '_df.xlsx'
+                sMDiN_store.smdin_df.to_excel(folder+filename_string)
+                smdin_pg2.add_run(f'by traditonal unsupervised and supervised analysis. This DataFrame is saved as: {filename_string[1:]}.')
+
+                # PCA Section - sMDiN version
+                # Heading
+                document.add_heading('Principal Component Analysis (PCA) - sMDiN Version', level=3)
+
+                # If there is a PCA Projection
+                if type(PCA_params_sMDiN.PCA_plot[0]) != str:
+                    # Description
+                    sMDiN_pca_pg = document.add_paragraph(f'Principal Component Analysis on the data derived from {net_an} analysis on sMDiNs ')
+                    sMDiN_pca_pg.add_run(f'was made with {len(PCA_params_sMDiN.controls.widgets["PCx"].options)} components.')
+
+                    sMDiN_pca_pg2 = document.add_paragraph()
+                    if PCA_params_sMDiN.n_dimensions == '2 Components':
+                        sMDiN_pca_pg2.add_run(f'2-D PCA Projection Plot of Components: {PCA_params_sMDiN.PCx} ').bold = True
+                        sMDiN_pca_pg2.add_run(f'and {PCA_params_sMDiN.PCy} - sMDiN ').bold = True
+                        sMDiN_pca_pg2.add_run(f'{sMDiN_store.curr_params["network_analysis"]} analysis').bold = True
+                    else:
+                        sMDiN_pca_pg2.add_run(f'3-D PCA Projection Plot of Components: {PCA_params_sMDiN.PCx}, ').bold = True
+                        sMDiN_pca_pg2.add_run(f'{PCA_params_sMDiN.PCy} and {PCA_params_sMDiN.PCz} - sMDiN ').bold = True
+                        sMDiN_pca_pg2.add_run(f'{sMDiN_store.curr_params["network_analysis"]} analysis').bold = True
+                    sMDiN_pca_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                    # Creating filename for the PCA Projection and saving it
+                    filename_string = '/Report_' + base_filename_sMDiN +'_PCA_plot'
+                    if PCA_params_sMDiN.ellipse_draw:
+                        if PCA_params_sMDiN.confidence != 0:
+                            filename_string = filename_string + f'_ellipse({PCA_params_sMDiN.confidence*100}%confidence)'
+                        else:
+                            filename_string = filename_string + f'_ellipse({PCA_params_sMDiN.confidence_std}std)'
+                    PCA_params_sMDiN.PCA_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                    PCA_params_sMDiN.PCA_plot[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(12.5))
+
+                    # If there is an explained variance plot
+                    if type(PCA_params_sMDiN.PCA_plot[0]) != str:
+                        # Description
+                        sMDiN_pca_pg3 = document.add_paragraph()
+                        sMDiN_pca_pg3.add_run('Cumulative Explained Variance (by Principal Component) Plot - sMDiN ').bold = True
+                        sMDiN_pca_pg3.add_run(f'{sMDiN_store.curr_params["network_analysis"]} analysis').bold = True
+                        sMDiN_pca_pg3.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                        # Creating filename for the PCA Projection and saving it
+                        filename_string = '/Report_' + base_filename_sMDiN +'_PCA_exp_var_plot'
+                        PCA_params_sMDiN.exp_var_fig_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                        PCA_params_sMDiN.exp_var_fig_plot[0].write_html(folder+filename_string+".html")
+
+                        # Adding figure
+                        document.add_picture(folder+filename_string+'.png', width=Cm(12.5))
+
+                    # If there is an explained variance plot
+                    if type(PCA_params_sMDiN.scatter_PCA_plot[0]) != str:
+                        # Description
+                        sMDiN_pca_pg4 = document.add_paragraph()
+                        sMDiN_pca_pg4.add_run('2-D PCA Projection (Scatter) Plot of the Principal Components - sMDiN ').bold = True
+                        sMDiN_pca_pg4.add_run(f'{sMDiN_store.curr_params["network_analysis"]} analysis').bold = True
+                        sMDiN_pca_pg4.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                        # Creating filename for the PCA Projection and saving it
+                        filename_string = '/Report_' + base_filename_sMDiN +'_PCA_scatter_plot'
+                        PCA_params_sMDiN.scatter_PCA_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                        PCA_params_sMDiN.scatter_PCA_plot[0].write_html(folder+filename_string+".html")
+
+                        # Adding figure
+                        document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+                # If there is no PCA analysis performed on the data derived from network analysis on sMDiNs
+                else:
+                    sMDiN_pca_pg = document.add_paragraph('Principal Component Analysis was not performed with the data derived from ')
+                    sMDiN_pca_pg.add_run(f"{net_an} analysis on sMDiNs during the Data Analysis. Thus, this section will be skipped.")
+
+
+                # HCA Section - sMDiN version
+                # Heading
+                document.add_heading('Hierarchical Clustering Analysis (HCA) - sMDiN Version', level=3)
+
+                # If there is a dendrogram
+                if type(HCA_params_sMDiN.HCA_plot[0]) != str:
+                    # Description
+                    sMDiN_hca_pg = document.add_paragraph(f'Hierarchical Clustering Analysis on data derived from {net_an} analysis on sMDiNs')
+                    sMDiN_hca_pg.add_run(f' was made with {HCA_params_sMDiN.dist_metric} distance metric and ')
+                    sMDiN_hca_pg.add_run(f'{HCA_params_sMDiN.link_metric} linkage metric.')
+
+                    # Creating filename for the dendrogram and saving it
+                    filename = f'/Report_' + base_filename_sMDiN + '_HCA_plot_'
+                    filename = filename + f'{HCA_params_sMDiN.dist_metric}Dist_{HCA_params_sMDiN.link_metric}Linkage'
+                    HCA_params_sMDiN.HCA_plot[0].savefig(folder + filename_string + '.png', dpi=HCA_params_sMDiN.dpi)
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(12))
+
+                # End of unsupervised analysis of sMDiN section
+                document.add_page_break()
+
+
+                # PLS-DA Section - sMDiN Version
+                # Heading
+                document.add_heading('Partial Least Squares - Discriminant Analysis (PLS-DA) - sMDiN Version', level=3)
+
+                # If there is a PLS optimization
+                if type(PLSDA_store_sMDiN.optim_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('Number of Components Optimization - sMDiN', level=4)
+
+                    # Description
+                    n_min_components, n_max_components = PLSDA_store_sMDiN.current_other_plsda_params["n_min_max_components"]
+                    sMDiN_plsda_pg = document.add_paragraph(f'First, an optimization of the number of components to use to fit ')
+                    sMDiN_plsda_pg.add_run(f'a PLS-DA model on data derived from {net_an} analysis on sMDiNs was made by fitting PLS ')
+                    sMDiN_plsda_pg.add_run(f'models from {n_min_components} to {n_max_components} components and evaluating their Q2 ')
+                    sMDiN_plsda_pg.add_run(f'(mainly) and R2 scores estimated by {PLSDA_store_sMDiN.current_other_plsda_params["n_fold_optim"]}')
+                    sMDiN_plsda_pg.add_run(f'-fold stratified cross-validation. Results are shown in the figure below with a ')
+                    sMDiN_plsda_pg.add_run(f'maximum Q2 value with {PLSDA_store_sMDiN.rec_components} components.')
+
+                    # Plot title
+                    sMDiN_plsda_pg2 = document.add_paragraph()
+                    sMDiN_plsda_pg2.add_run('PLS-DA Component Optimization Plot - sMDiN ').bold = True
+                    sMDiN_plsda_pg2.add_run(f'{sMDiN_store.curr_params["network_analysis"]} analysis').bold = True
+                    sMDiN_plsda_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                    # Creating filename for the PLS optimization plot and saving it
+                    filename_string = f'/Report_' + base_filename_sMDiN + '_PLS_optim_plot_{n_min_components}to{n_max_components}'
+                    filename_string = filename_string + f'components_{PLSDA_store_sMDiN.current_other_plsda_params["n_fold_optim"]}-'
+                    filename_string = filename_string + f'foldstratCV_scale{PLSDA_store_sMDiN.current_other_plsda_params["scale_optim"]}'
+                    PLSDA_store_sMDiN.optim_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                    PLSDA_store_sMDiN.optim_figure[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+                else:
+                    sMDiN_plsda_pg = document.add_paragraph(f'Optimization of the number of components to fit the PLS-DA model on data derived')
+                    sMDiN_plsda_pg.add_run(f' from {net_an} analysis on sMDiNs was not performed.')
+
+
+                # If the PLS-DA model was fitted
+                if type(PLSDA_store_sMDiN.models[0]) != str:
+                    # Minor Heading
+                    document.add_heading('PLS-DA Model Fitting and Results - sMDiN', level=4)
+
+                    # Description
+                    sMDiN_plsda_params = PLSDA_store_sMDiN.current_plsda_params
+                    sMDiN_plsda_pg3 = document.add_paragraph(f'PLS-DA model was fitted on data derived from {net_an} analysis on sMDiNs ')
+                    sMDiN_plsda_pg3.add_run(f'using {sMDiN_plsda_params["n_components"]} components estimating model performance and')
+                    sMDiN_plsda_pg3.add_run(f' feature importance ({sMDiN_plsda_params["feat_imp"]} score method) by ')
+                    sMDiN_plsda_pg3.add_run(f'{sMDiN_plsda_params["n_folds"]}-fold stratified cross-validation repeated ')
+                    sMDiN_plsda_pg3.add_run(f'{sMDiN_plsda_params["n_iterations"]} times (randomized folds in cross-validation)')
+                    sMDiN_plsda_pg3.add_run(f'. Model Performance results are shown in the table below (by the metrics chosen) ')
+
+                    # Building the filename and saving PLS-DA Feature Importance Table
+                    filename_string = f'/Report_' + base_filename_sMDiN + f'_PLS-DA_FeatImp_{sMDiN_plsda_params["feat_imp"]}_model_params'
+                    filename_string = filename_string + f'_components{sMDiN_plsda_params["n_components"]}_{sMDiN_plsda_params["n_folds"]}'
+                    filename_string = filename_string + f'-foldstratCV_iterations{sMDiN_plsda_params["n_iterations"]}_scale'
+                    filename_string = filename_string + f'{sMDiN_plsda_params["scale"]}.xlsx'
+                    PLSDA_store_sMDiN.feat_impor.to_excel(folder+filename_string)
+
+                    # Finishing up the description
+                    sMDiN_plsda_pg3.add_run(f"and Feature Importance Table was saved as '{filename_string[1:]}'. ")
+                    sMDiN_plsda_pg3.add_run(f'Furthermore, below we also show a PLS Projection of chosen Latent Variables.')
+
+                    # Table with results of PLS-DA
+                    table_plsda_results_sMDiN = document.add_table(rows=len(PLSDA_store_sMDiN.n_results.index)+1,
+                                                                cols=len(PLSDA_store_sMDiN.n_results.columns)+1,
+                                                                style='Light Grid')
+                    table_plsda_results_sMDiN = fill_word_table(table_plsda_results_sMDiN, PLSDA_store_sMDiN.n_results)
+
+                    # Give space after table
+                    document.add_paragraph()
+
+                    sMDiN_plsda_pg4 = document.add_paragraph()
+                    if PLSDA_store_sMDiN.n_dimensions == '2 Components':
+                        sMDiN_plsda_pg4.add_run(f'2-D PLS Projection Plot of Latent Variables: {PLSDA_store_sMDiN.LVx}').bold = True
+                        sMDiN_plsda_pg4.add_run(f' and {PLSDA_store_sMDiN.LVy} - sMDiN {net_an} analysis').bold = True
+                    else:
+                        sMDiN_plsda_pg4.add_run(f'3-D PCA Projection Plot of Latent Variables: {PLSDA_store_sMDiN.LVx}').bold = True
+                        sMDiN_plsda_pg4.add_run(f', {PLSDA_store_sMDiN.LVy} and {PLSDA_store_sMDiN.LVz} - sMDiN {net_an} analysis').bold = True
+                    sMDiN_plsda_pg4.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                    # Creating filename for the PLS Projection and saving it
+                    filename_string = '/Report_' + base_filename_sMDiN + '_PLS_projection_plot'
+                    if PLSDA_store_sMDiN.n_dimensions == '2 Components':
+                        if PLSDA_store_sMDiN.ellipse_draw:
+                            if PLSDA_store_sMDiN.confidence != 0:
+                                filename_string = filename_string + f'_ellipse({PLSDA_store_sMDiN.confidence*100}%confidence)'
+                            else:
+                                filename_string = filename_string + f'_ellipse({PLSDA_store_sMDiN.confidence_std}std)'
+                    PLSDA_store_sMDiN.PLS_plot[0].write_image(folder+filename_string+'.png', scale=4)
+                    PLSDA_store_sMDiN.PLS_plot[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+
+                    # If there is Permutation Test plot
+                    if type(PLSDA_store_sMDiN.perm_figure[0]) != str:
+                        # Minor Heading
+                        document.add_heading('PLS-DA Permutation Test - sMDiN', level=4)
+
+                        # Description
+                        sMDiN_plsda_pg5 = document.add_paragraph(f'Permutation Test was performed on data derived from {net_an} analysis on')
+                        sMDiN_plsda_pg5.add_run(f" sMDiNs with the same number of components as before - ")
+                        sMDiN_plsda_pg5.add_run(f"{PLSDA_store_sMDiN.current_plsda_params_permutation['n_components']} - and with ")
+                        sMDiN_plsda_pg5.add_run(f"{PLSDA_store_sMDiN.current_plsda_params_permutation['n_permutations']} permutations. Model ")
+                        sMDiN_plsda_pg5.add_run(f"performance was evaluated by {PLSDA_store_sMDiN.current_plsda_params_permutation['perm_metric']} ")
+                        sMDiN_plsda_pg5.add_run(f"estimated with {PLSDA_store_sMDiN.current_plsda_params_permutation['n_folds']}")
+                        sMDiN_plsda_pg5.add_run(f"-fold stratified cross-validation.")
+
+                        # Creating filename for the PLS-DA Permutation Test and saving it
+                        filename_string = f'/Report_' + base_filename_sMDiN + f'_PLS-DA_permutation_test_'
+                        filename_string = filename_string + f'{PLSDA_store_sMDiN.current_plsda_params_permutation["n_permutations"]}perm_'
+                        filename_string = filename_string + f'{PLSDA_store_sMDiN.current_plsda_params_permutation["n_components"]}comp_'
+                        filename_string = filename_string + f'{PLSDA_store_sMDiN.current_plsda_params_permutation["n_folds"]}-foldstratCV_scale'
+                        filename_string = filename_string + f'{PLSDA_store_sMDiN.current_plsda_params_permutation["scale"]}_metric'
+                        filename_string = filename_string + f'{PLSDA_store_sMDiN.current_plsda_params_permutation["perm_metric"]}'
+                        PLSDA_store_sMDiN.perm_figure[0].savefig(folder+filename_string+'.png', dpi=PLSDA_store_sMDiN.dpi)
+
+                        # Adding figure
+                        document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+
+                    # If there is ROC Curve plot
+                    if type(PLSDA_store_sMDiN.ROC_figure[0]) != str:
+                        # Minor Heading
+                        document.add_heading('PLS-DA ROC Curve - sMDiN', level=4)
+
+                        # Description
+                        sMDiN_roc_params = PLSDA_store_sMDiN.current_other_plsda_params['ROC_filename'].split('_')
+                        if len(target_list.classes) > 2:
+                            sMDiN_plsda_pg6 = document.add_paragraph('Since there are more than 2 classes, ROC curves were computed')
+                            sMDiN_plsda_pg6.add_run(f" with a 1vsAll scheme for each of the {len(target_list.classes)} classes.")
+                        else:
+                            sMDiN_plsda_pg6 = document.add_paragraph('Since there are only 2 classes, ROC curves were computed considering ')
+                            sMDiN_plsda_pg6.add_run(f"{sMDiN_roc_params[2][:-8]}").bold = True
+                            sMDiN_plsda_pg6.add_run(f" as the positive class.")
+                        sMDiN_plsda_pg6.add_run(f' Other parameters were maintained: number of components - {sMDiN_roc_params[3][:-10]}')
+                        sMDiN_plsda_pg6.add_run(f"; {sMDiN_roc_params[4][:-7]} stratified cross-validation; scale - ")
+                        sMDiN_plsda_pg6.add_run(f"{sMDiN_roc_params[6][5:]}. Finally, ROC Curve estimation was repeated ")
+                        sMDiN_plsda_pg6.add_run(f"{sMDiN_roc_params[5][:-10]} times (randomized cross-validation folds).")
+
+                        # Creating filename for the PLS-DA ROC Curve and saving it
+                        filename_string = '/Report_sMDiN_' + PLSDA_store_sMDiN.current_other_plsda_params[
+                            'ROC_filename']
+                        PLSDA_store_sMDiN.ROC_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                        PLSDA_store_sMDiN.ROC_figure[0].write_html(folder+filename_string+".html")
+
+                        # Adding figure
+                        document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+                # If there is no PLS-DA model fitted on the sMDiN treated data
+                else:
+                    sMDiN_plsda_pg3 = document.add_paragraph(f'PLS-DA model was not fitted on data derived from {net_an} analysis on ')
+                    sMDiN_plsda_pg3.add_run(f"sMDiNs during the Data Analysis. Thus, this section will be skipped.")
+
+
+                # Random Forest Section - sMDiN Version
+                # Heading
+                document.add_heading('Random Forest (RF) - sMDiN', level=3)
+
+                # If there is a Random Forest Tree Number optimization
+                if type(RF_store_sMDiN.optim_figure[0]) != str:
+                    # Minor Heading
+                    document.add_heading('Number of Trees Optimization - sMDiN', level=4)
+
+                    # Description
+                    n_min_trees, n_max_trees = RF_store_sMDiN.current_other_rf_params["n_min_max_trees"]
+                    sMDiN_rf_pg = document.add_paragraph(f'First, an optimization of the number of trees to use to fit a Random ')
+                    sMDiN_rf_pg.add_run(f'Forest model on data derived from {net_an} analysis on sMDiNs was made by fitting RF models from')
+                    sMDiN_rf_pg.add_run(f' {n_min_trees} to {n_max_trees} trees in {RF_store_sMDiN.current_other_rf_params["n_interval"]}')
+                    sMDiN_rf_pg.add_run(f' tree steps, evaluating their model accuracy estimated by ')
+                    sMDiN_rf_pg.add_run(f'{RF_store_sMDiN.current_other_rf_params["n_fold_optim"]}-fold stratified')
+                    sMDiN_rf_pg.add_run(f' cross-validation. Results are shown in the figure below.')
+
+                    # Plot title
+                    sMDiN_rf_pg2 = document.add_paragraph()
+                    sMDiN_rf_pg2.add_run(f'Random Forest Number of Trees Optimization Plot - sMDiN {net_an} analysis').bold = True
+                    sMDiN_rf_pg2.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+                    # Creating filename for the Random Forest optimization plot and saving it
+                    filename_string = f'/Report_' + base_filename_sMDiN + '_RF_optim_plot_'
+                    filename_string = filename_string + f'{RF_store_sMDiN.current_other_rf_params["n_fold_optim"]}'
+                    filename_string = filename_string + f'-foldStratCV_{n_min_trees}to{n_max_trees}trees_'
+                    filename_string = filename_string + f'({RF_store_sMDiN.current_other_rf_params["n_interval"]}interval)'
+                    RF_store_sMDiN.optim_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                    RF_store_sMDiN.optim_figure[0].write_html(folder+filename_string+".html")
+
+                    # Adding figure
+                    document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+                else:
+                    sMDiN_rf_pg = document.add_paragraph(f'Optimization of the number of trees to fit the Random Forest model on data')
+                    sMDiN_rf_pg.add_run(f' derived from {net_an} analysis on sMDiNs was not performed.')
+
+
+                # If the Random Forest model was fitted
+                if type(RF_store_sMDiN.models[0]) != str:
+                    # Minor Heading
+                    document.add_heading('Random Forest Model Fitting and Results - sMDiN', level=4)
+
+                    # Description
+                    sMDiN_rf_params = RF_store_sMDiN.current_rf_params
+                    sMDiN_rf_pg3 = document.add_paragraph(f'Random Forest model was fitted on data derived from {net_an} analysis ')
+                    sMDiN_rf_pg3.add_run(f'on sMDiNs with {sMDiN_rf_params["n_trees"]} trees estimating model performance and ')
+                    sMDiN_rf_pg3.add_run(f'feature importance by {sMDiN_rf_params["n_folds"]}-fold stratified cross-validation ')
+                    sMDiN_rf_pg3.add_run(f'repeated {sMDiN_rf_params["n_iterations"]} times (randomized folds in ')
+                    sMDiN_rf_pg3.add_run(f'cross-validation). Model Performance results are shown in the table below (by the ')
+
+                    # Building the filename and saving Random Forest Feature Importance Table
+                    filename_string = f'/Report_' + base_filename_sMDiN + f'_RF_FeatImp_Gini_model_params_{sMDiN_rf_params["n_trees"]}trees_'
+                    filename_string = filename_string + f'{sMDiN_rf_params["n_folds"]}-foldstratCV_iterations'
+                    filename_string = filename_string + f'{sMDiN_rf_params["n_iterations"]}.xlsx'
+                    RF_store_sMDiN.feat_impor.to_excel(folder+filename_string)
+
+                    # Finishing up the description
+                    sMDiN_rf_pg3.add_run(f"metrics chosen) and Feature Importance Table was saved as '{filename_string[1:]}'.")
+
+                    # Table with results of Random Forest
+                    table_rf_results_sMDiN = document.add_table(rows=len(RF_store_sMDiN.n_results.index)+1,
+                                                                cols=len(RF_store_sMDiN.n_results.columns)+1,
+                                                                style='Light Grid')
+                    table_rf_results_sMDiN = fill_word_table(table_rf_results_sMDiN, RF_store_sMDiN.n_results)
+
+                    # Give space after table
+                    document.add_paragraph()
+
+
+                    # If there is Permutation Test plot
+                    if type(RF_store_sMDiN.perm_figure[0]) != str:
+                        # Minor Heading
+                        document.add_heading('Random Forest Permutation Test - sMDiN', level=4)
+
+                        # Description
+                        sMDiN_rf_params_perm = RF_store_sMDiN.current_rf_params_permutation
+                        sMDiN_rf_pg4 = document.add_paragraph('Permutation Test was performed on data derived from {net_an} analysis on')
+                        sMDiN_rf_pg4.add_run(f"sMDiNs with the same number of trees as before - {sMDiN_rf_params_perm['n_trees']} - and ")
+                        sMDiN_rf_pg4.add_run(f"with {sMDiN_rf_params_perm['n_permutations']} permutations. Model performance ")
+                        sMDiN_rf_pg4.add_run(f"was evaluated by {sMDiN_rf_params_perm['perm_metric']} estimated with ")
+                        sMDiN_rf_pg4.add_run(f"{sMDiN_rf_params_perm['n_folds']}-fold stratified cross-validation.")
+
+                        # Creating filename for the Random Forest Permutation Test and saving it
+                        filename_string = f'/Report_' + base_filename_sMDiN + '_RF_permutation_test_'
+                        filename_string = filename_string + f'{sMDiN_rf_params_perm["n_permutations"]}perm_'
+                        filename_string = filename_string + f'{sMDiN_rf_params_perm["n_trees"]}comp_'
+                        filename_string = filename_string + f'{sMDiN_rf_params_perm["n_folds"]}-foldstratCV_metric'
+                        filename_string = filename_string + f'{sMDiN_rf_params_perm["perm_metric"]}'
+                        RF_store_sMDiN.perm_figure[0].savefig(folder+filename_string+'.png', dpi=RF_store_sMDiN.dpi)
+
+                        # Adding figure
+                        document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+
+                    # If there is ROC Curve plot
+                    if type(RF_store_sMDiN.ROC_figure[0]) != str:
+                        # Minor Heading
+                        document.add_heading('Random Forest ROC Curve - sMDiN', level=4)
+
+                        # Description
+                        sMDiN_roc_params = RF_store_sMDiN.current_other_rf_params['ROC_filename'].split('_')
+                        if len(target_list.classes) > 2:
+                            sMDiN_rf_pg5 = document.add_paragraph('Since there are more than 2 classes, ROC curves were computed')
+                            sMDiN_rf_pg5.add_run(f" with a 1vsAll scheme for each of the {len(target_list.classes)} classes.")
+                        else:
+                            sMDiN_rf_pg5 = document.add_paragraph('Since there are only 2 classes, ROC curves were computed considering ')
+                            sMDiN_rf_pg5.add_run(f"{sMDiN_roc_params[2][:-8]}").bold = True
+                            sMDiN_rf_pg5.add_run(f" as the positive class.")
+                        sMDiN_rf_pg5.add_run(f' Other parameters were maintained: number of trees - {sMDiN_roc_params[3][:-5]}; ')
+                        sMDiN_rf_pg5.add_run(f"{sMDiN_roc_params[4][:-7]} stratified cross-validation. Finally, ROC Curve estimation was ")
+                        sMDiN_rf_pg5.add_run(f"repeated {sMDiN_roc_params[5][:-10]} times (randomized cross-validation folds).")
+
+                        # Creating filename for the Random Forest ROC Curve and saving it
+                        filename_string = '/Report_sMDiN_' + RF_store_sMDiN.current_other_rf_params['ROC_filename']
+                        RF_store_sMDiN.ROC_figure[0].write_image(folder+filename_string+'.png', scale=4)
+                        RF_store_sMDiN.ROC_figure[0].write_html(folder+filename_string+".html")
+
+                        # Adding figure
+                        document.add_picture(folder+filename_string+'.png', width=Cm(15))
+
+                # If there is no Random Forest model fitted
+                else:
+                    sMDiN_rf_pg3 = document.add_paragraph('Random Forest model was not fitted on data derived from {net_an} analysis on ')
+                    sMDiN_rf_pg3.add_run(f"sMDiNs during the Data Analysis. Thus, this section will be skipped.")
+
+            # No sMDiNs detected
+            else:
+                smdin_pg = document.add_paragraph(f'No sample Mass-Difference Networks were generated or detected in the analysis. ')
+                smdin_pg.add_run('Thus, this section is skipped.')
+
+        # End of Graph-based Analysis section
+        document.add_page_break()
+
 
     # Saving the document if possible
     try:
@@ -1840,6 +2332,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
 def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_search_widget, DB_dict, FormAssign_store,
                     checkbox_com_exc, com_exc_compounds, PCA_params, HCA_params, PLSDA_store, RF_store, dataviz_store,
                     PathAssign_store, pathora_store, PCA_params_binsim, HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim,
+                    graph_store, sMDiN_store, PCA_params_sMDiN, HCA_params_sMDiN, PLSDA_store_sMDiN, RF_store_sMDiN,
                     include_data_analysis=True):
     "Creates a json file containing relevant parameters used in current dataset analysis."
 
@@ -2166,6 +2659,110 @@ def save_parameters(filename, RepGen, UnivarA_Store, n_databases, adducts_to_sea
                 'perm_metric']
 
 
+        # Saving Graph-based Analysis Related Parameters
+        params_to_be_saved['Graph Analysis'] = {}
+
+        # MDiN/FDiN Generation
+        params_to_be_saved['Graph Analysis']['MDiN'] = {# graph_store
+                                                        'mdin_type': graph_store.mdin_type,
+                                                        'ppm_thresh': graph_store.ppm_thresh,
+                                                        'min_comp_size': graph_store.min_comp_size,
+                                                        # sMDiN_store
+                                                        'network_analysis': sMDiN_store.network_analysis}
+
+        # PCA
+        params_to_be_saved['Graph Analysis']['PCA'] = {'n_components': PCA_params_sMDiN.n_components, # Remember to load the widget too
+                                                        'ellipse_draw': PCA_params_sMDiN.ellipse_draw,
+                                                        'confidence': PCA_params_sMDiN.confidence,
+                                                        'confidence_std': PCA_params_sMDiN.confidence_std,
+                                                        'dot_size': PCA_params_sMDiN.dot_size}
+
+        # HCA
+        params_to_be_saved['Graph Analysis']['HCA'] = {'dist_metric': HCA_params_sMDiN.dist_metric,
+                                                        'link_metric': HCA_params_sMDiN.link_metric,
+                                                        'fig_x': HCA_params_sMDiN.fig_x,
+                                                        'fig_y': HCA_params_sMDiN.fig_y,
+                                                        'dpi': HCA_params_sMDiN.dpi,}
+
+        # PLS-DA
+        params_to_be_saved['Graph Analysis']['PLS-DA'] = {# Optimization Specific Related
+                                                        'n_min_max_components': PLSDA_store_sMDiN.n_min_max_components,
+                                                        # PLS-DA Model Fit
+                                                        'n_fold': PLSDA_store_sMDiN.n_fold,
+                                                        'scale': PLSDA_store_sMDiN.scale,
+                                                        'n_components': PLSDA_store_sMDiN.n_components,
+                                                        'n_iterations': PLSDA_store_sMDiN.n_iterations,
+                                                        'metrics_to_use': PLSDA_store_sMDiN.metrics_to_use, # Technically can be different
+                                                        'imp_feature_metric': PLSDA_store_sMDiN.imp_feature_metric,
+                                                        # PLS Projection Related
+                                                        'ellipse_draw': PLSDA_store_sMDiN.ellipse_draw,
+                                                        'confidence': PLSDA_store_sMDiN.confidence,
+                                                        'confidence_std': PLSDA_store_sMDiN.confidence_std,
+                                                        'dot_size': PLSDA_store_sMDiN.dot_size,
+                                                        # PLS-DA Permutation Test Related
+                                                        'n_perm': PLSDA_store_sMDiN.n_perm,
+                                                        'perm_metric': PLSDA_store_sMDiN.perm_metric,
+                                                        'dpi': PLSDA_store_sMDiN.dpi, # Technically can be different
+                                                        # PLS-DA ROC Curve Related
+                                                        'roc_n_iter': PLSDA_store_sMDiN.roc_n_iter}
+        # Update to actually used parameters if possible
+        if 'n_folds' in PLSDA_store_sMDiN.current_plsda_params.keys():
+            for k,v in PLSDA_store_sMDiN.current_plsda_params.items():
+                if k == 'n_folds':
+                    params_to_be_saved['Graph Analysis']['PLS-DA']['n_fold'] = v
+                elif k == 'feat_imp':
+                    params_to_be_saved['Graph Analysis']['PLS-DA']['imp_feature_metric'] = v
+                else:
+                    params_to_be_saved['Graph Analysis']['PLS-DA'][k] = v
+        if 'n_min_max_components' in PLSDA_store_sMDiN.current_other_plsda_params.keys():
+            params_to_be_saved['Graph Analysis']['PLS-DA']['n_min_max_components'] = PLSDA_store_sMDiN.current_other_plsda_params[
+                'n_min_max_components']
+        if 'ROC_filename' in PLSDA_store_sMDiN.current_other_plsda_params.keys():
+            params_to_be_saved['Graph Analysis']['PLS-DA']['roc_n_iter'] = PLSDA_store_sMDiN.current_other_plsda_params[
+                'ROC_filename'].split('_')[5][:-10]
+        if 'perm_metric' in PLSDA_store_sMDiN.current_plsda_params_permutation.keys():
+            params_to_be_saved['Graph Analysis']['PLS-DA'][
+                'n_perm'] = PLSDA_store_sMDiN.current_plsda_params_permutation['n_permutations']
+            params_to_be_saved['Graph Analysis']['PLS-DA'][
+                'perm_metric'] = PLSDA_store_sMDiN.current_plsda_params_permutation['perm_metric']
+
+        # Random Forest
+        params_to_be_saved['Graph Analysis']['Random Forest'] = {# Optimization Specific Related
+                                                            'n_min_max_trees': RF_store_sMDiN.n_min_max_trees,
+                                                            'n_interval': RF_store_sMDiN.n_interval,
+                                                            # Random Forest Model Fit
+                                                            'n_fold': RF_store_sMDiN.n_fold,
+                                                            'n_trees': RF_store_sMDiN.n_trees,
+                                                            'n_iterations': RF_store_sMDiN.n_iterations,
+                                                            'metrics_to_use': RF_store_sMDiN.metrics_to_use, # Technically can be different
+                                                            # RF Permutation Test Related
+                                                            'n_perm': RF_store_sMDiN.n_perm,
+                                                            'perm_metric': RF_store_sMDiN.perm_metric,
+                                                            'dpi': RF_store_sMDiN.dpi, # Technically can be different
+                                                            # RF ROC Curve related
+                                                            'roc_n_iter': RF_store_sMDiN.roc_n_iter,}
+        # Update to actually used parameters if possible
+        if 'n_folds' in RF_store_sMDiN.current_rf_params.keys():
+            for k,v in RF_store_sMDiN.current_rf_params.items():
+                if k == 'n_folds':
+                    params_to_be_saved['Graph Analysis']['Random Forest']['n_fold'] = v
+                else:
+                    params_to_be_saved['Graph Analysis']['Random Forest'][k] = v
+        if 'n_min_max_trees' in RF_store_sMDiN.current_other_rf_params.keys():
+            params_to_be_saved['Graph Analysis']['Random Forest']['n_min_max_trees'] = RF_store_sMDiN.current_other_rf_params[
+                'n_min_max_trees']
+            params_to_be_saved['Graph Analysis']['Random Forest']['n_interval'] = RF_store_sMDiN.current_other_rf_params[
+                'n_interval']
+        if 'ROC_filename' in RF_store_sMDiN.current_other_rf_params.keys():
+            params_to_be_saved['Graph Analysis']['Random Forest']['roc_n_iter'] = RF_store_sMDiN.current_other_rf_params[
+                'ROC_filename'].split('_')[5][:-10]
+        if 'perm_metric' in RF_store_sMDiN.current_rf_params_permutation.keys():
+            params_to_be_saved['Graph Analysis']['Random Forest']['n_perm'] = RF_store_sMDiN.current_rf_params_permutation[
+                'n_permutations']
+            params_to_be_saved['Graph Analysis']['Random Forest']['perm_metric'] = RF_store_sMDiN.current_rf_params_permutation[
+                'perm_metric']
+
+
     # Save the parameters in a json file
     with open(filename+'.json', 'w') as f:
         json.dump(params_to_be_saved, f, indent=4)
@@ -2178,8 +2775,9 @@ def loading_parameters_in(params_to_load, data_filtering, n_databases_show, n_da
                          adducts_to_search_widget, DB_dict, FormAssign_Store, PreTreatment_Method, checkbox_com_exc,
                          com_exc_compounds, PCA_params, n_components_compute, HCA_params, PLSDA_store, RF_store, UnivarA_Store,
                          dataviz_store, PathAssign_store, pathora_store, PCA_params_binsim, n_components_compute_binsim,
-                         HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, params_pre_treat_loaded_in,
-                         params_analysis_loaded_in):
+                         HCA_params_binsim, PLSDA_store_binsim, RF_store_binsim, n_components_compute_sMDiN, graph_store,
+                         sMDiN_store, PCA_params_sMDiN, HCA_params_sMDiN, PLSDA_store_sMDiN, RF_store_sMDiN,
+                         params_pre_treat_loaded_in, params_analysis_loaded_in):
     "Load in Previously Saved Parameters for Data Analysis."
 
     # Data Pre-Processing and Pre-Treatment Related Parameters
@@ -2472,3 +3070,91 @@ def loading_parameters_in(params_to_load, data_filtering, n_databases_show, n_da
             RF_store_binsim.dpi = params_to_load['BinSim Analysis']['Random Forest']['dpi']
             # RF ROC Curve Related
             RF_store_binsim.roc_n_iter = int(params_to_load['BinSim Analysis']['Random Forest']['roc_n_iter'])
+
+        # Loading Graph-based Analysis Related Parameters
+        if 'Graph Analysis' in params_to_load.keys():
+
+            # MDiN/FDiN Generation
+            graph_store.mdin_type = params_to_load['Graph Analysis']['MDiN']['mdin_type']
+            graph_store.ppm_thresh = params_to_load['Graph Analysis']['MDiN']['ppm_thresh']
+
+            # Filtering and Plotting MDiN/FDiN
+            graph_store.min_comp_size = params_to_load['Graph Analysis']['MDiN']['min_comp_size']
+
+            # Network Analysis method used for sMDiN Analysis
+            sMDiN_store.network_analysis = params_to_load['Graph Analysis']['MDiN']['network_analysis']
+
+            # sMDiN Analysis
+            # PCA
+            # Stopping Figures from trying to be made
+            PCA_params_sMDiN.compute_fig = False
+            PCA_params_sMDiN.n_components = params_to_load['Graph Analysis']['PCA']['n_components']
+            n_components_compute_sMDiN.value = params_to_load['Graph Analysis']['PCA']['n_components']
+            PCA_params_sMDiN.ellipse_draw = params_to_load['Graph Analysis']['PCA']['ellipse_draw']
+            PCA_params_sMDiN.confidence = params_to_load['Graph Analysis']['PCA']['confidence']
+            PCA_params_sMDiN.confidence_std = params_to_load['Graph Analysis']['PCA']['confidence_std']
+            PCA_params_sMDiN.dot_size = params_to_load['Graph Analysis']['PCA']['dot_size']
+            PCA_params_sMDiN.compute_fig = True
+
+            # HCA
+            # Stopping Figures from trying to be made
+            HCA_params_sMDiN.compute_fig = False
+            HCA_params_sMDiN.dist_metric = params_to_load['Graph Analysis']['HCA']['dist_metric']
+            HCA_params_sMDiN.link_metric = params_to_load['Graph Analysis']['HCA']['link_metric']
+            HCA_params_sMDiN.fig_x = params_to_load['Graph Analysis']['HCA']['fig_x']
+            HCA_params_sMDiN.fig_y = params_to_load['Graph Analysis']['HCA']['fig_y']
+            HCA_params_sMDiN.dpi = params_to_load['Graph Analysis']['HCA']['dpi']
+            HCA_params_sMDiN.compute_fig = True
+
+            # PLS-DA
+            # Stopping Figures from trying to be made
+            PLSDA_store_sMDiN.compute_fig = False
+            # Optimization Specific Related
+            PLSDA_store_sMDiN.n_min_max_components = tuple(params_to_load['Graph Analysis']['PLS-DA']['n_min_max_components'])
+            # PLS-DA Model Fit
+            PLSDA_store_sMDiN.n_fold = params_to_load['Graph Analysis']['PLS-DA']['n_fold']
+            PLSDA_store_sMDiN.scale = params_to_load['Graph Analysis']['PLS-DA']['scale']
+            PLSDA_store_sMDiN.n_components = params_to_load['Graph Analysis']['PLS-DA']['n_components']
+            PLSDA_store_sMDiN.n_iterations = params_to_load['Graph Analysis']['PLS-DA']['n_iterations']
+            PLSDA_store_sMDiN.metrics_to_use = params_to_load['Graph Analysis']['PLS-DA']['metrics_to_use']
+            PLSDA_store_sMDiN.imp_feature_metric = params_to_load['Graph Analysis']['PLS-DA']['imp_feature_metric']
+            # PLS Projection Related
+            PLSDA_store_sMDiN.param['ellipse_draw'].default = params_to_load['Graph Analysis']['PLS-DA']['ellipse_draw']
+            PLSDA_store_sMDiN.ellipse_draw = params_to_load['Graph Analysis']['PLS-DA']['ellipse_draw']
+            PLSDA_store_sMDiN.controls_projection.widgets['ellipse_draw'].value = params_to_load[
+                'Graph Analysis']['PLS-DA']['ellipse_draw']
+            PLSDA_store_sMDiN.param['confidence'].default = params_to_load['Graph Analysis']['PLS-DA']['confidence']
+            PLSDA_store_sMDiN.confidence = params_to_load['Graph Analysis']['PLS-DA']['confidence']
+            PLSDA_store_sMDiN.controls_projection.widgets['confidence'].value = params_to_load[
+                'Graph Analysis']['PLS-DA']['confidence']
+            PLSDA_store_sMDiN.param['confidence_std'].default = params_to_load['Graph Analysis']['PLS-DA']['confidence_std']
+            PLSDA_store_sMDiN.confidence_std = params_to_load['Graph Analysis']['PLS-DA']['confidence_std']
+            PLSDA_store_sMDiN.controls_projection.widgets['confidence_std'].value = params_to_load[
+                'Graph Analysis']['PLS-DA']['confidence_std']
+            PLSDA_store_sMDiN.param['dot_size'].default = params_to_load['Graph Analysis']['PLS-DA']['dot_size']
+            PLSDA_store_sMDiN.dot_size = params_to_load['Graph Analysis']['PLS-DA']['dot_size']
+            PLSDA_store_sMDiN.controls_projection.widgets['dot_size'].value = params_to_load[
+                'Graph Analysis']['PLS-DA']['dot_size']
+            # PLS-DA Permutation Test Related
+            PLSDA_store_sMDiN.n_perm = params_to_load['Graph Analysis']['PLS-DA']['n_perm']
+            PLSDA_store_sMDiN.perm_metric = params_to_load['Graph Analysis']['PLS-DA']['perm_metric']
+            PLSDA_store_sMDiN.dpi = params_to_load['Graph Analysis']['PLS-DA']['dpi']
+            # PLS-DA ROC Curve Related
+            PLSDA_store_sMDiN.roc_n_iter = int(params_to_load['Graph Analysis']['PLS-DA']['roc_n_iter'])
+            PLSDA_store_sMDiN.compute_fig = True
+
+            # Random Forest
+            # Optimization Specific Related
+            RF_store_sMDiN.n_min_max_trees = tuple(params_to_load['Graph Analysis']['Random Forest']['n_min_max_trees'])
+            RF_store_sMDiN.n_interval = params_to_load['Graph Analysis']['Random Forest']['n_interval']
+            # Random Forest Model Fit
+            RF_store_sMDiN.n_fold = params_to_load['Graph Analysis']['Random Forest']['n_fold']
+            RF_store_sMDiN.n_trees = params_to_load['Graph Analysis']['Random Forest']['n_trees']
+            RF_store_sMDiN.n_iterations = params_to_load['Graph Analysis']['Random Forest']['n_iterations']
+            RF_store_sMDiN.metrics_to_use = params_to_load['Graph Analysis']['Random Forest']['metrics_to_use']
+            # RF Permutation Test Related
+            RF_store_sMDiN.n_perm = params_to_load['Graph Analysis']['Random Forest']['n_perm']
+            RF_store_sMDiN.perm_metric = params_to_load['Graph Analysis']['Random Forest']['perm_metric']
+            RF_store_sMDiN.dpi = params_to_load['Graph Analysis']['Random Forest']['dpi']
+            # RF ROC Curve Related
+            RF_store_sMDiN.roc_n_iter = int(params_to_load['Graph Analysis']['Random Forest']['roc_n_iter'])
