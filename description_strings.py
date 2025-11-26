@@ -115,6 +115,93 @@ be analyzed, the slower the analysis is and vice-versa.</p>
 <p>The FT-ICR-SMS Laboratory NEMeSIS Development Team</p>'''
 
 
+# Data Input Description HTML in string format
+
+input_selection_string = """
+<p>NEMeSIS accepts 3 types of possible data inputs including  <strong>mzML formatted spectral raw data</strong> for each sample,
+<strong>an Excel or csv-based list of <em>m/z</em> peaks for each sample</strong>, or a previously <strong>aligned Excel or
+csv-based 2D data matrix</strong> with samples (and metadata) on one axis and metabolic features (mass values) on the other.</p>
+<p>The natural workflow consists of converting the mzML spectral raw data samples into lists of <em>m/z</em> peaks and then
+align these lists into a 2D-matrix before moving to the next steps. The type of data input will indicate which steps have to be
+undertaken. Here, if the data is a previously <strong>aligned 2D data matrix</strong>, the button on the <strong>right</strong>
+that leads to the general metabolomics workflow should be pressed. If the data is <strong>mzML formatted spectral raw
+data</strong> or a <strong>list <em>m/z</em> peaks for each sample</strong>, then the button on the <strong>left</strong>
+should be pressed.</p>
+<p>The button on the left will lead to an independent section of the interface that can perform mzML spectra conversion and
+data alignment (allowing for spectra visualization if the input is mzML spectra). The output of this section is an
+<strong>aligned Excel-based 2D data matrix</strong> that will be saved in the <strong>NEMeSIS folder</strong>. After saving
+this file, an option to <strong>proceed to the page where a 2D Data Matrix in the NEMeSIS folder can be read</strong> is
+availiable (hence the matrix being saved there). After this, all data regarding this section is erased. This is performed to
+alleviate memory issues since spectra reading and visualization can be computationally heavy (memory wise). Thus, this
+section of the analysis is not included in the final report. To compensate for this, two automatic reports are saved and
+downloaded to the Downloads folder. One corresponds to a description of the mzML spectra conversion (if performed) and the
+second a description of the data alignment.</p>
+<p><strong>Detailed formatting for each of the three types of input are described in their respective pages.</strong></p>
+"""
+
+
+# Specific mzML raw spectra conversion Description HTML in string format
+
+# mzML Conversion and Data Alignment Description HTML in string format
+
+alignment_description_string = """
+<p>This Data Alignment software is geared towards <strong>Direct Infusion mass spectrometry data</strong>. That is,
+metabolic features will be aligned based on their mass values alone, and it does not accept other parameters such as
+retention time or collision cross-section.</p>
+<p>The input can be either samples represented as lists of <em>m/z</em> peaks (as an Excel with a sample per sheet with the mass
+peak list in each or as a csv file per sample) or as spectral raw data in mzML format.</p>
+<p>To perform data alignment from <em>m/z</em> lists with a single <strong>Excel</strong> file (.xlsx or .xls), this
+file should follow the format: <strong>one sample per Excel sheet</strong>; the <strong>name</strong> of the Excel
+sheet should correspond to the <strong>sample name</strong>; each sheet should have in its <strong>first column the mass
+values</strong> (<em>m/z</em>, neutral mass or equivalent) and in its <strong>second column&nbsp;</strong>the corresponding
+<strong>intensity values</strong>; and finally, the <strong>first row</strong> should have the <strong>name of the two
+columns</strong>, for example, &apos;<em>m/z</em>&apos; and &apos;I&apos; (this name should be consistent between samples).
+The example file &apos;example_samples_to_align.xlsx&apos; is available in the Files_To_Align folder as guidance.</p>
+<p>To perform data alignment from <em>m/z</em> lists from a set of <strong>csv</strong> files, each file should have the
+following format: <strong>one sample per csv</strong> where the first column has the mass values</strong> (<em>m/z</em>,
+neutral mass or equivalent) and the <strong>second column&nbsp;</strong>the corresponding <strong>intensity values</strong>.
+The <strong>first row</strong> should have the name of the <em>m/z</em> column (usually m/z, this name should be consistent
+between samples) and <strong>the second the name of the sample</strong>. The example file &apos;placeholder.csv&apos; is
+available in the Files_To_Align folder as guidance.</p>
+<p>To use spectral raw data in mzML format, <strong>multiple mzML files</strong> are expected. Converting spectral raw data into
+the open mzML format can be done using freely available tools such as Proteowizard's MSConvert
+(<a href=https://proteowizard.sourceforge.io/download.html target="_blank" rel="nofollow">https://proteowizard.sourceforge.io/download.html</a>).
+</p>"""
+
+
+# Specific mzML raw spectra conversion Description HTML in string format
+
+mzML_conversion_specific_string = """
+<p>Here, raw mzML spectral data (open mzML format) can be converted into <em>m/z</em> peak lists so data alignment can be
+performed. For this purpose, the pyopenms Python package is used and extensive documentation is present in
+<a href=https://openms.de/current_doxygen/html/classOpenMS_1_1PeakPickerHiRes.html target="_blank"
+rel="nofollow">https://openms.de/current_doxygen/html/classOpenMS_1_1PeakPickerHiRes.html</a>. The <strong>signal to noise
+threshold</strong> is the most critical parameter, the others shown may also be customized - see effects in the
+aforementioned link. The description from the link is also near every parameter with a tooltip. Credit to pyopenms devs.
+</p>
+"""
+
+
+# Specific Data Alignment Description HTML in string format
+
+data_alignment_specific_string = """
+<p>The data alignment performed is made using the <strong><em>align</em></strong> function from the Metabolinks Python package.
+It uses 2 parameters: the <strong>PPM Deviation Tolerance</strong> that defines the maximum tolerance (in parts per million)
+to group metabolic features from different samples together and the <strong>Minimum Sample Number Appearance</strong> that
+defines the minimum number of samples a metabolic feature must appear in to be kept in the final aligned Dataset.</p>
+<p>After alignment, a short description of the alignment process will be shown as well as the aligned dataset (if this
+aligned dataset is large, only the first 10,000 metabolic features will be shown). The dataset and an abridged description
+of the metabolic feature alignments can be saved. The aligned dataset can be directly used in the NEMeSIS software.</p>"""
+
+
+# Interactive Spectra Visualization Description HTML in string format
+
+spectra_visualization_specific_string = """
+<p>This section <strong>only</strong> appers if the aligned data comes from spectral mzML raw data. The objective is to
+visualize the quality of the spectral data processing by observing the <strong>raw, centroided (after spectral processing) and
+aligned (after data alignment) spectra</strong> in interactive graphs of a <strong>few samples (3-4)</strong> simultaneously.</p>"""
+
+
 # Data Reading Description HTML in string format
 
 data_reading_opening_string ='''<strong>Input your Excel or csv file.</strong>
