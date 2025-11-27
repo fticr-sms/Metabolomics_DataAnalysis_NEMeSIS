@@ -290,7 +290,7 @@ will filter out the lowest variance features across the samples since their inte
 
 # Formula Assignment Opening Description HTML in string format
 formula_assignment_opening_string = """Here Formula Assignment is made according to our ScoreForm algorithm. In-depth
-description of the criteria and steps of ScoreForm are detailed in the **preprint**. It uses its default formula
+description of the criteria and steps of ScoreForm are detailed in the <strong>preprint</strong>. It uses its default formula
 database unless it is changed with the FormulaDatabaseCreator.ipynb notebook (if changed make sure their name follows
 the convention 'formulas_improved_dict{lowest molecular mass allowed in file}.csv', for example 'formulas_improved_dict250.csv').
 It is geared towards assignment up to 1250 Da. To perform Formula Assignment, the FormulaDatabaseCreator.ipynb must be ran

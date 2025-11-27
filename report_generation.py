@@ -431,7 +431,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 f'Transformation Method: Generalized Logarithmic Transformation (glog) with lambda equal to 0',
                                 style='List Bullet'
                 )
-    elif not UnivarA_Store.tf_method:
+    elif not UnivarA_Store.tf_method or UnivarA_Store.tf_method == 'None':
         document.add_paragraph(f'Transformation Method: None', style='List Bullet'
                 )
     else:
@@ -1840,14 +1840,14 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                 # Description
                 if cp['mdin_type'] != 'Formula':
                     graph_pg = document.add_paragraph(f'Mass-Difference Networks were generated using the algorithm ')
-                    graph_pg.add_run(f'{cp['mdin_type']}').bold = True
+                    graph_pg.add_run(f'{cp["mdin_type"]}').bold = True
                     graph_pg.add_run(f' allowing for a ')
-                    graph_pg.add_run(f'{cp['ppm_thresh']} ppm mass deviation.').bold = True
+                    graph_pg.add_run(f'{cp["ppm_thresh"]} ppm mass deviation.').bold = True
                     if cp['mdin_type'] == 'Mass Formula Propagation':
                         graph_pg.add_run(f' The column used to consider a Formula reliable was ')
-                        graph_pg.add_run(f'{cp['reliable_formulas'][0]}.').bold = True
+                        graph_pg.add_run(f'{cp["reliable_formulas"][0]}.').bold = True
                         graph_pg.add_run(f' The number of reliable formulas used as starting points was ')
-                        graph_pg.add_run(f'{graph_store.mdin_desc[1].split(': ')[1][:-1]}').bold = True
+                        graph_pg.add_run(f'{graph_store.mdin_desc[1].split(": ")[1][:-1]}').bold = True
 
                 else:
                     graph_pg = document.add_paragraph(f'Formula-Difference Networks were generated using the ')
@@ -1859,7 +1859,7 @@ def ReportGenerator(folder, RepGen, file, checkbox_annotation, checkbox_formula,
                         graph_pg.add_run(f'{f}').bold = True
 
                 graph_pg.add_run(f'. MDiN was filtered to remove components smaller than or equal to ')
-                graph_pg.add_run(f'{cp['min_comp_size']} nodes.').bold = True
+                graph_pg.add_run(f'{cp["min_comp_size"]} nodes.').bold = True
 
                 # Description of the graph
                 a = 0

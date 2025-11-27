@@ -1672,7 +1672,7 @@ def optim_PLSDA_n_components(df, labels, regres=False, encode2as1vector=True, ma
                 correct = target1D[test_index]
 
             # Fitting the model
-            plsda.fit(X=X_train, Y=y_train)
+            plsda.fit(X=X_train, y=y_train)
 
             # Obtain results with the test group
             #y_pred = plsda.predict(X_test)
@@ -1783,7 +1783,7 @@ def PLSDA_model_CV(df, labels, regres=False, n_comp=10,
                 correct = target1D[test_index]
 
             # Fit PLS model
-            plsda.fit(X=X_train, Y=y_train)
+            plsda.fit(X=X_train, y=y_train)
 
             # Obtain results with the test group
             y_pred = plsda.predict(X_test)
@@ -2033,7 +2033,7 @@ def permutation_PLSDA(df, labels, n_comp=10, iter_num=100, cv=None, n_fold=5, ra
                 correct = correct_labels[test_index]
 
             # Fitting the model
-            plsda.fit(X=X_train, Y=y_train)
+            plsda.fit(X=X_train, y=y_train)
 
             # Predictions the test group
             y_pred = plsda.predict(X_test)
@@ -2359,7 +2359,7 @@ def p_adjust_bh(p):
        From answer in StOvf
        https://stackoverflow.com/questions/7450957/how-to-implement-rs-p-adjust-in-python"""
 
-    p = np.asfarray(p)
+    p = np.asarray(p)
     by_descend = p.argsort()[::-1]
     by_orig = by_descend.argsort()
     steps = float(len(p)) / np.arange(len(p), 0, -1)

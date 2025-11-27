@@ -73,7 +73,7 @@ def p_adjust_bh(p):
        From answer in StOvf 
        https://stackoverflow.com/questions/7450957/how-to-implement-rs-p-adjust-in-python"""
 
-    p = np.asfarray(p)
+    p = np.asarray(p)
     by_descend = p.argsort()[::-1]
     by_orig = by_descend.argsort()
     steps = float(len(p)) / np.arange(len(p), 0, -1)
@@ -925,7 +925,7 @@ def fit_PLSDA_model(data, labels, n_comp=10, return_scores=True,
     plsda = PLSRegression(n_components=n_comp, scale=scale)
 
     # Fitting the model and getting the X_scores
-    plsda.fit(X=data,Y=target)
+    plsda.fit(X=data,y=target)
 
     if return_scores:
         LV_score = pd.DataFrame(plsda.x_scores_, columns=[f'{lv_prefix}{i}' for i in range(1, n_comp+1)])
@@ -1004,7 +1004,7 @@ def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=50, n_f
                 correct = target1D[test_index]
 
             # Fitting the model
-            plsda.fit(X=X_train, Y=y_train)
+            plsda.fit(X=X_train, y=y_train)
 
             # Obtain results with the test group
             y_pred = plsda.predict(X_test)
@@ -1128,7 +1128,7 @@ def PLSDA_model_CV(df, labels, n_comp=10,
                 correct = target1D[test_index]
 
             # Fit PLS model
-            plsda.fit(X=X_train, Y=y_train)
+            plsda.fit(X=X_train, y=y_train)
 
             # Obtain results with the test group
             y_pred = plsda.predict(X_test)
@@ -1241,7 +1241,7 @@ def permutation_PLSDA(df, labels, n_comp=10, n_fold=5, iter_num=100, encode2as1v
                 correct = correct_labels[test_index]
 
             # Fitting the model
-            plsda.fit(X=X_train, Y=y_train)
+            plsda.fit(X=X_train, y=y_train)
 
             # Predictions the test group
             y_pred = plsda.predict(X_test)

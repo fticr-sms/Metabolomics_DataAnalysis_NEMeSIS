@@ -6207,7 +6207,7 @@ class UnivariateAnalysis_Store(param.Parameterized):
         "Reset parameters."
         self.compute_fig = False
         for param in self.param:
-            if param not in ["name", 'color_non_sig', 'color_down_sig', 'color_up_sig', 'filt_method', 'filt_kw', 'mvi_method',
+            if param not in ["name", 'color_non_sig', 'color_down_sig', 'color_up_sig', 'filt_methods', 'mvi_method',
                              'mvi_kw', 'norm_method', 'norm_kw', 'tf_method', 'tf_kw', 'scaling_method', 'scaling_kw', 'compute_fig']:
                 setattr(self, param, self.param[param].default)
         self.compute_fig = True

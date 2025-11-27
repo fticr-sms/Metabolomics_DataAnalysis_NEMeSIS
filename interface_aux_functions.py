@@ -1794,8 +1794,10 @@ def _perform_1v1_univariate_analysis(UnivarA_Store, DataFrame_Store, target_list
                     f_meth = 'class_samples'
                     f_kw = UnivarA_Store.filt_methods['basic_filt_kw']
                 else:
+                    f_kw = None
                     f_meth = None
             else:
+                f_kw = None
                 f_meth = None
 
             # Perform the Data Filtering and the Pre-Treament
@@ -2297,7 +2299,7 @@ def _plot_pathwayORA_class(pathora_store):
 
     # Selecting and preparing the DataFrame
     df_to_plot = pathora_store.ora_df.copy()
-    df_to_plot['- log10(Adjusted (BH) Probability)'] = -np.log10(df_to_plot['Adjusted (BH) Probability'])
+    df_to_plot['- log10(Adjusted (BH) Probability)'] = -np.log10(df_to_plot['Adjusted (BH) Probability'].astype(float))
     df_to_plot['Pathway ID'] = df_to_plot.index
 
     # Plot the figure
@@ -2372,7 +2374,7 @@ def _plot_mapped_pathway(map_pathways, pathway_graph, treated_data, pathway_assi
     nx.draw_kamada_kawai(pathway_graph, labels=label_dict, with_labels=True, alpha=0.75, font_size=9,
                          node_color=node_colours, vmin=-limits, vmax=limits, cmap=cmp, linewidths=1,
                          edgecolors='black',node_size=node_sizes_ser)
-    plt.title(f'{path_ID_to_Name['SMP00' + map_pathways.chosen_pathway[3:]]} ({chosen_classes[0]} - {chosen_classes[1]})',
+    plt.title(f'{path_ID_to_Name["SMP00" + map_pathways.chosen_pathway[3:]]} ({chosen_classes[0]} - {chosen_classes[1]})',
               fontsize=16)
     # Colorbar
     plt.colorbar(mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(-limits,limits), cmap=cmp),ax=ax,
