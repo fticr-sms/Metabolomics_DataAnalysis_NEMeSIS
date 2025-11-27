@@ -943,7 +943,7 @@ def _save_alignment_files_button(event):
 
     try:
         # Saving the file
-        alignment_storage.aligned_df.to_csv(path_dl + f'{dataset_download_name.value}.csv')
+        alignment_storage.aligned_df.to_csv(f'{dataset_download_name.value}.csv')
         alignment_storage.desc.to_excel(path_dl + f'/{dataset_download_name.value}_desc.xlsx')
 
         pn.state.notifications.success(f'Aligned dataset successfully saved in {dataset_download_name.value}.csv.')
