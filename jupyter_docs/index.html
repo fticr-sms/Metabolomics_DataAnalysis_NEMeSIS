@@ -1,0 +1,693 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://NEMeSIS.com/jupyter_docs/">
+      
+      
+        <link rel="prev" href="../GUI_docs/">
+      
+      
+        <link rel="next" href="../license/">
+      
+      
+      <link rel="icon" href="../img/favicon.ico">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.10">
+    
+    
+      
+        <title>Get started with jupyter - NEMeSIS</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.7e359304.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#introduction-to-the-illustrative-jupyter-notebook-containing-the-workflow-in-nemesis" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="NEMeSIS" class="md-header__button md-logo" aria-label="NEMeSIS" data-md-component="logo">
+      
+  <img src="../img/favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            NEMeSIS
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Get started with jupyter
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="NEMeSIS" class="md-nav__button md-logo" aria-label="NEMeSIS" data-md-component="logo">
+      
+  <img src="../img/favicon.ico" alt="logo">
+
+    </a>
+    NEMeSIS
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GUI_docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Get started with GUI
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Get started with jupyter
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Get started with jupyter
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-to-the-illustrative-jupyter-notebook-containing-the-workflow-in-nemesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction to the illustrative jupyter notebook containing the workflow in NEMeSIS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition-of-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Definition of Parameters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Reading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#figure-and-table-saving" class="md-nav__link">
+    <span class="md-ellipsis">
+      Figure and Table Saving
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-exporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Exporting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mzml-spectra-conversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      mzML Spectra Conversion
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="mzML Spectra Conversion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spectra-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Spectra Visualization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#independent-side-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Independent Side Modules
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../license/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    License
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_notes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Release Notes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-to-the-illustrative-jupyter-notebook-containing-the-workflow-in-nemesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction to the illustrative jupyter notebook containing the workflow in NEMeSIS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition-of-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Definition of Parameters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Reading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#figure-and-table-saving" class="md-nav__link">
+    <span class="md-ellipsis">
+      Figure and Table Saving
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-exporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Exporting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mzml-spectra-conversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      mzML Spectra Conversion
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="mzML Spectra Conversion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spectra-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Spectra Visualization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#independent-side-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Independent Side Modules
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  <h1>Get started with jupyter</h1>
+
+<h2 id="introduction-to-the-illustrative-jupyter-notebook-containing-the-workflow-in-nemesis">Introduction to the illustrative jupyter notebook containing the workflow in NEMeSIS</h2>
+<p>These jupyter notebooks contain a lot of descriptions to help guide the user already. Thus, to avoid repetition we will focus on their general aspects instead of detailing each step like it is done for the graphical interface.</p>
+<p>The larger jupyter notebook version of NEMeSIS is <code>NEMeSIS_Data_Analysis_V2.8.ipynb</code>. This notebook includes every step of the main steps of data analysis from the alignment of <em>m/z</em> peak lists representing samples to biological interpretation. Furthermore, an extra notebook regarding the conversion of raw spectral data in open mzML format to <em>m/z</em> peak lists is available in <code>Raw_Spectra_Processing.ipynb</code> (see here for details <a href="./#mzml-spectra-conversion">mzML Spectra Conversion</a>). This was placed as a separate noteboook to lower memory necessity per individual notebook making the experience smoother. The interactive graphs with a very high number of points in <code>Raw_Spectra_Processing.ipynb</code> could affect performance in downstream steps.</p>
+<p>The main notebook is split into many different steps from step 0 to 11 which are described in the table of contents. Using this table is the fastest way to navigate the (quite large) notebook.</p>
+<p>Step 1 is the equivalent to Stage 1 of the graphical interface: <strong>Data Reading</strong>.</p>
+<p>Steps 1.1, 1.2, 1.3 and 2 are the equivalent to Stage 2 of the graphical interface: <strong>Data Pre-Processing and Pre-Treatment</strong></p>
+<p>Steps 3 to 11 are the equivalent of Stage 3 of the graphical interface: <strong>Data Analysis and Biological Interpretation</strong></p>
+<p>Finally, the program is capable of outputting trated data (<a href="./#data-exporting">Data Exporting</a>) that can be used as input for other statistical analysis not present in the main NEMeSIS program in independent side modules (<a href="./#independent-side-modules">Independent Side Modules</a>). These independent side modules are standalone jupyter notebooks that perform statistical analysis not present in the main notebook and can be adapted to specific statistical analysis desired by the researched. We present two independent side modules <a href="./#independent-side-modules">here</a> that are, simultaneously, example side modules to be adapted by researchers to create others and that contain very useful analysis based on graph representations of samples built to consider possible biochemical transformations between metabolites - sMDiNs and FDiGNNs - to be performed based on the type of analyses desired - more information on these side modules <a href="./#independent-side-modules">here</a>.</p>
+<p><img alt="GUI Structure" src="../img/GUIStructure.png" /></p>
+<h2 id="definition-of-parameters">Definition of Parameters</h2>
+<p>Looking at the first cell after <code>Step 1</code> shows the idea on how the jupyter notebook works.</p>
+<p>Each cell may have at its beginning a set of parameter that can be edited as shown below. These include the parameter name and the current parameter that can be edited. Usually, the parameter and what should be put there is explained in a comment after the parameter (or in the lines before if the explanation is large). In some cases, if the parameter only has a set number of options allowed, they are also enumerated in a comment.</p>
+<div class="highlight"><pre><span></span><code>    filename = &#39;5yeasts_notnorm.csv&#39; # Name of your file
+    ## Indicate if the file read includes the target (sample classes) in its first row
+    target_in_file = False
+    idx_masses = &#39;Neutral&#39; # &#39;Neutral&#39; (neutral masses), &#39;Positive&#39; (Obtained from ESI+), &#39;Negative&#39; (Obtained from ESI-)
+    # or &#39;None&#39; (Neutral mass column cannot be inferred)
+</code></pre></div>
+<p>The rest of the cell then contributes to the current step of the analysis being performed. Most functions used in the data analysis are stored in the <code>metanalysis_standard.py</code> file while functions and code related to rendering figures or showing results are in the notebook itself to be more easily edited.</p>
+<h2 id="data-reading">Data Reading</h2>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>The first part of this section shares high similarities with the <a href="../GUI_docs/#stage-1-data-input">Stage 1: Data Input</a> section of the <a href="../GUI_docs/">Get started with GUI</a> page.</p>
+</div>
+<p>NEMeSIS accepts previosuly aligned 2D tables with samples on one axis and metabolic features on the other, samples represented as lists of <em>m/z</em> peaks or spectral raw data sample in mzML format. The first steps of the notebook is reading your input data, which requires strict formatting from the files. It can accept either <strong>data tables</strong> with samples having already been previously aligned or samples represented as <strong>lists of <em>m/z</em> peaks</strong>. The type of data to be used is chosen by choosing the <code>aligned_samples</code> parameter (first cell of Step 1) to <code>True</code> if data to be used is in form of <strong>data tables</strong> or <code>False</code> if it is <strong>lists of <em>m/z</em> peaks</strong>. For the former, you can then skip to the <code>Data Matrix (Aligned Samples) Reading Section</code> to define the filename and reading specific parameters while, for the latter, you go to the <code>Data Alignment Section</code> to define the filename and alignment specific parameters.</p>
+<p>For using <strong>spectral raw data sample in mzML format</strong>, the mzML files must be converted in a separate notebook capable of transforming these spectra into <strong>data tables</strong> and/or <strong>lists of <em>m/z</em> peaks</strong> to use as input for the main notebook. See <a href="./#mzml-spectra-conversion">mzML Spectra Conversion</a> for more information.</p>
+<p>The allowed formatting for <strong>data tables</strong> is exemplified in the figure below with the addition that files can either be <code>.csv</code> or <code>.xlsx</code> files. Metabolic Features should be represented in the rows, while samples and metadata should be represented in columns. </p>
+<p>The first column in your data must correspond to the identifier of your metabolic features, more specifically, to a mass value if possible - black box - and they should be unique (non-repeating). The name of the column will be overwritten to be <code>Bucket label</code>. If the columns are mass values capable of being intepreted as floats (numbers), then a <code>Mass</code> column in your data will be added. This column is later necessary to perform <code>Data Annotation</code> (but nothing else). You have 3 possibilities to choose from: <code>Neutral</code> where the masses in your index are taken as the neutral masses creating a <code>Neutral Mass</code> column, <code>m/z (Positive)</code> or <code>m/z (Negative)</code> where the masses are assumed to be <em>m/z</em> values obtained in positive or negative (respectively) ionization mode creating a <code>Probable m/z</code> column.</p>
+<div class="admonition danger">
+<p class="admonition-title">Danger</p>
+<p>Avoid having a column named <code>Neutral Mass</code> or <code>m/z</code> in your data, since it will be overwritten.</p>
+</div>
+<p>The remaining columns are free to be any metadata you have in your data (green box) and the samples with the corresponding intensity values (purple box). If you are using LC-MS or GC-MS or any other kind of hyphenated method and have another column other than mass to characterize your features such as retention time, you can still analyse them and identify this columns as metadata but they will not be used for data annotation or any other step in the analysis.</p>
+<p>Optionally, the first row (after the column names) of your data may include the class labels of each of your samples (orange box) that will be used to automatically generate the target (class labels) later on.</p>
+<p><img alt="Data Format Example" src="../img/ExampleData.png" /></p>
+<p>The allowed formatting for <strong>lists of <em>m/z</em> peaks</strong> to be aligned is exemplified in the figure below. The software will expect a <strong>single Excel (<code>.xlsx</code> or <code>.xls</code>) file</strong>. It should have <strong>one sample per Excel sheet</strong>; the <strong>name of the Excel sheet should correspond to the sample name</strong> (orange box); each sheet should have in its <strong>first column the mass values</strong> (m/z, neutral mass or equivalent) and in its <strong>second column the corresponding intensity values</strong>; and finally, the first row should have the name of the two columns, for example, 'm/z' and 'I' (this name should be consistent between samples if possible). The example file <code>example_samples_to_align.xlsx</code> is available in the <code>Files_To_Align</code> folder as guidance.</p>
+<p><img alt="Formatting of Mass Peak Lists" src="../img/SampleToBeAligned.png" /></p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>The nature of the jupyter notebooks allows the researcher to tweak the data reading functions so they accept data in different formats as well.</p>
+</div>
+<h2 id="figure-and-table-saving">Figure and Table Saving</h2>
+<p>The jupyter notebook allows saving every table and figure made in the analysis. For most of the more relevant cases, this is already prepared to be performed, although the default option is turned off.</p>
+<p>For Figures, most have at the end of the code cell that produces something like the small code example shown below for the PCA Figure. By removing the '<strong>#</strong>' (comment), the figure will be saved when the cell is ran again (name can be adjusted).</p>
+<div class="no-copy highlight"><pre><span></span><code><span class="c1">#f.savefig(&#39;Name_PCAplot.png&#39;, dpi=600) # Save the figure</span>
+</code></pre></div>
+<p>For the most significant Tables, they have usually a whole code cell to format and save the table like in the example shown below to save the list of important features to build Random Forest models. Here, at the beginning of the cell, there is usually a parameter than can be changed between <code>False</code> and <code>True</code> to save or not save the table. In the example shown, the parameter name is <code>SAVE_IMP_FEAT</code>. By changing it to <code>True</code>, the table would be saved. Another example is the <code>GENERATE_Excel_file</code> parameter in the <code>Common and Exclusive Compound Analysis</code> step.</p>
+<div class="no-copy highlight"><pre><span></span><code><span class="c1"># Saving Important feature dataset in an excel</span>
+<span class="l l-Scalar l-Scalar-Plain">SAVE_IMP_FEAT = False</span>
+
+<span class="l l-Scalar l-Scalar-Plain"># Saving the most important features by their fraction &#39;frac_feat_impor&#39;.</span>
+<span class="l l-Scalar l-Scalar-Plain"># If None, saving the most important features based on a threshold &#39;VIP_Score_threshold&#39;.</span>
+<span class="l l-Scalar l-Scalar-Plain"># If also None, save the full dataset of all features</span>
+<span class="l l-Scalar l-Scalar-Plain">frac_feat_impor = 0.02</span><span class="w"> </span><span class="c1"># Fraction of features to save, If None the variable in the next line is used.</span>
+<span class="l l-Scalar l-Scalar-Plain">score_threshold = None</span><span class="w"> </span><span class="c1"># Only used if variable above is None, threshold of score to consider a feature important.</span>
+
+<span class="nt">if SAVE_IMP_FEAT</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">if frac_feat_impor</span><span class="p">:</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">max_idx = int(frac_feat_impor*len(imp_feats_rf))</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">filt_imp_feats_rf = imp_feats_rf.iloc[:max_idx]</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">filt_imp_feats_rf.to_excel(f&#39;RF_ImpFeat_{frac_feat_impor*100}%.xlsx&#39;)</span>
+<span class="w">    </span><span class="nt">elif score_threshold</span><span class="p">:</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">filt_imp_feats_rf = imp_feats_rf[imp_feats_rf[&#39;Gini Importance&#39;] &gt; score_threshold]</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">filt_imp_feats_rf.to_excel(f&#39;RF_ImpFeat_GiniImpgreater{score_threshold}.xlsx&#39;)</span>
+<span class="w">    </span><span class="nt">else</span><span class="p">:</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">imp_feats_rf.to_excel(f&#39;RF_FeatByImportance.xlsx&#39;)</span>
+</code></pre></div>
+<h2 id="data-exporting">Data Exporting</h2>
+<p>For exporting the data tables obtained after pre-processing and pre-treatment, a cell is available for saving different formats of the file in the NEMeSIS folder. This has the purpose to save data for the researcher to use somewhere else but also to be used as input for the <a href="./#independent-side-modules">Independent Side Modules</a>. The multiple files are made because they can be useful in different contexts. Here, we show these files with their default name but this name can be changed in the same cell code mentioned. These are:</p>
+<ul>
+<li><code>Export_TreatedData.xlsx</code> - Excel with 4 sheets, one containing the normalized data (without missing value imputation, transformation or scaling) with metadata, another the treated intensity data without metadata, another with the dataset treated with Binary Simplification (or Spectral Digitalization) method and the last with the treated values after missing value imputation and normalization (but before transformation and scaling).</li>
+<li><code>Export_Target.txt</code> - File containing the class labels (target) of the dataset's samples in the same order as they appear in the dataset.</li>
+<li><code>Export_TreatedData.pickle</code> - Treated intensity data without metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).</li>
+<li><code>Export_ProcData.pickle</code> - Normalized data (without missing value imputation, transformation or scaling) with metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).</li>
+</ul>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>The pickle versions of the dataset exist to eliminate the possiblity of rounding errors made to the index of the data tables, keeping them consistent between analyses.</p>
+</div>
+<h2 id="mzml-spectra-conversion">mzML Spectra Conversion</h2>
+<p>The mzML Spectra Conversion can be performed in an independent side jupytre notebook available in the NEMeSIS installation called <code>Raw_Spectra_Processing.ipynb</code>. This file can converts the open format mzML spectra into <strong>lists of <em>m/z</em> peaks</strong> that can be aligned into 2D <strong>data tables</strong>. For this purpose, the <a href="https://pyopenms.readthedocs.io/en/latest/">pyopenms</a> Python package is used.</p>
+<p>The names of the file should be inputted in the 2nd code cell of the notebook in a list as exemplified in the notebook itself. The most critical parameter in <code>signal_to_noise</code> ratio can also be adjusted in the following cell. Furthermore, other parameters that can be adjusted are in the cell where the conversion is performed and with a comment as seen in code section below. To use these parameters, the # before each line can be removed and the parameter adjusted.</p>
+<div class="no-copy highlight"><pre><span></span><code><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">param = cnt.getParameters()</span>
+<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">param.setValue(&quot;signal_to_noise&quot;, signal_to_noise)</span>
+<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">#param.setValue(&quot;spacing_difference_gap&quot;, 7.0)</span>
+<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">#param.setValue(&quot;spacing_difference&quot;, 5.0)</span>
+<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">#param.setValue(&quot;SignalToNoise:win_len&quot;, 200.0)</span><span class="w"> </span><span class="c1"># def 200</span>
+<span class="w">    </span><span class="c1">#param.setValue(&quot;SignalToNoise:bin_count&quot;, 200) #def 200</span>
+<span class="w">    </span><span class="c1">#param.setValue(&quot;SignalToNoise:min_required_elements&quot;, 100)</span>
+<span class="w">    </span><span class="c1">#param.setValue(&quot;SignalToNoise:max_intensity&quot;, 1000000)</span>
+<span class="w">    </span><span class="c1">#param.setValue(&quot;SignalToNoise:auto_mode&quot;, -1)</span>
+</code></pre></div>
+<p>Explanations of each parameter are shown with extensive documentation is present in <a href="https://openms.de/current_doxygen/html/classOpenMS_1_1PeakPickerHiRes.html">https://openms.de/current_doxygen/html/classOpenMS_1_1PeakPickerHiRes.html</a>. Credit to pyopenms devs.</p>
+<p>The <strong>lists of <em>m/z</em> peaks</strong> can be directly exported to an excel in the format appropriate for the Data Alignment section of the main jupyter notebook. Furthermore, the next section can also performed the data alignment of the <strong>lists of <em>m/z</em> peaks</strong> equivalent to the main jupyter notebooks, that can also be exported to a <code>.csv</code> file that can be the input of the main jupyter notebook or the NEMeSIS GUI as well.</p>
+<h5 id="spectra-visualization">Spectra Visualization</h5>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>This section shares high similarities with the first part of the <a href="../GUI_docs/#spectra-visualization">Spectra Visualization</a> section of the <a href="../GUI_docs/">Get started with GUI</a> page.</p>
+</div>
+<p>If files were succesfully converted and data alignment was performed, the last section allows to visualize and assess the quality of the spectral data processing by observing the raw, centroided (after spectral processing) and aligned (after data alignment) spectra in interactive graphs of a few samples simultaneously. They are interactive so close ups can be selected for each graph. This allows to observe the genral shape of peaks that were kept through the process and which were discarded and to see if the quality of the aligned spectra is as desired or expected.</p>
+<p class="annotate">The image below shows an example. You can choose which samples to see, if the spectra values should be normalized (1), and which mass ranges to plot initially.</p>
+<ol>
+<li>Normalization in the raw, centroided and aligned spectra is made by dividing their intensities the sum of all intensities in the <strong>raw data</strong> specifically.</li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Spectra contain a very large number of points which combined to their interactive nature, make it heavy resource demanding for the software and the computer. Hence, although it depends on the computer available, we do not recommend selecting more than 3-4 samples simultaneously. Moreover, it may take a few seconds until the spectra are fully operational.</p>
+</div>
+<p><img alt="Mass Spectra Example" src="../img/MSpectra.png" /></p>
+<h2 id="independent-side-modules">Independent Side Modules</h2>
+<p>The modular nature of the statistical analysis together with the Python implementation of NEMeSIS allows the addition of extra statistical analysis tailored to the specific dataset analysed by using independent side modules. These are illustrated how they can be applied by resorting to jupyter notebooks. To this end, NEMeSIS allows exporting data after the Data Pre-Processing and Pre-Treatment steps to be used by the independent modules. In order to facilitate the creation of these side modules, we present two side modules named <code>sMDiN_analysis_module.ipynb</code> and <code>FDiGNN_analysis_module.ipynb</code> that introduce how the data saved by the main workflows of NEMeSIS can be inputted and used.</p>
+<p>Moreover, these notebooks apply methodologies developed in the FT-ICR-MS-Lisboa laboratory group that we believe could improve and complement most analysis performed using the NEMeSIS software. The <code>sMDiN_analysis_module.ipynb</code> notebook applies the sample Mass-Difference Network (sMDiN) methodology as described in its paper <a href="https://doi.org/10.3389/fmolb.2022.917911">here</a> and the <code>FDiGNN_analysis_module.ipynb</code> notebook applied the Formula-Difference Graph Neural Network (FDiGNN) methodology as described here (<strong>put paper DOI when accepted</strong>) - currently submitted paper under review. Both methodologies focus on the representation of metabolomics as graph (non-tabular) representations instead of the 2D Data Tables usually used. These graph representations are built by taking into account possible chemical transformations between the detected metabolites, thus inserting into the data structural information that represents these possible transformations. The analysis performed will then include this implicit information stored in the graphs and use it to inform supervised models and metabolite importance, which can complement the conventional workflow. These methodolgoies are not included in the main NEMeSIS workflow since they are not a part of the conventional workflow most researchers start with to analyse data quality and because their use on the graphical interface would be more clunky as a consequence of the graph based approaches which could lead to a loss of nuance. Despite this, their complementarity and usefulness makes them indispensable to add as a side analysis to be performed.</p>
+<p>sMDiNs besides using a graph representation also use feature occurrence data instead of intensity data. The built a graph representing each sample that should be characteristic of each biological class and perform network analyis on the set of graphs constructed. The network analysis made is tied to the type of information that is desired to be extracted from the graphs (observe the performance of supervised models to see if the extracted data is reliable, that is, models with low performance cannot provide reliable information). For example, Weighted Mass-Difference based Building blocks Impact can be used to observe the difference in prevalence of different biochemical transformations used to build the graphs between classes - see paper <a href="https://doi.org/10.3389/fmolb.2022.917911">here</a> for details.</p>
+<p>FDiGNN builds a graph representation for each sample, adding attributes to the nodes (each representing a metabolite) such as intensity or feature occurrence. It then trains a Graph Neural Network model (with many parameters that can be adjusted and optimized) that can accept those graphs directly as input. The architecture of the network itself is also available to be altered and modified to the researcher's desires. By using PINNI (Probability-Impact based Network Node Importance), a measure of importance to each metabolite/node can be assigned. This prioritizes nodes near other nodes (in the network) that are important for discrimination. Thus, the methodology prioritizes the highlighting of network sections (associated metabolites by possible chemical transformations) over individual metabolite importance. Pathway analysis can also be performed to overlap this important sections to known pathways in order to improve biological interpretation. This unique emphasis on possible 'interactions' between metabolites is a great advantage of FDiGNNs. However, fitting neural networks can be computational heavy especially with larger networks which may lead to the model taking a few hours to be fit and information extracted.</p>
+<p>As for structure, the first few code cells in each case show how the exported data can be read back into the jupyter notebook obtaining all the main data tables (treated data, annotated data, BinSim treated data) as well as the target with the class labels of each sample. They also show the overall details that can be adjusted at the beginning, in these cases, the number of folds to perform stratified cross-validation and the number of iterations to repeat the cross-validation when fitting and estimating performance of supervised models. These parameters can change based on the type of analysis performed.</p>
+<p>After this section, each notebook contemplates the necessary procedures to apply their respective methodologies with detailed informations on the different steps present in the notebooks themselves. The <code>FDiGNN_analysis_module.ipynb</code> notebook has, at the end, a mini Dash application that will open on the browser to browse and analyse results from the FDiGNN analysis and metabolite importances extracted (as well as pathway analysis) facilitating interpretation.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8fd75fb4.min.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,1628 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://NEMeSIS.com/GUI_docs/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../jupyter_docs/">
+      
+      
+      <link rel="icon" href="../img/favicon.ico">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.10">
+    
+    
+      
+        <title>Get started with GUI - NEMeSIS</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.7e359304.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#starting-the-graphical-interface-of-nemesis" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="NEMeSIS" class="md-header__button md-logo" aria-label="NEMeSIS" data-md-component="logo">
+      
+  <img src="../img/favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            NEMeSIS
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Get started with GUI
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="NEMeSIS" class="md-nav__button md-logo" aria-label="NEMeSIS" data-md-component="logo">
+      
+  <img src="../img/favicon.ico" alt="logo">
+
+    </a>
+    NEMeSIS
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Get started with GUI
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Get started with GUI
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#starting-the-graphical-interface-of-nemesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Starting the Graphical Interface of NEMeSIS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opening-nemesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Opening NEMeSIS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-to-the-graphical-interface-of-nemesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction to the Graphical Interface of NEMeSIS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stage-1-data-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stage 1: Data Input
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stage 1: Data Input">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-alignment-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Alignment Page
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Alignment Page">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inputting-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inputting Data
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#converting-spectral-mzml-raw-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Spectral mzML raw data
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-alignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Alignment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectra-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Spectra Visualization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-reading-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Reading Page
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stage-2-data-pre-processing-and-pre-treatment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stage 2: Data Pre-Processing and Pre-Treatment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stage 2: Data Pre-Processing and Pre-Treatment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metadata-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Metadata Selection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Filtering
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Annotation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formula-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Formula Assignment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#de-duplication-of-ann-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      De-Duplication of Ann. Features
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-pre-treatment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Pre-Treatment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stage-3-data-analysis-and-interpretation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stage 3: Data Analysis and Interpretation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stage 3: Data Analysis and Interpretation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#com-and-exc-compound-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Com. and Exc. Compound Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unsupervised-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unsupervised Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supervised-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Supervised Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#univariate-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Univariate Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-diversity-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Diversity Visualization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hmdb-based-pathway-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      HMDB based Pathway Analysis
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HMDB based Pathway Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pathway-assignment-hmdb-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pathway Assignment (HMDB Annotation)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kegg-colour-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      KEGG Colour Mapping
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pathway-over-representation-analysis-based-on-hmdb-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pathway Over-Representation Analysis (based on HMDB IDs)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mapping-smpdb-pathways-based-on-hmdb-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mapping SMPDB Pathways (based on HMDB IDs)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binsim-treated-data-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      BinSim Treated Data Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph-based-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Graph-Based Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compound-search-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compound Search Tool
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#report-generation-and-parameter-saving" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report Generation and Parameter Saving
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#closing-and-resetting-the-software" class="md-nav__link">
+    <span class="md-ellipsis">
+      Closing and Resetting the Software
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tips-and-precautions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tips and Precautions
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jupyter_docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Get started with jupyter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../license/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    License
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_notes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Release Notes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#starting-the-graphical-interface-of-nemesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Starting the Graphical Interface of NEMeSIS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opening-nemesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Opening NEMeSIS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-to-the-graphical-interface-of-nemesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction to the Graphical Interface of NEMeSIS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stage-1-data-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stage 1: Data Input
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stage 1: Data Input">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-alignment-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Alignment Page
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Alignment Page">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inputting-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inputting Data
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#converting-spectral-mzml-raw-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Spectral mzML raw data
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-alignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Alignment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectra-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Spectra Visualization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-reading-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Reading Page
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stage-2-data-pre-processing-and-pre-treatment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stage 2: Data Pre-Processing and Pre-Treatment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stage 2: Data Pre-Processing and Pre-Treatment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metadata-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Metadata Selection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Filtering
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Annotation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formula-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Formula Assignment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#de-duplication-of-ann-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      De-Duplication of Ann. Features
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-pre-treatment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Pre-Treatment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stage-3-data-analysis-and-interpretation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stage 3: Data Analysis and Interpretation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stage 3: Data Analysis and Interpretation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#com-and-exc-compound-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Com. and Exc. Compound Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unsupervised-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unsupervised Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supervised-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Supervised Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#univariate-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Univariate Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-diversity-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Diversity Visualization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hmdb-based-pathway-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      HMDB based Pathway Analysis
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HMDB based Pathway Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pathway-assignment-hmdb-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pathway Assignment (HMDB Annotation)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kegg-colour-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      KEGG Colour Mapping
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pathway-over-representation-analysis-based-on-hmdb-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pathway Over-Representation Analysis (based on HMDB IDs)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mapping-smpdb-pathways-based-on-hmdb-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mapping SMPDB Pathways (based on HMDB IDs)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binsim-treated-data-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      BinSim Treated Data Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph-based-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Graph-Based Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compound-search-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compound Search Tool
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#report-generation-and-parameter-saving" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report Generation and Parameter Saving
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#closing-and-resetting-the-software" class="md-nav__link">
+    <span class="md-ellipsis">
+      Closing and Resetting the Software
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tips-and-precautions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tips and Precautions
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  <h1>Get started with GUI</h1>
+
+<h2 id="starting-the-graphical-interface-of-nemesis">Starting the Graphical Interface of NEMeSIS</h2>
+<p>NEMeSIS perform the analysis from spectral raw data, <em>m/z</em> peak lists or data tables to statistical analysis where most of this tutorial is focused.</p>
+<h2 id="opening-nemesis">Opening NEMeSIS</h2>
+<p>To open NEMeSIS, there are multiple options. We recommend the following:</p>
+<p>1) Open the Terminal or AnacondaPrompt (if Anaconda was not added to the PATH during installation).</p>
+<p>2) Navigate to the NEMeSIS folder in the pc with the <code>cd</code> command (or open the terminal directly on the folder).</p>
+<p>3) If you installed the requirements for NEMeSIS in the <strong>NEMeSIS_env</strong> specific environment as suggested, activate said environment with <code>conda activate NEMeSIS_env</code>.</p>
+<p>4) Run <code>Interface_NEMeSIS.py</code> as a line code. This will open the program itself so it can be used in an internet browser (it is running locally however).</p>
+<p>5) To close the program, return to the command line and press 'Ctrl+C'.</p>
+<h2 id="introduction-to-the-graphical-interface-of-nemesis">Introduction to the Graphical Interface of NEMeSIS</h2>
+<p>When opening NEMeSIS, you are greeted with a page such as the one presented below that should open in your browser of choice.</p>
+<p>Here, you can see on the on the left-hand side of the page (in a black box), you get an index-like column with buttons for every main page of the software. Most will be locked off in the beginning since they require other steps to be completed first before accessing. This is the main way to access different pages in the software. The first button (<code>Home</code>) and initial homepage of the software leads you to an introduction of what this software is and what analysis steps it includes. The second button (<code>Considerations and Instructions</code>) takes you to a few explanations and clarification on the workings of the software, which are also present here at the end of the page in <a href="./#tips-and-precautions">Tips and Precautions</a>. From then on, we go onto the data analysis pages.</p>
+<p>The green box marks the main section where the page currently selected appears. The red box in the upper right corner has a small ring in it. This ring will indicate to you if the program is currently computing anything. If it is, there will be a small black section going around the ring. While the program is computing, you cannot update anything else in it.</p>
+<p><img alt="GUI Opening Page" src="../img/OpeningPage_GUI.png" /></p>
+<p>NEMeSIS is divided into 3 stages:</p>
+<ol>
+<li><a href="./#stage-1-data-input">Data Input</a></li>
+<li><a href="./#stage-2-data-pre-processing-and-pre-treatment">Data Pre-Processing and Pre-Treatment</a></li>
+<li><a href="./#stage-2-data-analysis-and-interpretation">Data Analysis and Biological Intepretation</a> (Statistical Analysis)</li>
+</ol>
+<p>Note: Independent Side Modules are only available in jupyter notebooks and can be used for further analysis with exported information from NEMeSIS. See <a href="../jupyter_docs/#independent-side-modules">Independent Side Modules</a> in the jupyter notebook page.</p>
+<p><img alt="GUI Structure" src="../img/GUIStructure.png" /></p>
+<h2 id="stage-1-data-input">Stage 1: Data Input</h2>
+<p>Three possible inputs are accepted in NEMeSIS: <strong>mzML spectral raw data</strong>, <strong><em>m/z</em> peak lists</strong> of each sample or 2D <strong>data tables</strong> representing aligned samples. The Data Input page allows to select if your data requires data alignment, that is, if it is one of the the first two inputs mentioned by going to the <a href="./#data-alignment-page">Data Alignment Page</a> or if the data is aligned and can go to the data table pre-processing performed before data analysis by going to the <a href="./#data-reading-page">Data Reading Page</a>. The section of NEMeSIS that allows to perform data alignment is an independent module of all other remaining analysis that will convert your input into a 2D data table. It will auto generate a report since it will not be a part of the report encompassing the remaining steps of the software.</p>
+<h3 id="data-alignment-page">Data Alignment Page</h3>
+<p>This page is used to transform either mass lists or mzML data into 2D aligned sample tables that can be used as input for the <a href="./#data-reading">Data Reading</a> NEMeSIS software. This is geared to the pre-processing of <strong>direct-infusion mass spectrometry data</strong>. As such, this software has two main purposes:</p>
+<p>1) Convert mzML file data into mass values and intensity lists - <a href="./#converting-spectral-mzml-raw-data">Converting Spectral mzML raw data</a>.</p>
+<p>2) Perform Data Alignment on mass values and intensity lists to generate 2D aligned sample tables, that can be exported and used as inputs for NEMeSIS - <a href="./#data-alignment">Data Alignment</a>.</p>
+<p>Moreover, in case the original data was mzML, it also allows to visualize the raw and aligned spectra for the researcher to observe the quality of the alignment - <a href="./#spectra-visualization">Spectra Visualization</a>.</p>
+<h4 id="inputting-data">Inputting Data</h4>
+<p>Input files for the alignment should be placed in the <code>Files_To_Align</code> folder within the NEMeSIS folder. These files will be shown and selectable at the beginning of the software. You can select files either to select to go to <a href="./#converting-spectral-mzml-raw-data">Converting Spectral mzML raw data</a> or to pass directly to <a href="./#data-alignment">Data Alignment</a> when you already have your mass lists. The program will recognize this by whether you select one or multiple files:</p>
+<ul>
+<li>For submitting <strong>mass lists with intensity values to be aligned</strong>, the software will either expect a <strong>single Excel (<code>.xlsx</code> or <code>.xls</code>) file</strong> or <strong>multiple <code>.csv</code> files</strong>. An example image of the formatting of the Excel file is shown below. It should have <strong>one sample per Excel sheet</strong>; the <strong>name of the Excel sheet should correspond to the sample name</strong> (orange box); each sheet should have in its <strong>first column the mass values</strong> (m/z, neutral mass or equivalent) and in its <strong>second column the corresponding intensity values</strong>; and finally, the first row should have the name of the two columns, for example, 'm/z' (this name should be consistent between samples if possible) and 'I'. The example file <code>example_samples_to_align.xlsx</code> is available in the <code>Files_To_Align</code> folder as guidance. For the <strong>multiple <code>.csv</code> files</strong>, the expected formatting for each one is similar to one of the Excel sheets but the <strong>name of the column regarding the intensities should be the name of the sample being read</strong>. If one file is passed and it is not Excel or multiple files are passed but not all are .csv files, the data will not be read as mass lists with intensity values to be aligned.</li>
+</ul>
+<p><img alt="Formatting of Mass Peak Lists" src="../img/SampleToBeAligned.png" /></p>
+<ul>
+<li>For submitting <strong>spectral mzML raw data to convert and align</strong>, the software will expect <strong>multiple mzML files</strong>. For the software to assume that mzML conversion is required, multiple files must be passed all in mzML format. Converting spectral raw data into the open mzML format can be done using freely available tools such as Proteowizard's <a href="https://proteowizard.sourceforge.io/download.html">MSConvert</a>.</li>
+</ul>
+<h4 id="converting-spectral-mzml-raw-data">Converting Spectral mzML raw data</h4>
+<p>This section of the software only appears if <strong>mzML files</strong> are detected in the data input. Here, these files in open mzML format can be converted into <em>m/z</em> peak lists so data alignment can be performed. For this purpose, the <a href="https://pyopenms.readthedocs.io/en/latest/">pyopenms</a> Python package is used. A series of parameters that can be changed to optimize conversion are available to be chosen with special attention to the <code>Minimal signal-to-noise ratio for a peak to be picked</code> parameter as crucial. Explanations of each parameter are shown with extensive documentation is present in <a href="https://openms.de/current_doxygen/html/classOpenMS_1_1PeakPickerHiRes.html">https://openms.de/current_doxygen/html/classOpenMS_1_1PeakPickerHiRes.html</a>. The description from the link is also near every parameter with a tooltip. Credit to pyopenms devs.</p>
+<p>When pressing the button for conversion, each spectra will be converted giving a small description of the number of raw and centroided signals. After finishing, you will be prompted to download the results, which is required for data alignment. This exports two files, a word document with a small description of the conversion and an excel file with the mass peak lists in the formatting already required for data alignment.</p>
+<h4 id="data-alignment">Data Alignment</h4>
+<p>This section of the software either appears after a <strong>single Excel file</strong>or <strong>multiple <code>.csv</code> files</strong> is detected in the input or after mzML spectra raw data conversion and peak list saving. The data alignment performed is made using the <code>align</code> function from the <a href="https://pypi.org/project/metabolinks/">Metabolinks</a> Python package (developed in the group). It uses 2 parameters: the <strong><code>PPM Deviation Tolerance</code></strong> that defines the maximum tolerance (in parts per million) to group metabolic features from different samples together and the <strong><code>Minimum Sample Number Appearance</code></strong> that defines the minimum number of samples a metabolic feature must appear in to be kept in the final aligned dataset.</p>
+<p>After alignment, a short description of the alignment process will be shown as well as the aligned dataset (if this aligned dataset is large, only the first 10 000 metabolic features will be shown). The dataset and an abridged description of the metabolic feature alignments can be saved. The aligned dataset can be directly used in the NEMeSIS software.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The button to go towards the <a href="./#data-reading-page">Data Reading Page</a> is only pressable after saving the aligned data. This saved data will be placed in the NEMeSIS folder and can be immediately used as input in the <a href="./#data-reading-page">Data Reading Page</a>.</p>
+</div>
+<h4 id="spectra-visualization">Spectra Visualization</h4>
+<p>This section of the software appears after <strong>data alignment</strong> is performed <strong>if the original files were mzML raw data</strong>. The objective is to visualize the quality of the spectral data processing by observing the raw, centroided (after spectral processing) and aligned (after data alignment) spectra in interactive graphs of a few samples simultaneously. They are interactive so close ups can be selected for each graph. This allows to observe the genral shape of peaks that were kept through the process and which were discarded and to see if the quality of the aligned spectra is as desired or expected.</p>
+<p class="annotate">The image below shows an example. You can choose which samples to see, if the spectra values should be normalized (1), and which mass ranges to plot initially.</p>
+<ol>
+<li>Normalization in the raw, centroided and aligned spectra is made by dividing their intensities the sum of all intensities in the <strong>raw data</strong> specifically.</li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Spectra contain a very large number of points which combined to their interactive nature, make it heavy resource demanding for the software and the computer. Hence, although it depends on the computer available, we do not recommend selecting more than 3-4 samples simultaneously. Moreover, it may take a few seconds until the spectra are fully operational.</p>
+</div>
+<p><img alt="Mass Spectra Example" src="../img/MSpectra.png" /></p>
+<h3 id="data-reading-page">Data Reading Page</h3>
+<p>This page can be reached from the <a href="./#stage-1-data-input">Data Input Page</a> page or the <a href="./#data-alignment-page">Data Alignment Page</a>. This page reads 2D Data tables (aligned datasets) to be used for the remainder of the workflow. The inputted data requires a strict formatting. This formatting is exemplified in the figure below with the addition that files can either be <code>.csv</code> or <code>.xlsx</code> files. Metabolic Features can either be represented in the rows or columns, while samples and metadata should be on the opposite axis. </p>
+<p>The example shown is using metabolic features in the rows and samples/metadata in the columns. The format for the opposite case is the exact same but transposed. The first column in your data must correspond to the identifier of your metabolic features, more specifically, to a mass value if possible - black box - and they should be unique (non-repeating). The name of the column will be overwritten to be <code>Metabolite Label</code>. If the columns are mass values capable of being intepreted as floats (numbers), then a <code>Mass</code> column in your data will be added. This column is later necessary to perform <code>Data Annotation</code> (but nothing else). You have 3 possibilities to choose from: <code>Neutral</code> where the masses in your index are taken as the neutral masses creating a <code>Neutral Mass</code> column, <code>m/z (Positive)</code> or <code>m/z (Negative)</code> where the masses are assumed to be <em>m/z</em> values obtained in positive or negative (respectively) ionization mode creating a <code>Probable m/z</code> column.</p>
+<div class="admonition danger">
+<p class="admonition-title">Danger</p>
+<p>Avoid having a column named <code>Neutral Mass</code> or <code>Probable m/z</code> in your data, since it will be overwritten.</p>
+</div>
+<p>The remaining columns are free to be any metadata you have in your data (green box) and the samples with the corresponding intensity values (purple box). If you are using LC-MS or GC-MS or any other kind of hyphenated method and have another column other than mass to characterize your features such as retention time, you can still analyse them and identify this columns as metadata but they will not be used for data annotation or any other step in the analysis.</p>
+<p>Optionally, the first row (after the column names) of your data may include the class labels of each of your samples (orange box) that will be used to automatically generate the target (class labels) later on.</p>
+<p>After data is read, the next step of the analysis will be unlocked (loading an example dataset to test the software is possible).</p>
+<p><img alt="Data Format Example" src="../img/ExampleData.png" /></p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>The file <code>5yeasts_notnorm.csv</code> is the default example in the software that can be loaded by NEMeSIS and that can be used as an example of the formatting.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you want, you can load the parameters used in a previous analysis at this stage as well. Further details about this in <a href="./#report-generation-and-parameter-saving">Report Generation and Parameter Saving</a>.</p>
+</div>
+<h2 id="stage-2-data-pre-processing-and-pre-treatment">Stage 2: Data Pre-Processing and Pre-Treatment</h2>
+<p>The second stage of the software is the Data Pre-Processing and Pre-Treatment that includes many sub-sections: <a href="./#metadata-selection">Metadata Selection</a>, <a href="./#data-filtering">Data Filtering</a>, <a href="./#data-annotation">Data Annotation</a>, <a href="./#formula-assignment">Formula Assignment</a>, <a href="./#de-duplication-of-ann-features">De-Duplication of Annotated Features</a> and <a href="./#data-pre-treatment">Data Pre-Treatment</a>.</p>
+<p>All these sections are mandatory and are progressed and unlocked one by one in a linear fashion. You can redo previous parts of the pre-treatment. If you <strong>change any part of the pre-treatment</strong>, posterior pre-treatment steps and statistical analysis will immediately <strong>be locked</strong> and will <strong>erase previous statistical analysis</strong> if any has been performed. This is to avoid situations where the user wanted to change the pre-treatment but forgot to re-apply posterior pre-treatment steps. Thus, it is necessary to keep coherency.</p>
+<h4 id="metadata-selection">Metadata Selection</h4>
+<p>Here, you will be asked to select which columns of your data are metadata (non-sample columns). If this metadata includes formula assignment or metabolite compound annotation columns, you can select them in their corresponding spots so they can be used downstream as that. Furthermore, you can select a column that contains the mass values of your metabolic features, whether it is the <code>Neutral Mass</code> or <code>Probable m/z</code> columns created in the previous section or another prepared previously that will be used for <code>Data Annotation</code> (if <code>None</code> is chosen, <code>Data Annotation</code> cannot be performed). Finally, you can select Quality Control (QC) samples that will be separated from the remaining ones (they will not be used in the statistical analysis but can be used for Quality Control Sample based Data Filtering). Other metadata will not be used in the analysis.</p>
+<p>After selecting it, either a target will try to be inferred from the name of your samples or it will be taken from your data (if it was present). In either case, you can edit your target to your needs, before confirming it and moving to the next section.</p>
+<p><img alt="Metadata Selection Example" src="../img/MetaDataSelection.png" /></p>
+<h4 id="data-filtering">Data Filtering</h4>
+<p>Data Filtering is used to <em>clean</em> the dataset of features that appear in very few samples. You can select to perform Data Filtering by 4 different procedures.</p>
+<p>1) <strong>Filtering based on the number of samples each feature appears in</strong>. This will only include features that appear in a determined number <strong>n</strong> of either the total samples of the dataset (<code>Total Samples</code> method) or of at least the samples of one class (<code>Class Samples</code> method). It can be used, for example to filter experimental artifacts. This <strong>n</strong> is referred to as the <em>feature filter keyword</em> and can go from 1 to the number of samples in your data in the first case or to the number of samples of your least populated class in the second.</p>
+<p>2) <strong>Filtering based on intensity values</strong>. This will filter metabolic features based on their intensity values as calculated by the mean or median over the samples they appear in, removing lower intensity features. A hard threshold with a set intensity value is used or a percentage based threshold where the percent lowest intensity of features are removed.</p>
+<p>3) <strong>Filtering based on the feature variance of Quality Control samples</strong>. Only available if you have at least three QC samples as selected in the previous page. This will eliminate features that have high variance in the quality control samples (where they should be equal) as estimated by relative standard deviation (standard deviation / mean) above a determined threshold, since that points that they are not reproducible. Features that do not appear in the QC samples are assumed to have 0 variance.</p>
+<p>4) <strong>Filtering based on the feature variance of analysed samples</strong>. This filtering is not recommended to use if you are looking for exclusive metabolic features in the classes of your datasets or if you aim to use feature occurrence data. It will filter out the lowest variance features across the samples since their intensity patterns would not be informative.</p>
+<p>After Data Filtering, a small table detailing some characteristics of your data as well as your dataset will be shown.</p>
+<h4 id="data-annotation">Data Annotation</h4>
+<p>Next up, we have Data Annotation. This step is only possible if you have a Mass column as selected in the earlier section (either created in the software based on mass values provided or previously obtained) that represents the masses of the metabolites detected as numbers. This section allows to match unknown metabolic features to known compounds and metabolite, highly enhancing the possible biological interpretation.</p>
+<p>You can skip this step by selecting annotation with <em>0</em> databases. Or you can select 1 to 5 databases to perform independent annotations. A database must have a compound ID column, a compound name column and a compound formula column (that is used to calculate the compound theoretical mass used for annotation). To use a database, it should be on the directory where NEMeSIS is located and you must provide a series of informations such as the file name and the column identifier of the ID, name and formula of the compounds. You will also be asked for an abbreviated name of the database to use (for example, HMDB for Human Metabolome Database). If the Database contains a column with KEGG compound IDs, this information will also be conserved in the annotation if and only if the column is named 'kegg'.</p>
+<p class="annotate">After loading your desired databases, you can choose a maximum threshold of deviation between the theoretical masses of the compounds in the database and the neutral masses in the dataset. This can be a flat threshold (<code>Absolute Dalton Deviation</code>) or a parts per million based threshold (<code>PPM Deviation</code>) (1).</p>
+<ol>
+<li>A usual value for extreme-resolution data could be a ppm deviation between 0.5 and 1 ppm.</li>
+</ol>
+<p>Finally, you can decide which adducts to search by inputting the adduct name and consequent mass shift they cause on a neutral mass. This should be inputted in the following format "Adduct_Name : Mass_Shift_to_neutral_mass". As an example: "[M+H]+ : 1.007276451988935". The software automatically provides an example of common adducts to search based on if <code>Positive (m/z)</code> ([M+H]+, [M+Na]+, [M+K]+), <code>Negative (m/z)</code> ([M-H]-, [M+Cl]-) or <code>Neutral</code> ([M]) were chosen in Step 1.</p>
+<p class="annotate">With these parameters selected, you can perform the annotation. Before the annotation, all selected databases will be merged together. The annotation is made by comparing the dataset's masses with the databases. Every compound in the database that fall within the error margin threshold chosen to a given metabolite feature is annotated to that feature. Thus, very often features have multiple annotations associated (for example, every isomer in a database will be annotated if one is). This annotation is based on the fact that the mass value of a feature is not enough to differentiate and choose between different isomers. The results of the annotation of our data based on an individual database is the creation of 5 metadata columns: for each metabolic feature, one has a list of compound IDs annotated, another of compound names, another of compound formulas, another with the corresponding adducts and the last with the database where the annotated compounds were present (1). If KEGG compound IDs are detected in a database a 6th metadata column will be created with these KEGG IDs (2).</p>
+<ol>
+<li>The lists are in the same order in the 5 columns. Thus, the 3rd compound ID in its list corresponds to the 3rd compound name in its list.</li>
+<li>The KEGG ID columns are detected by their name - the name must be 'kegg'.</li>
+</ol>
+<h4 id="formula-assignment">Formula Assignment</h4>
+<p>Formula Assignment is a complement to the Data Annotation performed in the step before. Data annotation provides a lot of information to annotated metabolic features but the lower number of compounds in the database leads to only a small subset of metaoblic features to be annotated. Formula assignment complements annotation by having a much wider coverage of the chemical space allowing many more formula assignments to be performed, however each is less informative individually. Thus, they complement each other to provide a fuller picture of the dataset.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Data Annotation and Formula Assignment are essential for the extraction of biological information. However, if annotation and/or formula assignment have been performed outside NEMeSIS, we do not recommend them to also be applied here. Multiple sets of annotations or of formula assignments can confound the <a href="./#de-duplication-of-ann-features">De-Duplication of Annotated Features</a> step (next step) and posterior analysis.</p>
+</div>
+<p>Formula assignment is made here with our developed algorithm <strong>ScoreForm</strong> presented with detailed descriptions of the criteria and steps used available in the <strong>preprint here</strong>. It follows the <a href="https://doi.org/10.1186/1471-2105-8-105">7 Golden Rules</a> proposed by Kind and Fiehn updated to new standards following what is observed in the chemical space of metabolites nowadays. It focuses on restricting and prioritizing formulas with elemental ratios (and number of atoms of each element) in ranges tailored to the mass of the formula itself, allowing a higher performance in formula prediction while not sacrificing formula coverage. Moreover, it is a score-based algorithm providing a relative score of confidence when there are multiple candidates for assignment of a metabolic feature. The scores and candidates are also saved within the dataset allowing the researcher to delve into the candidates and compare their relative scores for greater granularity.</p>
+<p>Importantly, the first step of the algorithm is the creation of a Formula Database which is <strong>performed outside the interface</strong>. <strong>Without creating a database, this step cannot be ran and must be skipped. The Formula Database can be created by simply running the <code>FormulaDatabaseCreator.ipynb</code> notebook once before.</strong> The parameters in this file can also be changed to suit the Formula Database closer to the researcher's desires. The name of the files comprising the database should follow the convention of 'formulas_improved_dict{n}.csv' where <em>n</em> is the lowest molecular mass in the file that should go from 0 to 1000 in 250 Da intervals. For example, 'formulas_improved_dict250.csv' should comprise the masses from 250-500 Da.</p>
+<p>Parameters shared with data annotation, namely mass deviation and adducts searched must be kept the same as for data annotation so as to not introduce incompatibilities. Thus, to change these parameters, they have to be altered in the <a href="./#data-annotation">Data Annotation</a> page. After formula assignment, a small description of the results is shown.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>When choosing the name of the columns the assigned formulas will be added to, make sure it is not the same name of a pre-existing column.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The next version will include a greater set of parameter options to modify and finetune how the ScoreForm algorithm is applied.</p>
+</div>
+<h4 id="de-duplication-of-ann-features">De-Duplication of Ann. Features</h4>
+<p>Due to the proximity of mass values, the same compound (or formula) can be annotated to different metabolic features. The objective of this section is to merge metabolic features that have the same annotations or formula assignments, preventing the existence of features with the same annotations. The rationale is that, being NEMeSIS targeted to direct infusion data, the adduct of one compound should result in one monoisotopic mass and therefore metabolic peak. However, practically, an <em>m/z</em> peak might be split between two very similar <em>m/z</em> values. Thus, we can merge features with the same annotations. In the same way, peaks from different adducts can also be merged into one metabolic feature.</p>
+<p>The beginning of the page will provide you a report of duplicated peaks across annotations and formula assignments you have provided (see figure below). The first columns regard to the duplications in annotations with the orange box showing the duplications from columns previously annotated before uploading data to NEMeSIS and in green the box with Matched IDs annotations performed by NEMeSIS; and the last columns correspond to duplications in formula assignments with the first (red box) corresponding to the NEMeSIS performed ScoreForm assignment and the last one (blue box) to previous formula assignments. This example shows all 4 types of possible columns to appear but <strong>we recommend for no more than 1 annotation and 1 formula assignment column to be present in the data to simplify de-duplication and analysis.</strong></p>
+<p><img alt="Duplicated Peaks Report Example" src="../img/Dup_Report.png" /></p>
+<p class="annotate">From this report, a decision can be made whether de-duplication (merging) of these peak will be made. The most common situations to merge is the existence of one 'main' peak with much higher intensities across the samples or the existence of peaks corresponding to multiple adducts that can be merged. More situations can also arise, including a specific situation that warrants individual attention. These are more likely when multiple annotations are considered, hence our previous recommendations. <strong>When finding different metabolic features with the same annotation (for all columns), features are merged by keeping the highest intensity value in each sample if representing the same adduct and summed if they correspond to different adducts (1).</strong></p>
+<ol>
+<li>When both cases happen at the same time, first metabolic features of the same adduct are merged by keeping the highest intensity and then different adducts are summed.</li>
+</ol>
+<p>In total, 4 possible situations for merging can happen:</p>
+<ul>
+<li>
+<p><strong>Situation 1 (Overwrite)</strong>: Multiple metabolic features have the same annotation for all annotation databases with the highest intensity values coming all from one metabolic feature that becomes the de facto metabolic feature with others being erased (only happens when they all come from the same adduct).</p>
+</li>
+<li>
+<p><strong>Situation 2 (Merge Same Adducts)</strong>: Multiple metabolic features have the same annotation (no different annotations in any annotation column) with the highest intensity coming from at least two different metabolic features and <strong>ALL</strong> metabolic features come from the same adduct. For each sample, the highest intensity is kept. 'Bucket Label' and the 'Mass' columns become the weighted average (based on the average intensity of the features) of all the features with the same annotation.</p>
+</li>
+<li>
+<p><strong>Situation 3 (Merge Different Adducts)</strong>: Identical to Situation 2 but there is <strong>at least one metabolic feature that comes from a different adduct</strong>. For each sample, the highest intensity of metabolic features from the same adduct are kept. Then, the intensities of metabolic features of different adducts are summed.</p>
+</li>
+<li>
+<p><strong>Situation 4 (Contradictions - Possible Problem Situation)</strong>: Multiple metabolic features have the same annotation for one annotation and different for another. Most of the time there is no issue. For example, imagine a case where we have annotated HMDB compounds and ScoreForm assigned formulas. <strong>Scenario 1</strong>: We find that HMDB puts two different compounds for 2 metabolic features and ScoreForm assigns the same formula. Here, it is fair to treat them as different features and this is the default behaviour. <strong>Scenario 2</strong>: However, rarely, there can be a case where there are more than 2 metabolic features with the same compound annotated in HMDB. This should be quite rare and it is from where the problem arises. HMDB has the same compound for 4 features and ScoreForm assigns to one of them one formula, to a second one a different formula and the last two no formula at all. What is the correct course of action?  Perhaps merging the two peaks with no annotation by ScoreForm, maybe merging those two peaks with one of those annotated by ScoreForm since they would be normally merged if not for the existence of two different ScoreForm annotations. Hence, the problem. <strong>They should be seen on a case-by-case basis and are thus not automatically merged. These cases can be individually seen and decided upon (example below). At this point, we believe a sensible course of action may be to not merge any of these peaks together. If many of these cases occur, consider your annotations</strong>.</p>
+</li>
+</ul>
+<p>From the merging of metabolic peaks, tables will appear to describe them as shown below. First, an overview of the mergings performed on the left and the mergings that each annotation led to (by order of scanning) on the right. Below, a description of every single merging is also provided.</p>
+<p><img alt="De-Duplication of Peaks Report Example" src="../img/DeDup_Report.png" /></p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>It is expected for the number of mergings per annotation to decrease along annotations since most of the annotation duplications and mergings overlap. In our example, almost all mergings that would happen for the <code>Matched IDs</code> column happenned first for the <code>Name - Prev. Ann.</code> column and, therefore, did not need to be repeated.</p>
+</div>
+<p>At the end, all possible merging problems arising from <strong>Situation 4</strong> will also be displayed (figure below), where you can pass to the <a href="./#data-pre-treatment">Data Pre-Treatment</a> or decide what to do with each individual problem. <strong>Right now, we believe a sensible course of action may be to not merge any of these peaks together and consider your annotation more closely if many of these cases occur</strong>.</p>
+<p><img alt="Merging Problems Example" src="../img/MergingProblems_Example.png" /></p>
+<p>The figure below shows the example of a problem emerging from a 5-peak merging (5 peaks being merged is highly unlikely and only occurs due to the wide ppm deviation allowed for a prvious annotation made in the example dataset). Here you can select on the elft which peaks to merge. However, <strong>these peaks cannot be incompatible</strong>. For example, in the case shown below, despite all peaks having the same annotation in the <code>Name</code> and <code>Formula</code> columns (previous annotation) and no annotation in <code>Matched IDs</code>, they all have different annotations in the <code>Formula_Assignment</code> column. Therefore, no possible selection will allow a merging of the peaks. If for example, another peak also had no annotation in the <code>Formula_Assignment</code> column like <code>306.0777699814 Da</code>, then those two peaks could've been selected and merge (identical for if any 2 peaks had the same <code>Formula_Assignment</code> assignment). After this, a report of the individual mergings performed or not performed will be provided before moving on to the next section.</p>
+<p><img alt="Individual Merging Example" src="../img/IndividualMerging_Example.png" /></p>
+<h4 id="data-pre-treatment">Data Pre-Treatment</h4>
+<p>Data Pre-Treatment is a series of successive operations that include: missing value imputation, normalizations, transformations and scaling. The only mandatory operation is missing value imputation since the existence of missing values does not allow the application of many statistical methods downstream. These procedures have the aim of highlighting relevant biological variation while reducing the effect of undesired variation (<a href="https://doi.org/10.1186/1471-2164-7-142">van den Berg et al., 2006</a>) and make the values in dataset more amenable to posterior downstream analysis.</p>
+<p>Each category has multiple different approaches available which we will present next and, since data pre-treatment highly impacts posterior data analysis, careful deliberation on the combination of pre-treatments to use is advised.</p>
+<div class="admonition danger">
+<p class="admonition-title">Danger</p>
+<p>Not all possible combinations of pre-treatments are viable. There are some combinations which included incompatible methods between them or with your data. As two examples, <strong>Zero</strong> missing value imputation cannot be used with a generalized logarithmic transformation and normalization by a reference feature cannot be used if your reference feature does not appear in <strong>all the dataset samples</strong>. This incompatibility will generate missing values in the data which the software will warn you about.</p>
+</div>
+<p><strong><em>Missing Value Imputation</em></strong></p>
+<p>Missing Value Imputation aims to replace missing values in the dataset (metabolic features that do not appear in certain samples despite appearing in others) with "probable" intensity values to make possible many different statistical analysis. There are 3 types of missing values: Missed At Random (MAR), Missed Not At Random (MNAR) or Missed Completely At Random (MCAR). The methods available in this software assume the missing values are MNAR, that is, that they were missed not due to instrumental error but due to the metabolic feature being absent or in concentrations / intensities below the detection limit in that sample. Thus, these methods replace this missing values with low values below most other intensity values in the data.</p>
+<table>
+<thead>
+<tr>
+<th>Missing Value Imputation Methods Available</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Minimum of Sample</td>
+<td>Replace missing values with a fraction (0 to 1) of the minimum intensity value in the corresponding sample.</td>
+</tr>
+<tr>
+<td>Minimum of Feature</td>
+<td>Replace missing values with a fraction (0 to 1) of the minimum intensity value in the corresponding metabolic feature.</td>
+</tr>
+<tr>
+<td>Minimum of Data</td>
+<td>Replace missing values with a fraction (0 to 1) of the minimum intensity value in the dataset.</td>
+</tr>
+<tr>
+<td>Zero Imputation</td>
+<td>Replace missing values with 0.</td>
+</tr>
+</tbody>
+</table>
+<p><strong><em>Normalization</em></strong></p>
+<table>
+<thead>
+<tr>
+<th>Normalization Methods Available</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>By Total Sum of Intensities</td>
+<td>Dividing each intensity by the total sum of intensities of the corresponding sample (all values between 0 and 1).</td>
+</tr>
+<tr>
+<td>By a Reference Feature</td>
+<td>Dividing each intensity by the intensity of the reference feature in the corresponding sample.</td>
+</tr>
+<tr>
+<td>Probabilistic Quotient Normalization (PQN)</td>
+<td>Normalization method proposed by Dieterle et al. in 2006 - see <a href="https://doi.org/10.1021/ac051632c">paper here</a> for details.</td>
+</tr>
+<tr>
+<td>Quantile Normalization</td>
+<td>As explained by Bolstad et al. in 2003 - see <a href="https://doi.org/10.1093/bioinformatics/19.2.185">paper here</a> for details.</td>
+</tr>
+<tr>
+<td>None</td>
+<td>No Normalization Performed.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Besides the incompatibilities mentioned earlier, we recommend not to use Quantile Normalization when your data has a high percentage of missing values, which is more likely with direct infusion extreme-resolution data that this software aims to analyse.</p>
+</div>
+<p><strong><em>Transformation</em></strong></p>
+<table>
+<thead>
+<tr>
+<th>Transformation Methods Available</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Generalized Logarithmic Transformation (glog)</td>
+<td>Apply the equation: log<sub>2</sub>(y + (y<sup>2</sup> + lambda<sup>2</sup>) /2). When lambda = 0, it equivalent to a logarithmic transformation</td>
+</tr>
+<tr>
+<td>None</td>
+<td>No Transformation Performed.</td>
+</tr>
+</tbody>
+</table>
+<p><strong><em>Scaling</em></strong></p>
+<table>
+<thead>
+<tr>
+<th>Scaling Methods Available</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mean Centering</td>
+<td><span class="arithmatex">\(\widetilde{x}_{ij} = x_{ij} - \overline{x}_{i}\)</span></td>
+</tr>
+<tr>
+<td>Pareto Scaling</td>
+<td><span class="arithmatex">\(\widetilde{x}_{ij} = \dfrac{x_{ij} - \overline{x}_{i}}{\sqrt{s_{i}}}\)</span></td>
+</tr>
+<tr>
+<td>Auto Scaling</td>
+<td><span class="arithmatex">\(\widetilde{x}_{ij} = \dfrac{x_{ij} - \overline{x}_{i}}{s_{i}}\)</span></td>
+</tr>
+<tr>
+<td>Range Scaling</td>
+<td><span class="arithmatex">\(\widetilde{x}_{ij} = \dfrac{x_{ij} - \overline{x}_{i}}{x_{i_{max}} - x_{i_{min}}}\)</span></td>
+</tr>
+<tr>
+<td>Vast Scaling</td>
+<td><span class="arithmatex">\(\widetilde{x}_{ij} = \dfrac{x_{ij} - \overline{x}_{i}}{s_{i}}\)</span> . <span class="arithmatex">\(\dfrac{\overline{x}_{i}}{s_{i}}\)</span>  (associated <a href="https://doi.org/10.1016/S0003-2670(03)00094-1">paper</a>)</td>
+</tr>
+<tr>
+<td>Level Scaling</td>
+<td><span class="arithmatex">\(\widetilde{x}_{ij} = \dfrac{x_{ij} - \overline{x}_{i}}{\overline{x}_{i}}\)</span> (the scaling factor can be the median of <span class="arithmatex">\({x}_{i}\)</span> as an alternative)</td>
+</tr>
+<tr>
+<td>None</td>
+<td>No Scaling Performed.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Scaling equations obtained from van den Berg et al., 2006, paper available <a href="https://doi.org/10.1186/1471-2164-7-142">here</a>.</p>
+</div>
+<p>After Data Pre-Treatment, you will have the option to download the generated tables in different stages:</p>
+<ul>
+<li>Untreated data after data annotation - <code>annotated_df.csv</code></li>
+<li>Treated intensity data without metadata - <code>treated_df.csv</code>.</li>
+<li>Treated intensity data with metadata - <code>complete_treated_df.csv</code>.</li>
+</ul>
+<p>Furthermore, a series of extra files starting with <strong>Export</strong> will also be generated. These files can then be moved to the NEMeSIS folder and used as input for the <a href="../jupyter_docs/#independent-side-modules">Independent Side Modules</a>. These are:</p>
+<ul>
+<li><code>Export_TreatedData.xlsx</code> - Excel with 4 sheets, one containing the normalized data (without missing value imputation, transformation or scaling) with metadata, another the treated intensity data without metadata, another with the dataset treated with Binary Simplification (or Spectral Digitalization) method and the last with the treated values after missing value imputation and normalization (but before transformation and scaling).</li>
+<li><code>Export_Target.txt</code> - File containing the class labels (target) of the dataset's samples in the same order as they appear in the dataset.</li>
+<li><code>Export_TreatedData.pickle</code> - Treated intensity data without metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).</li>
+<li><code>Export_ProcData.pickle</code> - Normalized data (without missing value imputation, transformation or scaling) with metadata in pickle format to guarantee the 'Bucket Labels' suffer no changes (roundings).</li>
+</ul>
+<p>After moving from this page, you will be able to select a colour to represent each of the classes in the studied dataset before moving on to the <a href="../jupyter_docs/#data-analysis-and-interpretation">Data Analysis and Interpretation</a> (Statistical Analysis) step. Futhermore, at this stage, the parameters used for pre-processing and pre-treatment can be saved as a json that can be loaded back in the Data Reading page in subsequent analysis. This will be automatically saved on the NEMeSIS folder.</p>
+<h2 id="stage-3-data-analysis-and-interpretation">Stage 3: Data Analysis and Interpretation</h2>
+<p>The third and final stage of the software is the Data Analysis and Interpretation (Statistical Analysis) that also includes many sub-sections: <a href="./#com-and-exc-compound-analysis">Common and Exclusive Compound Analysis</a>, <a href="./#unsupervised-analysis">Unsupervised Analysis</a>, <a href="./#supervised-analysis">Supervised Analysis</a>, <a href="./#univariate-analysis">Univariate Analysis</a>, <a href="./#data-diversity-visualization">Data Diversity Visualization</a>, <a href="./#hmdb-based-pathway-analysis">HMDB based Pathway Analysis</a>, <a href="./#binsim-treated-data-analysis">BinSim Treated Data Analysis</a> and a <a href="./#compound-search-tool">Compound Search Tool</a>.</p>
+<p>Almost all these sections are independent of one another and can be performed in any desired order based on the analyses objective. The exception is certain parts of the <a href="./#hmdb-based-pathway-analysis">HMDB based Pathway Analysis</a> section that requires either <a href="./#supervised-analysis">Supervised Analysis</a> or <a href="./#univariate-analysis">Univariate Analysis</a> to have been performed first.</p>
+<p>These steps have different purposes to interpret the analysed data, giving different perspectives on it.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>During this stage, analysis results expressed as images can either be <strong>static</strong> (made using matplotlib python package)or <strong>interactive</strong> (made using plotly). For <strong>static</strong> figures, a nearby button with 'save as png' text will always be nearby so the figure can be downloaded exactly as it is shown. For <strong>interactive</strong> figures (see image below), when hovering over them, a series of options appears in the top right. The leftmost of these options allows to save the figure exactly as it is currently shown (red box in image below). Interactive figures allows to hover over individual points and obtain information, to zoom in on specific regions, etc. To return the default view point, the autoscale button can be pressed (green box in image below).</p>
+</div>
+<p><img alt="Interactive Image Example" src="../img/InteractiveImageExample.png" /></p>
+<h4 id="com-and-exc-compound-analysis">Com. and Exc. Compound Analysis</h4>
+<p>The Common and Exclusive Compound Analysis when computed provides three types of outputs that can be viewed by selecting the shown tabs. They allow to see possible important compounds that are biomarker like as well as the the general number of metabolic features by class and common to all classes. It also allows to see if a subset of classes has a high number of metabolic features specific to them.</p>
+<p>The <strong>Overview</strong> section includes a brief description of the number of compounds (and annotated compounds) that each biological class has, that are exclusive to each of them and that are common to all of them. This data can also be downloaded as a table. Furthermore, you may select a subset of the classes to see all associated metabolic features to those classes or only those that are exclusive to those classes. This data subset can also be saved as a dataframe.</p>
+<p>The <strong>Venn Diagram</strong> section, as the name entails, shown a Venn Diagram of the metabolic features. This Diagram is built with the <code>venn.py</code> file originally provided in <a href="https://github.com/tctianchi/pyvenn/blob/master/venn.py">https://github.com/tctianchi/pyvenn/blob/master/venn.py</a> and used according to its license.</p>
+<p>The <strong>Intersection Plot</strong> section shows intersection plots considering all metabolic features of the data and only the features with annotated data.</p>
+<p>Venn Diagrams and Intersection Plots are static non-interactive images.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Venn Diagrams and Intersection Plots will not be computed and drawn if the dataset has more than 6 different classes since the observation of the data becomes less meaningful.</p>
+</div>
+<h4 id="unsupervised-analysis">Unsupervised Analysis</h4>
+<p>Multivariate Unsupervised Analysis methods included in its corresponding page are Principal Component Analysis (PCA) and Hierarchical Clustering Analysis (HCA). Since they are used to observe the intrinsic patterns and structure in the data, they provide mostly figures to describe the analysed data.</p>
+<p>The <strong>PCA</strong> section can show 2D and 3D projection of the samples in 2 or 3 PCA components (these components can be chosen) as well as the cumulative explained variance by component and a 2D Scatter plot of PCA projections of up to the first 6 components. All these figures are interactive.</p>
+<p>The <strong>HCA</strong> section contains the dendrogram result as a static image that can e downloaded. Changes to the parameters will immediately cause an update to the dendrogram.</p>
+<h4 id="supervised-analysis">Supervised Analysis</h4>
+<p>Multivariate Supervised Analysis methods included in its corresponding page are Partial Least Squares - Discriminant Analysis (PLS-DA) and Random Forest (RF). They are used to build classifier models based on stratified cross validation schemes and obtain a list of important metabolites to build these classifiers and discriminate between classes.</p>
+<p>Both <strong>PLS-DA</strong> and <strong>RF</strong> follow a very similar organization on their corresponding tabs.</p>
+<p class="annotate">They start with an optimization of specific parameters for each one. For <strong>PLS-DA</strong>, this is an optimization of the number of components or latent variables which is an essential parameter. This is made by evaluating the <span class="arithmatex">\(Q^{2}\)</span> (1) and the <span class="arithmatex">\(R^{2}\)</span> (2) (see tip below) when fitting a PLS model to the data from a chosen initial to final number of components with a stratified cross validation scheme (see warning below). For <strong>RF</strong>, it is an optimization of the number of trees by observing RF accuracy of models built between specified numbers of trees with a stratified cross validation scheme.</p>
+<ol>
+<li>
+<p>Mean squared error of PLS predictions based on <strong>test samples</strong>.</p>
+</li>
+<li>
+<p>Mean squared error of PLS predictions based on <strong>training samples</strong>.</p>
+</li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The maximum number of components chosen cannot be higher than the number of samples that will train a model minus 1. For example, if you have 15 samples and a 3-fold cross-validation each fold will have 5 samples. A training set will be comprised of two of those folds thus it will have 10 samples, thus the number of components cannot be higher than 9. Another example if you have 22 samples and 5 folds, the folds will have 4/4/4/5/5 samples each. A training set will have four of these folds and the minimum sum of them is 4+4+4+5-1=16, thus it cannot be higher than 16.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>When optimizing <strong>PLS-DA</strong>, the chosen number of components should be the number where <strong><span class="arithmatex">\(Q^{2}\)</span> stops increasing</strong>.</p>
+<ul>
+<li><strong><span class="arithmatex">\(Q^{2}\)</span></strong> will increase until a certain number of components that should be chosen. Then it usually stabilizes but from a certain point it might start to decrease which would mean the model is overfitting (less generalizable to the test samples).</li>
+<li><strong><span class="arithmatex">\(R^{2}\)</span></strong> will be higher than <span class="arithmatex">\(Q^{2}\)</span> but it should not be used to choose the number of components. This metric always increases with more components (estimation errors might lead to temporary decreases) which means it will eventually overfit the model.</li>
+</ul>
+<p>When optimizing <strong>RF</strong>, the usual pattern observed is an increase in accuracy with an increase of the number of trees until it stabilizes and fluctuates around a certain value. Since RF are somewhat resistant to overfitting, the value chosen will be one where the accuracy has stopped increasing but not too high as to make the model training too slow.</p>
+</div>
+<p>After optimization, the models can be trained allowing the modification of key parameters. The number of times to repeat analysis parameter exists as more repetition will allow a better estimation of model peerformance and feature importance at a cost of time of running. They will output a table summarizing model performance and a table with an ordered list of important metabolic features to build the classifier model as estimated by either Variable Importance in Projection (VIP) scores or X-Weights for PLS-DA and by Gini Importance for RF. The latter table can be downloaded.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Metabolic Feature importances estimated are calculated for each fold and each repetition of the analysis and averaged.</p>
+<p>VIP Scores are calculated based on Keiron Teilo O'Shea provided code in <a href="https://www.researchgate.net/post/How-can-I-compute-Variable-Importance-in-Projection-VIP-in-Partial-Least-Squares-PLS">https://www.researchgate.net/post/How-can-I-compute-Variable-Importance-in-Projection-VIP-in-Partial-Least-Squares-PLS</a>. This calculation can be slow when you have a high number of features.</p>
+</div>
+<p>Besides model fitting, <strong>Permutation tests</strong> for model validation and <strong>Receiver Operating Characteristic (ROC) Curve</strong> are available.</p>
+<p class="annotate">ROC Curves plot the True Positive Rate by the False Positive Rate and thus geared towards 2-class datasets (1). For multiclass cases (more than 2 classes), a ROC curve will be computed for each class considered as the positive by fitting a "1vsAll" model, that is, the class of each sample is either the current positive class or "Other". Thus, there will likely be many more negative samples than positive samples in each case, greatly increasing the importance of the latter for the curve of each class.</p>
+<ol>
+<li>One class has to be considered as the positive class.</li>
+</ol>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Permutation tests are slow to be computed and can take quite a few minutes depending on the number of permutations. For an initial analysis of the data, it may be skipped.</p>
+<p>Permutation test p-value is calculated as: <span class="arithmatex">\(p-value = \dfrac{1 + n}{N}\)</span></p>
+<p>Where <strong><em>n</em></strong> is number of times permuted model has better performance that non-permuted model and <strong><em>N</em></strong> is the total number of permutations.</p>
+</div>
+<h4 id="univariate-analysis">Univariate Analysis</h4>
+<p>Univariate Analysis page includes <strong>1v1 Univariate Analysis</strong> and <strong>Multiclass Univariate Analysis</strong>. It allows to detect metabolites that individually have a significant difference between the tested classes and can thus be discriminant. Each metabolite in the dataset is tested individually and thus, this does not account for any interaction between metabolites as multivariate analysis does (and is expected in metabolites within a biological system).</p>
+<p class="annotate"><strong>1v1 Univariate Analysis</strong> includes also a <strong>Fold-Change analysis</strong>. When there are more than 2 classes, a control and test class can be chosen. In this case, the samples respective to the 2 chosen classes will be selected from the non-treated data (after annotation). Data filtering (Filter 1 only) and pre-treatment will be performed the same way it was done on the complete dataset before performing unsupervised analysis (starting from the dataset after data filtering, annotation and de-duplication) (1). In case of filtering based on the total number of samples a feature appears in, the number used on the full dataset is converted to percentage-based and then a new number is calculated based on the number of samples of the control and test class, which is then rounded up.</p>
+<ol>
+<li>We cannot start from the completely full dataset since we have no annotations associated with it despite the fact that, when using total number of samples based data filtering, there could be some fatures that were initially filtered out that could remain in the dataset. E.g. if you choose a minimum of 4 samples to appear in a 15-sample 5-class dataset. When performing univariate analysis on 2 classes that have a total of 6 samples, the minimum 5 samples would be transformed to a minimum of 2 samples in the 6-sample subset (4 out of 15 represents 26.67% of samples, which is 1.6 out of 6 samples rounded up to 2). There could be features that appear in 2 of these 6 samples but that did not appear in 4 of the original 15 samples and were thus previously removed from the dataset. These features <strong>stay removed</strong>.</li>
+</ol>
+<p class="annotate">The types of univariate test can be chosen (t-test, Mann-Whitney test, consider variances equal or not) as well as the thresholds for significancy on both <em>p</em>-values (1) and fold-change. Fold-change is calculated using the values after missing value imputation and normalization (but before transformation and scaling) as to avoid calculations with negative values. Thus, fold-change calculation is severely affected by a high number of missing values and is not suited to this type of data where the values have to be taken with a grain (or multiple grains that are actually more like rocks than grains) of salt (see tip below).</p>
+<ol>
+<li><em>P</em>-values are adjusted with Benjamini-Hochberg multiple test correction.</li>
+</ol>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Selecting the Fold-change threshold to 1 will nullify it, essentially skipping the threshold. This should be used when the dataset has a high number of missing values.</p>
+</div>
+<p>1v1 Univariate analysis results include a downloadable table with all <em>p</em>-values and fold changes, a volcano plot and a clustermap that can show the top most significant features or all significant features below a determined <em>p</em>-value threshold. Finally, for multiclass datasets, you can also obtain the intersection of significant metabolites against multiple possible test classes.</p>
+<p><strong>Multiclass Univariate Analysis</strong> can only be performed when the dataset has <strong>more than 2 classes</strong>. All classes are tested simultaneously and results show significant metabolites considering all samples not possible for 1v1 analysis. On the other hand, no fold-change can be calculated or volcano plot drawn. The test performed can be chosen between the parametric <strong>ANOVA</strong> and non-parametric <strong>Kruskal-Wallis test</strong>.</p>
+<p>Multiclass  Univariate analysis results include a downloadable table with all <em>p</em>-values and a clustermap that can show the top most significant features or all significant features below a determined <em>p</em>-value threshold. This clustermap can show the groupings of samples and also of metabolic features and their intensity pattern trends.</p>
+<h4 id="data-diversity-visualization">Data Diversity Visualization</h4>
+<p>Data Diversity Visualization allows to see the chemical diversity in different ways of your dataset. The section presents three types of plots: <strong>Van Krevelen Plots</strong>, <strong>Kendrick Mass Defect Plots</strong> and <strong>Chemical Composition Series</strong> plots. All these are computed when pressing the button at the top of the page and can be accessed by clicking their respective tab. Each has multiple options that allows to tune the figure. An essential parameter common to all 3 plots is which <strong>columns containing formulas</strong> to consider whether it is from data annotation, formula assignment or previous annotations and formula assignments performed outside NEMeSIS. Multiple can be selected to consider multiple annotations (each plot deals with multiple annotations in their own way) but <strong>at least one column must be selected.</strong></p>
+<p><strong>Van Krevelen Plots</strong> are drawn one for each class considering the metabolites annotated in the samples of each class. If multiple formulas can be assigned to a metabolite whether within the same database annotation or different, they are both considered and plotted.</p>
+<p><strong>Kendrick Mass Defect Plots</strong> are drawn one for each class considering the metabolic features detected in the samples of each class.The colour of each feature is based on its chemical composition series. If multiple formulas can be assigned to a metabolite <strong>AND</strong> they do not belong to the same chemical composition series, they get assigned as <strong>'Ambiguous'</strong>.</p>
+<p>In <strong>Chemical Composition Series</strong>, if multiple formulas can be assigned to the same metabolic feature, whether within the same annotation made or between different annotations, each one will be counted. That is, if a feature has 3 possible formulas, 2 belonging to the 'CHO' series and another to the 'CHOP' series; then 2 formulas will be added to the 'CHO' series and 1 to the 'CHOP' series. Thus, we are considering that the 3 elemental formulas are represented by that feature (probably an overestimation). To provide an idea of how extensive this effect is, a description is also provided before the plot detailing how many formulas are being considered for each class and from how many different features they came from.</p>
+<div class="admonition bug">
+<p class="admonition-title">Bug</p>
+<p>Randomly, in some Kendrick Mass Defect Plots, points may have a bigger size than in other plots despite dot size being parametrized the same in both cases.</p>
+</div>
+<h4 id="hmdb-based-pathway-analysis">HMDB based Pathway Analysis</h4>
+<p><strong>HMDB based Pathway Analysis</strong> page can be divided into 4 separate and distinct sections:</p>
+<ul>
+<li>Pathway Assignment (HMDB Annotation)</li>
+<li>KEGG Colour Mapping</li>
+<li>Pathway Over-Representation Analysis (based on HMDB IDs)</li>
+<li>Mapping SMPDB Pathways (based on HMDB IDs)</li>
+</ul>
+<p>Three of these sections require HMDB annotation while the KEGG Colour Mapping requires that only 2 classes are present in the dataset.</p>
+<h5 id="pathway-assignment-hmdb-annotation">Pathway Assignment (HMDB Annotation)</h5>
+<p class="annotate">This section matches known metabolic pathways to HMDB annotations (1) with 55872 HMDB compounds having at least 1 associated pathway. For matching, a column with HMDB identifiers must exist. The identifiers should have 7 numbers after HMDB (e.g. 'HMDB0000001'). The output gives the HMDB IDs and annotation names as index in a DataFrame and the name and id of the pathways that they belong to.</p>
+<ol>
+<li>Only matched to HMDB and the abbreviation of the database should be HMDB.</li>
+</ol>
+<p>Moreover, a specific search of the associated pathways of an HMDB identifier in the RAMP database can be performed in the <code>HMDB ID Pathway Searching Section</code>, independent if that compound was annotated in the studied data.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Matching is performed based on a file created from the <a href="https://academic.oup.com/bioinformatics/article/39/1/btac726/6827287">RAMP database</a> (<a href="https://rampdb.nih.gov/">https://rampdb.nih.gov/</a>), which are an aggregation of pathways from multiple sources: HMDB, Reactome, WikiPathways and KEGG.</p>
+</div>
+<h5 id="kegg-colour-mapping">KEGG Colour Mapping</h5>
+<p>This section extracts every KEGG compound ID annotated to the dataset to a downloaded file containing a list with only the KEGG identifiers and with a colour associated with them based on metabolite presence in classes. This file can then be used as input in the KEGG website <a href="https://www.genome.jp/kegg/mapper/color.html">here</a>.</p>
+<p>To perform this mapping, <strong>2 conditions must be fulfilled</strong>:</p>
+<p><strong>1)</strong> Dataset must only have 2 classes (not available for more than 2).</p>
+<p><strong>2)</strong> A <code>Matched KEGGs</code> column might exist. This column can be metadata before previously included in the dataset or can be generated in this software during Data Annotation if <strong>at least one of the databases used for annotation has a column with the name <code>kegg</code> (with no capitalization)</strong> which will create the Matched KEGGs column.</p>
+<h5 id="pathway-over-representation-analysis-based-on-hmdb-ids">Pathway Over-Representation Analysis (based on HMDB IDs)</h5>
+<p>This section uses the pathway mapping in the <strong>Pathway Assignment (HMDB Annotation)</strong> section to perform an over-representation analysis and observe which pathways are over-represented. Parameters to choose include, the minimum number of metabolites that a pathway must have in the database to be considered and the minimum number of metabolites detected in the studied dataset of a pathway for that pathway to be considered in the analysis; the background set to use; and the metric to select the set of 'significant' metabolites and corresponding threshold.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Multiple metabolic features with the same annotation will be considered as individual entries. Metabolic features that have multiple annotations that could correspond to multiple metabolites in the same pathway will be counted as a single metabolite. So, analysis of the relevant pathways should be performed.</p>
+</div>
+<p>The background set can be chosen between restricting to the number of <code>HMDB annotated metabolites in the dataset with associated pathways</code> or considering <code>All HMDB metabolites in the pathway database</code> (currently not implemented). The background set to choose is critical. If the pathway database is used as background, most metabolic pathways will appear as significant by 'common <em>p</em>-values' even after multiple testing correction and very general pathways with more metabolites such as 'Metabolism' or 'Biochemical pathways: part I' or 'Transport of small molecules' have a good chance of appearing as significant. Thus, pathways with multiple metabolites annotated that constitute a decent part of the pathway should be looked at more carefully. If the <code>HMDB annotated metabolites in the dataset with associated pathways</code> are used as the background, this conservative approach makes it more complicated for any pathway to be considered significant but there is less bias per pathway. In this case, we recommend looking not only at the number of significant and detected metabolites in the pathway but also to the overall number of metabolites in the pathway (in the database), which is included in the output table.</p>
+<p>There are 4 metrics available to select the significant metabolites (have to have associated at least 1 pathway). In each case, it will only work if the corresponding methodology has been previously ran.</p>
+<ul>
+<li><strong>RF Gini Importance</strong> - Threshold is the top % of ranks considered significant (e.g. 0.20 for 20%).</li>
+<li><strong>PLS-DA Feat. Importance</strong> - Threshold is the top % of ranks considered significant if below 1 (e.g. 0.20 for 20%) or the threshold for importance if higher or equal to 1 (should only be used for VIP Scores) - <strong>Default</strong>.</li>
+<li><strong>1v1 Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction) <em>p</em>-value from the univariate analysis (e.g. 0.05 for adjusted <em>p</em>-values under 0.05). The test class is the class chosen as test during univariate analysis.</li>
+<li><strong>Multiclass Univariate Analysis</strong> - Threshold is the maximum adjusted (for multiple test correction) <em>p</em>-value from the multiclass univariate analysis (e.g. 0.05 for adjusted <em>p</em>-values under 0.05).</li>
+</ul>
+<h5 id="mapping-smpdb-pathways-based-on-hmdb-ids">Mapping SMPDB Pathways (based on HMDB IDs)</h5>
+<p class="annotate">This section uses the pathway mapping in the <strong>Pathway Assignment (HMDB Annotation)</strong> section and the SMPDB pathway database to output a representation of a pathway based on the reactions associated with that pathway in SMPDB (1). This mapping is restricted to SMPDB metabolic pathways (2).</p>
+<ol>
+<li>
+<p>SMPDB and the RAMP database are not always identical even when referring to SMPDB pathways. For example, NAD is associated with reactions in Galactose metabolism but it is not included in the RAMP database as a Galactose metabolism metabolite.</p>
+</li>
+<li>
+<p>SMPDB includes many pathways and only around half of them are designated as metabolic. Others such as disease pathways or signalling pathways are not able to be mapped currently.</p>
+</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This section will be improved in the next version to include a greater array of pathways.</p>
+</div>
+<h4 id="binsim-treated-data-analysis">BinSim Treated Data Analysis</h4>
+<p>This section and page uses data treated with Binary Simplification (BinSim) or Spectral Digitalization to perform the same analysis as it is performed for the traditionally treated data in the Unsupervised and Supervised Analysis pages. Thus, all instructions and indications are for the use of this method is equal to those pages.</p>
+<p>BinSim (<a href="https://doi.org/10.3390/metabo11110788">paper here</a>) was a method developed in our FT-ICR-MS-Lisboa laboratory group. It is an alternative to traditional intensity based pre-treatments that focuses on feature occurrence instead of intensity offering complementary information. BinSim is particularly effective for extreme-resolution data such as FT-ICR-MS data that has a lot of missing values and can more closely detect the set of metabolites present in a sample. Feature occurrence tends to be more reproducible than intensity values. The set of metabolites detected is characteristic of a biological system and can be used for discrimination.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>BinSim consists of transforming all <strong>intensity values</strong> present in the data matrix to <strong>1</strong> (metabolic features present in the data) and all <strong>missing values</strong> to <strong>0</strong> (metabolic features absent from the data).</p>
+</div>
+<h4 id="graph-based-analysis">Graph-Based Analysis</h4>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>To finish</p>
+</div>
+<h4 id="compound-search-tool">Compound Search Tool</h4>
+<p>With this search tool, you can localize a metabolic feature of interest in your dataset by its index value (<code>Bucket label</code>), its name (by searching all annotation columns either selected as annotation or made during analysis), formula (by searching all formula assignment columns) or neutral mass (by searching the <code>Neutral Mass</code> column if it exists). A series of bar plots and box plots as shown below will then be computed to show the variation of the metabolic feature between samples and classes.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>The values shown are obtained from the original data inputted with only normalization (the one chosen in Data Pre-Treatment being applied). No Missing Value Imputation or posterior parts of the Data Pre-Treatment are applied.</p>
+</div>
+<p><img alt="Compound Search Tool Example" src="../img/SearchToolExample.png" /></p>
+<h2 id="report-generation-and-parameter-saving">Report Generation and Parameter Saving</h2>
+<p>The graphical interface offers two different approaches to save your analysis made besides the tables and figures you can download during the analysis. These are the report generation function and the parameter saving and loading function.</p>
+<p class="annotate">The report generation creates a folder with a user chosen name. This folder contains a main read-only word .docx file and a myriad of images, interactive figures and tables that support the report. The report includes all of the data reading and data pre-processing and pre-treatment stages and includes the statistical analyses chosen by the user in the corresponding page. When generating the report, a pop-up will appear confirming if there were issues or not in creating the report. The report attempts to describe the analysis made including all the relevant parameters used for the current analysis (1). Furthermore, these parameters are also used for the name of the different figures and tables generated.</p>
+<ol>
+<li>If the parameters selected were changed after the analysis is made and the analysis was not redone, then the parameters in the report should still be the ones originally used in the analysis.</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you find a mistake in the generated report, such as a parameter used in the analysis not being the one that is in the report or in the associated figures, please inform us through <a href="https://github.com/fticr-sms/Metabolomics_DataAnalysis_Pipeline/issues">https://github.com/fticr-sms/Metabolomics_DataAnalysis_Pipeline/issues</a>. We would greatly appreciate so we can iron out any loose ends and problems with the software.</p>
+</div>
+<p>Parameter saving is a function that specifically aims to save the <strong>currently used parameters</strong> in the analysis for future use on another analysis. It is available at two different locations in the interface: at the end of the data pre-processing and pre-treatment stages and in the report generation page. The former only saves parameters regarding the data pre-processing and pre-treatment steps while the latter saves all currently used parameters in the software. Although most more significant parameters are saved, there are some that cannot be saved since they are very specific to the dataset currently under analysis. A few examples are the metadata columns selected or the control/test class used in Univariate Analysis.</p>
+<p>The idea behind parameter saving is that you can load in these parameters and the <code>Data Reading</code> page of the software to use in other posterior analysis. Furthermore, when loading in parameters, there are some parameters that might not be applicable to the current case such as the feature used in Normalization by a Reference Feature or the minimum number of samples used in data filtering. For these cases, a check will be made to see if they can be used and if not, the default value will remain.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Some parameters are saved but should still always be adapted based on the dataset analysed. A case and point is that of the number of components used for building PLS-DA models. This number highly affects the performance of the models and is characteristic of the dataset used. Thus, it should always be adapted to the current dataset. Other parameters such as pre-treatment related can be used on a standard preferred workflow independent of the dataset analysed.</p>
+</div>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Within the saved parameters, there are some that are saved based on what is currently present in the program and not what was originally used for the analysis: these are the methods used for the common and exclusive compound analysis, the minimum and maximum number of components used for optimization of the PLS-DA, the model performance evaluation metrice used, the dpi of the permutation figure and number of iterations used in the ROC analysis of the PLS-DA section (for both intensity treated data and BinSim treated data) and the model performance evaluation metrics used and the dpi of the permutation figure of the Random Forest section (for both intensity treated data and BinSim treated data).</p>
+</div>
+<h2 id="closing-and-resetting-the-software">Closing and Resetting the Software</h2>
+<p>To close the program, we recommend going to the <strong>terminal / command line</strong> tab that opened when you opened the software and closing it, which will terminate the program. Closing the software tab in your browser without closing the terminal will keep the program running in the background.</p>
+<p>If you want to redo your analysis with another dataset, you may use the <code>RESET</code> button available at the end of the index on the left-hand side. This will reset all your current analysis and parameters chosen. A similar effect but with a softer reset happens when you change a parameter in any of the pre-processing or pre-treatment stages, however you will not be able to read another dataset until you perform a full reset of the software.</p>
+<div class="admonition bug">
+<p class="admonition-title">Bug</p>
+<p>After resetting the software once using the <code>RESET</code> button, when clicking it again, the window pane to confirm the reset might not appear. To fix this issue, refresh the image and it should appear once again.</p>
+</div>
+<h2 id="tips-and-precautions">Tips and Precautions</h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This section is nearly identical to the <code>Instructions and Considerations</code> page of the NEMeSIS software.</p>
+</div>
+<p>Here, we will go through some general considerations to have while using this software by describing how it works and some of the currently known issues overall that exist. Furthermore, if you encounter an issue or problem with the software feel free to inform us at <a href="https://github.com/fticr-sms/Metabolomics_DataAnalysis_Pipeline/issues/new">https://github.com/fticr-sms/Metabolomics_DataAnalysis_Pipeline/issues/new</a>. If you feel some parts are underexplained or cannot be intuitively grasped, please also inform us so we can improve the descriptions provided.</p>
+<p><strong>General Considerations to Have</strong></p>
+<ul>
+<li>
+<p>While there is an effort for figures and tables produced that can be downloaded to have the relevant parameters used to build them in the name, it is a good practice to keep in mind what parameters were used to make these figures and tables, especially those that do not update with every parameter change to safeguard possible errors that may arise in the filenames generated.</p>
+</li>
+<li>
+<p>All tables and figures are saved in the <code>Downloads</code> folder. Interactive figures are downloaded using the toolbar that appears at the top right of the figure when hovering over it. Non-interactive figures are saved using an available button in the software. The generated report folder is put on the current working directory, that is, the folder where NEMeSIS is.</p>
+</li>
+<li>
+<p>When you start running something there is not a way to stop the process. You can observe if the program is running by observing the little circle on the top right. If there is something currently running it will have this aspect: <img alt="Loading" src="../img/Loading.png" />. Otherwise, it will have this aspect <img alt="Not Loading" src="../img/NotLoading.png" />.</p>
+</li>
+<li>
+<p>Resetting the program will reset all your variables and previously performed analysis.</p>
+</li>
+</ul>
+<p><strong>Possible Problems and Suggested Fixes</strong></p>
+<ul>
+<li>
+<p>A rare bug that occurs when running the program is the de-formatting of the pages that can happen when you go back and forth between different pages causing artifacts of different pages or empty spaces before the pages to show up. We currently believe this is an issue with the panel package we are basing this software on. This can be mostly solved by refreshing the page in the browser to reset the layout of the page. However, do not use this trick on the common and exclusive compound page since this has a small chance to make the sidebar to navigate the software disappear, rendering it unoperable and needing to be closed and opened again.</p>
+</li>
+<li>
+<p>Another issue of the same type is the reset floatpanel not appearing when pressing it the 2nd time. It is also fixed by refreshing.</p>
+</li>
+<li>
+<p>Do not mash the buttons many times, it may buffer the clicks. See first on the upper right if the program is running or not.</p>
+</li>
+<li>
+<p>Other known issues have smaller consequences and affect specific pages. When they exist, a little note in bold will indicate the problem at the beginning of the corresponding page.</p>
+</li>
+</ul>
+<p><strong>Performance of the Different Parts of the Program</strong></p>
+<ul>
+<li>
+<p>The program generally runs smoothly and quickly with low latency. The exceptions are the very first page when data reading which can slow down the program for a few seconds as well as some parts when certain analysis such as PLS-DA or Random Forest finish and the page layout is updated with the results.</p>
+</li>
+<li>
+<p>The possible slow downs and time of analysis is also dependent on the size of the dataset. The bigger the dataset to be analyzed, the slower the analysis is and vice-versa. Formula assignment or calculating VIP scores for example is heavily dependent on dataset size.</p>
+</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8fd75fb4.min.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

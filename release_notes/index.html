@@ -1,0 +1,663 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://NEMeSIS.com/release_notes/">
+      
+      
+        <link rel="prev" href="../license/">
+      
+      
+      
+      <link rel="icon" href="../img/favicon.ico">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.10">
+    
+    
+      
+        <title>Release Notes - NEMeSIS</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.7e359304.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#nemesis-graphical-interface-version-release-notes" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="NEMeSIS" class="md-header__button md-logo" aria-label="NEMeSIS" data-md-component="logo">
+      
+  <img src="../img/favicon.ico" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            NEMeSIS
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Release Notes
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="NEMeSIS" class="md-nav__button md-logo" aria-label="NEMeSIS" data-md-component="logo">
+      
+  <img src="../img/favicon.ico" alt="logo">
+
+    </a>
+    NEMeSIS
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GUI_docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Get started with GUI
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jupyter_docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Get started with jupyter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../license/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    License
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Release Notes
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Release Notes
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#nemesis-graphical-interface-version-release-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      NEMeSIS Graphical Interface Version Release Notes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jupyter-notebook-version-release-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Jupyter Notebook Version Release Notes
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#nemesis-graphical-interface-version-release-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      NEMeSIS Graphical Interface Version Release Notes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jupyter-notebook-version-release-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Jupyter Notebook Version Release Notes
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  <h1>Release Notes</h1>
+
+<p>This page includes the release notes for NEMeSIS (including also for the illustrative jupyter notebook independently).</p>
+<h2 id="nemesis-graphical-interface-version-release-notes">NEMeSIS Graphical Interface Version Release Notes</h2>
+<p><strong>Version Beta.0 (09/09/2025)</strong></p>
+<ul>
+<li>Added raw data spectra processing section to the DataAlignment specific interface.</li>
+<li>Improved Data Annotation where chosen databases are merged together into a complete database before perfoming annotations (made associated changes).</li>
+<li>Changed Formula Assignment to the score-based Formula Assignment. Small improvement on allowed mass deviation calculation.</li>
+<li>Re-structured pathway analysis section to select more conservative background sets (metabolites detected in the data) and 'significant' metabolites based on univariate or multivariate analysis.</li>
+<li>Added mapping formulas to pathway and pathway representation in pathways analysis section (only SMPDB pathways).</li>
+<li>Minor bugfixes and improvements in text.</li>
+</ul>
+<p><strong>Version Alpha.5 (19/02/2025)</strong></p>
+<ul>
+<li>Added possibility to select Quality Control (QC) samples.</li>
+<li>Added in-depth Data Filtering page with 4 main options: minimum appearance filters, intensity-based filters, QC based filters and variation based filters.</li>
+<li>Improved Peak De-Duplication (same annotation from different adducts are now merged by adding intensity values while same adduct peaks are merged by selecting the higher intensity value in each sample).</li>
+<li>Added data export to be used in independent jupyter notebook side modules.</li>
+<li>Added section on correlated metabolites to searched metabolite in Compound Finder page.</li>
+<li>Improved hover data for Volcano Plots.</li>
+<li>Added a few quality of life changes.</li>
+<li>Slight tweak to maximum file size accepted.</li>
+<li>Fixed normalization by a reference feature.</li>
+<li>Minor bugfixes.</li>
+</ul>
+<p><strong>Version Alpha.4 (05/06/2024)</strong></p>
+<ul>
+<li>Original files can now be read from different folders than where the software is (files will still be downloaded to the software folder).</li>
+<li>Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.</li>
+<li>(Furthermore, added external jupyter notebook for creation of own formula database to use for this formula assignment).</li>
+<li>Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).</li>
+<li>Simplifying some table displays and eliminating redundant parameters (decrease memory usage).</li>
+<li>Improved hover data for PCA and PLS-DA projection plots.</li>
+<li>Small bugfixes and enhancing descriptions.</li>
+<li>Added external interface software to perform Sample Peak Alignment (DataAlignmentInterface.py) whose output can be used as input to the software.</li>
+</ul>
+<p><strong>Version Alpha.3 (26/04/2024)</strong></p>
+<ul>
+<li>Added possibility to interpret mass values in data index as Neutral, Positive m/z or Negative m/z (in Data Reading).</li>
+<li>Added possibility to define which adducts to search for Data Annotation when comparing data masses to the databases selected.</li>
+<li>Mass calculations (of compounds based on formula and adducts) are now made with fractions instead of floats.</li>
+<li>Bugfix and improvement in PLS-DA components. Now maximum number of components based on number of samples available (and folds in cross-validation) is controlled.</li>
+<li>Updated the rest of the graphical interface and report generation based on the changes in Data Reading and adducts in Data Annotation.</li>
+<li>Minor bugfixes and improvements throughout software.</li>
+</ul>
+<p><strong>Version Alpha.2 (20/02/2024)</strong></p>
+<ul>
+<li>Added BinSim Analysis Page to the interface software (also included in report generation).</li>
+<li>Added possibility to save used data pre-processing, pre-treatment and data analysis parameters and to load them back in posterior analysis.</li>
+<li>Adapted classes and pages to work with possible save and loading of parameters. Attribute 'compute_fig' added to many classes allowing to cancel and restarting automatic figure updating.</li>
+<li>PCA now is not computed automatically when going into the data analysis section of the software.</li>
+<li>Bugfix in Univariate Analysis and change in how it is made (data filtering section within it). Now if data filtering used is 'total_samples', the filtering is performed by the percentage of samples allowed used with the full dataset rounded up. E.g. if the minimum nº of samples a feature must appear in a 15-sample dataset is 4, then by performing univariate analysis between 2 classes on a 6-sample subset, the minimum nº of samples allowed is (4/15) * 6 = 1.6 rounded up, that is, it has to appear in at least 2 of that 6 sample-subset (and 4 samples of the original 15).</li>
+<li>Multiple minor changes and improvements.</li>
+</ul>
+<p><strong>Version Alpha.1 (30/12/2023)</strong></p>
+<ul>
+<li>Added Report Generation feature and page to the interface software.</li>
+<li>Datasets up to 100 MB can now be read in the software (previously 20 MB was the maximum).</li>
+<li>Many bugfixes (especially in previously non-considered fringe cases), improvements and updates to handling page layouts, saving current parameters used for different analysis, improved image and table filenames (that could be saved with incorrect parameters in the name), better description and organization of different variables, to the software reset and soft-reset (in case of change in pre-treatments) procedures.</li>
+</ul>
+<p><strong>Version Alpha.0 (13/12/2023)</strong></p>
+<ul>
+<li>Alpha Version of the Graphical Interface of the NEMeSIS software (includes homepage, instruction page and all data analysis pipeline except for BinSim Analysis).</li>
+</ul>
+<p><br></p>
+<h2 id="jupyter-notebook-version-release-notes">Jupyter Notebook Version Release Notes</h2>
+<p><strong>V2.8 - Raw Data Processing, Improved Data Annotation, Pathway Analysis and FDiGNN side module (09/09/2025)</strong></p>
+<ul>
+<li>Added raw data spectra processing as a side module to process mzML data.</li>
+<li>Improved Data Annotation where chosen databases are merged together into a complete database before perfoming annotations (made associated changes).</li>
+<li>Small improvement on allowed mass deviation calculation for formula assignment.</li>
+<li>Improved intersection plot section and adding intersection plot colouring chemical compound classes.</li>
+<li>Re-structured pathway analysis section to select more conservative background sets (metabolites detected in the data) and 'significant' metabolites based on univariate or multivariate analysis.</li>
+<li>Added mapping formulas to pathway and pathway representation in pathways analysis section (only SMPDB pathways).</li>
+<li>Added a side module with FDiGNN analysis as a standalone jupyter notebook as example of independent analysis modules.</li>
+<li>Minor bugfixes and improvements in text.</li>
+</ul>
+<p><strong>V2.7 - Data Filtering, Score-based Formula Assignment, Improved Peak De-duplication (19/02/2025)</strong></p>
+<ul>
+<li>Added possibility to select Quality Control (QC) samples.</li>
+<li>Added in-depth Data Filtering options of 4 main types: minimum appearance filters, intensity-based filters, QC based filters and variation based filters.</li>
+<li>Added Score-based sections to Formula Assignment algorithm and slight changes in how the formula database is used.</li>
+<li>Improved Peak De-Duplication (same annotation from different adducts are now merged by adding intensity values while same adduct peaks are merged by selecting the higher intensity value in each sample).</li>
+<li>Added data export to be used in independent side modules.</li>
+<li>Added random_state to define cross-validation splits for RF and PLS-DA models (only for splits).</li>
+<li>Added a side module with sMDiN analysis as a standalone jupyter notebook as example of independent analysis modules.</li>
+<li>Added a few quality of life changes.</li>
+<li>Fixed normalization by a reference feature.</li>
+<li>Minor bugfixes.</li>
+</ul>
+<p><strong>V2.6 - Introducing Peak Alignment, Formula Assignment, Pathway Over-Representation Analysis and expansion of compound finder tools (05/06/2024)</strong></p>
+<ul>
+<li>Added Sample Peak Alignment to Data Reading section of the notebook as an alternative to directly reading pre-aligned files.</li>
+<li>Added Formula Assignment Section to pipeline and allow use of these formulas in relevant section downstream.</li>
+<li>(Furthermore, addded external jupyter notebook for creation of own formula database to use for this formula assignment).</li>
+<li>Added Pathway Over-Representation Analysis to the pipeline (requiring HMDB annotation).</li>
+<li>Added option to search for KEGG ID in finder (requires HMDB annotation).</li>
+<li>Added search for highly positive or negative correlated metabolites to a metabolite of choice.</li>
+<li>Added option to search for compounds in batch (requires external file).</li>
+<li>Small improvements in code and descriptions as well as small bugfixes.</li>
+</ul>
+<p><strong>V2.5 - Introducing adducts to data annotation and expansion of univariate analysis (23/04/2024).</strong></p>
+<ul>
+<li>Type of index in the dataset can be chosen if they are positive/negative m/z masses or neutral masses, creating respectively a 'Probable m/z' or a 'Neutral Mass' column.</li>
+<li>Added way to introduce which adduct to consider for data annotation.</li>
+<li>Data Annotation logic slightly changed to account for adducts and calculate adduct masses on the databases chosen and match them to the dataset masses. Added arg for possiblity to only select the candidates with the lowest ppm deviation to a peak</li>
+<li>Minor improvements and changes to accomodate new data annotation in <code>duplicate_disambiguator</code> and <code>individually_merging</code> functions.</li>
+<li>Minor change in supervised analysis related function with the arg <code>regres</code> or <code>regression</code>.</li>
+<li>Added explanation for maximum number of components to choose in PLS-DA.</li>
+<li>XGBoost will now be skipped by default for binary classifications.</li>
+<li>In 2-Class Univariate Analysis, change to calculate the minimum number of samples to filter the subset of data by the <code>total_samples</code> method when using a more than 2-Class dataset.</li>
+<li>Added multi-class univariate statisical analysis (ANOVA and Kruskal-Wallis test).</li>
+<li>Add 'index' as a search possibility in the compound finder and minor bugfix where previously annotated columns would not be searched when using 'Name' or 'Formula' options.</li>
+<li>Improve to some descriptions and minor bugfixes.</li>
+</ul>
+<p><strong>V2.4 - XGBoost, Regressions and KEGG colouring (02/02/2024)</strong></p>
+<ul>
+<li>Added regression Random Forest analysis and PLS.</li>
+<li>Added XGBoost analysis.</li>
+<li>Added KEGG colour mapping.</li>
+<li>Small bugfix in index hyperlinks when using Visual Studio Code (did not jump to subsections).</li>
+<li>Example data in De-duplication section is now skipped if the example dataset is not loaded.</li>
+</ul>
+<p><strong>V2.3 - Data Diversity Plot Improvements and Other Minor Changes (14/12/2023)</strong></p>
+<ul>
+<li>Bugfix in Kendrick Mass Defect plots, chemical composition series plots and PCA of chemical composition series where using multiple database formula annotations would only include formulas assigned in all chosen databases instead of in at least one of them.</li>
+<li>Change in Kendrick Mass Defect plots allowing points to be coloured by chemical composition series based on database formula annotation performed in the notebook instead of only being able if formulas came from MetaboScape 'SmartFormula'.</li>
+<li>Improved Data Diversity Plots section.</li>
+<li>Small bugfix in compound finder search tool when looking for m/z values, finder DataFrame would not update.</li>
+<li>Changed RAMP ID pathway database to the improved version in HMDB Compound Pathway Assignment section.</li>
+<li>Updated type of seaborn template for current seaborn versions.</li>
+</ul>
+<p><strong>V2.2 - HMDB Compound Pathway Assignment (17/11/2023)</strong></p>
+<ul>
+<li>Added possibility of reading target directly from the excel or csv file with your data (changed initial filtering place to account for this).</li>
+<li>Added section that allows to see pathways related to HMDB compounds annotated.</li>
+<li>Fixed 'Normalized Intensity' position (y axis) in compound finder plots.</li>
+<li>Fixed deprecation issue in Kendrick Mass Defect plots.</li>
+</ul>
+<p><strong>V2.1 - Permutation Tests, Volcano Plots and Loadings in PCA (06/06/2023)</strong></p>
+<ul>
+<li>Updated and added PCA function to metanalysis.py (now retrieves loadings).</li>
+<li>Added Permutation Testing for Random Forest and PLS-DA supervised analysis that can accept one of multiple metrics.</li>
+<li>Added ROC Curve for PLS-DA and updated ROC section for Random Forest in notebook.</li>
+<li>Added Volcano Plot prototype in visualization of unsupervised analysis.</li>
+<li>Added PCA and Loading plot (biplot) based on the counts of each chemical composition series in each sample.</li>
+<li>Some minor changes and additions in comments.</li>
+</ul>
+<p><strong>V2.02 - Git-hub Repository (17/02/2023)</strong></p>
+<ul>
+<li>Changes to put the project in a git-hub repository (patch notes now in Readme.md file of repository).</li>
+<li>Added Readme.md and requirements.txt file.</li>
+<li>Updated package installation instructions.</li>
+<li>Changed HMDB database to be a xlsx file (smaller file) and minor bugfix in database reading.</li>
+</ul>
+<p><strong>V2.01 - Inserted references (09/02/2023)</strong></p>
+<ul>
+<li>Put clear references to the sources used for the different functions and steps.</li>
+<li>Minor changes.</li>
+</ul>
+<p><strong>V2.0 - Reorganization and merging of notebooks, addition of multiple quality of life features, univariate analysis, etc. (08/02/2023)</strong></p>
+<ul>
+<li>Reorganization of notebook for a more streamlined and easy-to-understand experience.</li>
+<li>Merged the two notebooks based on if you had performed metabolite annotation on MetaboScape into one.</li>
+<li>Put all essential functions in a separate file - <code>metanalysis_standard.py</code> - to de-clutter notebook. Recommended to check this file too see better the options available for each.</li>
+<li>Updated Step 0 instructions to install metabolinks and other packages.</li>
+<li>Added way to annotate your data with multiple databases in the notebook (a set of 4 columns for each database) and remade annotation section.</li>
+<li>Added way to check for duplicate (or more) annotations and remove those when possible by specific procedures - step 1.3.</li>
+<li>Changed default imputation method to 'min_sample' from 'min_feat'.</li>
+<li>Fixed bug in 'extra_filt' that could be made during <code>basic_feat_filtering</code>.</li>
+<li>Venn Diagram now follows each classes' colours as set up during step 1.1.</li>
+<li>Increased the number of options available to plot UpSetPlot including showing the number of annotated compounds.</li>
+<li>Slight change in ROC curve calculation and plotting and bugfix.</li>
+<li>Added more meta_data to important features tables from Random Forest and PLS-DA and allowed output of important feature tables.</li>
+<li>Added Univariate Analysis and Fold Change analysis - Step 6.</li>
+<li>Made points colored in the Van Krevelen based on either the log of their average intensity or the rank of their average intensity (more useful).</li>
+<li>Made Chemical Composition Series appear for all classes in the same plot (more convenient to compare).</li>
+<li>Added Kendrick Mass Defect plots to step 7.</li>
+<li>Added a BinSim specific step for Unsupervised and Supervised analysis.</li>
+<li>Made the compound finder more universal accepting formulas, <em>m/z</em> or Names. Added boxplot and average bar graph to the usual bar graph in this section.</li>
+<li>Minor typo fixes and added explanations.</li>
+</ul>
+<p><strong>V1.4 - Improvements to common and exclusive features analysis (03/01/2023)</strong></p>
+<ul>
+<li>Added automatic Venn Diagram plotting for common and exclusive features analysis (venn.py must now be in the same folder)</li>
+<li>Added automatic UpSet plot construction (an alternative to Venn Diagram) which may be preferable for larger numbers of classes (may require installing a new package - pip install upsetplot)</li>
+</ul>
+<p><strong>V1.3 - Filtering_pretreatment function and PLS-DA analysis metrics bug fixes (06/12/2022)</strong></p>
+<ul>
+<li>Fixed multiple bugs in <code>filtering_pretreatment</code> function where args for filt_method, filt_kw, extra_filt, extra_filt_kw, scaling and scaling_kw would only use the default values even if the user changed it in the function.</li>
+<li>Fixed issue where calculation of f1-score, precision and recall metrics of PLS-DA would fail if the number of samples per class was not a multiple of the number of folds in cross validation.</li>
+</ul>
+<p><strong>V1.2 - Quality of Life Improvements and Minor Corrections (03/11/2022)</strong></p>
+<ul>
+<li>Added Table of Contents for quick navigation of the different steps in the notebook (also allows further analysis to be added to notebooks without making it clunkier and more difficult to navigate).</li>
+<li>Added Patch Notes to end of notebook for user to follow changes on notebook.</li>
+<li>Correcting bug in Random Forest and PLS-DA feature importance workflow mentioned in V1.1 for the PythonAnnotation Notebook.</li>
+<li>Added feature to step 5 by adding a way to see common and exclusive names/formulas as well as overall compounds/masses. Use id_selection to choose either 'Name' ('Matched names') or 'Formula' ('Matched formulas').</li>
+<li>Other minor changes and corrections.</li>
+</ul>
+<p><strong>V1.1 - Feature Importance Correction (14/10/2022)</strong></p>
+<ul>
+<li>Correcting bug in Random Forest and PLS-DA feature importance workflow that would not give the correct names from the dataframe to the most important features (it would give the first names in the dataset instead of the important ones).</li>
+<li>Updating instructions for Metabolinks installation.</li>
+</ul>
+<p><strong>V1.0 - Release Version (03/10/2022)</strong></p>
+<ul>
+<li>First release version of the metabolomics data analysis notebooks.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8fd75fb4.min.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
