@@ -1909,9 +1909,14 @@ def _plot_clustermap(UnivarA_Store, treated_data, multiclass=False):
             heat_index = list(filtered_df_plot[filtered_df_plot['FDR adjusted p-value'] < UnivarA_Store.alpha_threshold_multiclass].index)
         filtered_df_plot = treated_data.T.loc[heat_index].T
 
+    figsize = [12, 6]
+    if len(heat_index) > 100:
+        figsize[0] = 12 + int(len(heat_index) - 100)*12/100
+    if len(filtered_df_plot.index) > 30:
+        figsize[1] = 6 + int(len(filtered_df_plot) - 30)*6/30
     # Plot the clustermap
     g = sns.clustermap(filtered_df_plot, cmap='RdBu_r', # Select colormap to use
-            figsize=(12, 6), xticklabels=1) # Make sure every ytick appears
+            figsize=figsize, xticklabels=1, yticklabels=1) # Make sure every ytick appears
     # Adjust plot characteristics
     g.ax_heatmap.set_xticklabels(g.ax_heatmap.get_xmajorticklabels(), fontsize=7)
     g.ax_heatmap.set_xlabel('')
