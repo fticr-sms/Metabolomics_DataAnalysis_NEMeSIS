@@ -1,48 +1,75 @@
 # Metabolomics Data Analysis Software - NEMeSIS
 Repository for the metabolomics data analysis NEMeSIS software. It includes a graphical interface as well as an illustrative jupyter notebook.
 
+**Documentation at https://fticr-sms.github.io/Metabolomics_DataAnalysis_NEMeSIS/. Please use the instructions for installation detailed in the homepage of the documentation.**
+
 ## Repository by:
 
 - FT-ICR-MS-Lisboa Laboratory Group
 
 # Required Python Packages and Database File Examples (for both versions)
 
-**Anaconda and Anaconda related packages**
 
-- Most packages needed are automatically installed when you install Anaconda (see tutorial here https://docs.anaconda.com/anaconda/install/index.html).
+## Installing NEMeSIS
 
-**Metabolinks, UpSetPlot and xgboost**
+NEMeSIS is currently available as an open source software that can be downloaded or cloned from https://github.com/fticr-sms/Metabolomics_DataAnalysis_NEMeSIS. This includes a `venn.py` file originally provided in https://github.com/tctianchi/pyvenn/blob/master/venn.py and used according to its license. It is a Python-based software and does requires the Python programming language and has many dependencies on different Python packages.
 
-- Open 'Command Line' or 'Linha de comandos' on your pc.
-- Run the line 'pip install metabolinks'.
-- Run the line 'pip install UpSetPlot'.
-- Run the line 'conda install -c conda-forge py-xgboost'.
-- Run the line 'pip install pyopenms'.
-- Restart jupyter.
+### Installing Python and other packages with Anaconda
+
+We recommend the installation of Anaconda to use the software, with a tutorial available at https://docs.anaconda.com/anaconda/install/index.html.
+
+From here, we present two ways to install the remaining packages needed, the first one package-by-package and the second which will install every package rapidly (requirements.txt based).
+
+### Installing by creating a dedicated Python environment - NEMeSIS_env
+
+This strategy will install a virtual environment called `NEMeSIS_env` on your computer with all necessary packages to run NEMeSIS both as a notebook and as a graphical interface. You will need to change the selected environment once before either running the jupyter notebook (change kernel running to NEMeSIS_env) or the graphical interface (run `conda activate NEMeSIS_env` before opening the interface).
+
+**Using the provided NEMeSIS.yml file**
+
+On the command line (or the AnacondaPrompt in case Anaconda was not added to your PATH during installation) in your pc, run the following 2 code lines (one at a time):
+
+- conda env create -f NEMeSIS.yml
+- python -m ipykernel install --user --name=NEMeSIS_env
+
+On Non-Windows machines, the environment installation may become incomplete due to the **kaleido** package. This is due to the kaleido version 0.1.0.post1 installed not existing for Non-Windows installations. For these cases, try to change the version present in the yml or the requirements file to 0.1.0 or 0.2.0 before installing the environment. Kaleido versions will affect downloading the interactive figures from the graphical interface.
+
+**Using the provided requirements.txt file**
+
+Alternatively, you may also install the environment from the `requirements.txt` file with the following lines:
+
+- conda create -n NEMeSIS_env --file requirements.txt
+- python -m ipykernel install --user --name=NEMeSIS_env
+
+### Installing by updating and changing the current Python environment
+
+##### Individually Package-by-package
+
+On the command line (or the AnacondaPrompt) in your pc, run these code lines (one at a time):
+
+- pip install metabolinks
+- pip install UpSetPlot
+- conda install -c conda-forge py-xgboost
+- conda install -c pyviz panel
+- conda install -c anaconda param
+- conda install -c conda-forge holoviews
+- conda install -c plotly plotly
+- pip install python-docx==1.1.0
+- pip install kaleido==0.1.0post1 # Change version name to 0.1.0 or 0.2.0 if not on Windows
+- pip install pyopenms
+
+#### Using requirements.txt
+
+On the command line (or the AnacondaPrompt) in your pc, go inside the directory where you have installed NEMeSIS or open the command line directly in this directory. Then run the following line:
+
+- pip install -r requirements.txt
+
+This will install using `pip` all the packages used in the software (including some already installed with Anaconda).
 
 **Databases**
 
 Right now, the HMDB, LOTUS and DrugBank databases that are used in the Jupyter notebook as examples are present in this repository.
 
 However, in the future, these databases will have corresponding python files that you can run to extract, parse and automatically treat them so you can always have the most current version of them.
-
-**Extra Packages to be installed to run the graphical interface (requires at least the versions indicated)**
-
-- panel >= 1.3.4
-- param >= 2.0.1
-- holoviews >= 1.18.1
-- plotly >= 5.18.0
-- docx >= 1.1.0
-- kaleido == 0.1.0.post1
-- pyopenms >= 3.4.0
-
-To install these packages run in the command line (or AnacondaPrompt):
-- conda install -c pyviz panel
-- conda install -c anaconda param
-- conda install -c conda-forge holoviews
-- conda install -c plotly plotly
-- pip install python-docx
-- pip install kaleido==0.1.0post1 # If not on Windows, change package version to 0.1.0 or 0.2.0
 
 ### How to Open the Graphical Interface
 
