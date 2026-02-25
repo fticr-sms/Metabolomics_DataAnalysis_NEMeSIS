@@ -1,7 +1,8 @@
-# Metabolomics Data Analysis Software - NEMeSIS
-Repository for the metabolomics data analysis NEMeSIS software. It includes a graphical interface as well as an illustrative jupyter notebook.
+# NEMeSIS: Metabolomics Data Analysis
 
-**Documentation at https://fticr-sms.github.io/Metabolomics_DataAnalysis_NEMeSIS/. Please use the instructions for installation detailed in the homepage of the documentation.**
+NEMeSIS includes a graphical interface as well as an illustrative jupyter notebook.
+
+[Documentation](https://fticr-sms.github.io/Metabolomics_DataAnalysis_NEMeSIS/), that inludes installation instructions is available in GitHub Pages.
 
 ## Repository by:
 
