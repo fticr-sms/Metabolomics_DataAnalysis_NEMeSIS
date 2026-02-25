@@ -12,11 +12,13 @@ Repository for the metabolomics data analysis NEMeSIS software. It includes a gr
 
 ## Installing NEMeSIS
 
-NEMeSIS is currently available as an open source software that can be downloaded or cloned from https://github.com/fticr-sms/Metabolomics_DataAnalysis_NEMeSIS. This includes a `venn.py` file originally provided in https://github.com/tctianchi/pyvenn/blob/master/venn.py and used according to its license. It is a Python-based software and does requires the Python programming language and has many dependencies on different Python packages.
+NEMeSIS is currently available as an open source software that can be downloaded or cloned from https://github.com/fticr-sms/Metabolomics_DataAnalysis_NEMeSIS. This includes a `venn.py` file originally provided in https://github.com/tctianchi/pyvenn/blob/master/venn.py and used according to its license. 
+
+NEMeSIS requires Python 3.10+ and depends on many scientific Python modules.
 
 ### Installing Python and other packages with Anaconda
 
-We recommend the installation of Anaconda to use the software, with a tutorial available at https://docs.anaconda.com/anaconda/install/index.html.
+We recommend the installation of [Anaconda Python distribution](https://docs.anaconda.com/anaconda/install/index.html) that fulfills many of the requirements.
 
 From here, we present two ways to install the remaining packages needed, the first one package-by-package and the second which will install every package rapidly (requirements.txt based).
 
@@ -26,7 +28,7 @@ This strategy will install a virtual environment called `NEMeSIS_env` on your co
 
 **Using the provided NEMeSIS.yml file**
 
-On the command line (or the AnacondaPrompt in case Anaconda was not added to your PATH during installation) in your pc, run the following 2 code lines (one at a time):
+On the command line (or the Anaconda Prompt in case Anaconda was not added to your PATH during installation) in your pc, run the following 2 code lines (one at a time):
 
 - conda env create -f NEMeSIS.yml
 - python -m ipykernel install --user --name=NEMeSIS_env
