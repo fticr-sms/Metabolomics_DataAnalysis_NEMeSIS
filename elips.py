@@ -32,7 +32,7 @@ def plot_confidence_ellipse(points, q=None, nstd=2, ax=None, **kwargs):
     else:
         raise ValueError('One of `q` and `nsig` should be specified.')
 
-    pos = points.mean(axis=0)
+    pos = points.mean(axis=0).values
     cov = np.cov(points, rowvar=False)
     return plot_cov_ellipse(cov, pos, q, ax, **kwargs)
 

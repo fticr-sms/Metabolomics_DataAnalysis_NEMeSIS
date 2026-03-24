@@ -12,6 +12,7 @@ from sklearn.cross_decomposition import PLSRegression
 from sklearn.metrics import r2_score, roc_auc_score, roc_curve, auc, f1_score, precision_score, recall_score, mean_squared_error
 import sklearn.model_selection
 from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.decomposition import PCA
 from fractions import Fraction
@@ -329,7 +330,7 @@ def metabolite_annotation(annotated_data, full_db, ppm_margin, mass_val_col, add
     annotated_data[matched_db_col] = [[] for i in range(len(annotated_data))]
     if full_db['Kegg'].notnull().sum() > 0:
         annotated_data['Matched KEGG IDs'] = [[] for i in range(len(annotated_data))]
-    annotated_data[match_count_col] = ""
+    annotated_data[match_count_col] = np.nan
 
     # And for each metabolic feature
     for a in tqdm(annotated_data.index):
@@ -2115,10 +2116,11 @@ def optimise_xgb_parameters(data, y, params, regres=False, obj="multi:softprob",
         xgbo = xgb.XGBRegressor(objective=obj, **kwargs)
     else:
         xgbo = xgb.XGBClassifier(objective=obj, **kwargs)
-        y = OrdinalEncoder().fit_transform(pd.DataFrame(y))
+        y = OrdinalEncoder(dtype=int).fit_transform(pd.DataFrame(y))
 
     # Grid Search Optimization
-    model = GridSearchCV(estimator=xgbo, param_grid=params, cv=3)
+    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+    model = GridSearchCV(estimator=xgbo, param_grid=params, cv=cv)
     model.fit(data,y)
 
     return model

@@ -1042,7 +1042,6 @@ def optim_PLSDA_n_components(df, labels, encode2as1vector=True, max_comp=50, n_f
 
 PLSDA_optim_results = namedtuple('PLSDA_optim_results', 'CVscores CVR2 MSE')
 
-
 def _calculate_vips(model):
     """ VIP (Variable Importance in Projection) of the PLSDA model for each variable in the model.
 
@@ -1050,22 +1049,21 @@ def _calculate_vips(model):
 
         returns: list; VIP score for each variable from the dataset.
     """
-    # Set up the variables
     t = model.x_scores_
     W = model.x_weights_
     q = model.y_loadings_
     n_rows_weights, n_cols_weights = W.shape
-    vips = np.empty((n_rows_weights,))
+    vips = np.empty(n_rows_weights)
 
-    # Calculate VIPs
-    s = np.diag(np.matmul(np.matmul(np.matmul(t.T, t), q.T), q)).reshape(n_cols_weights, -1)
+    # Calculate explained variance for each component
+    s = np.diag(t.T @ t @ q.T @ q)  # shape: (n_cols_weights,)
     total_s = np.sum(s)
+
     for i in range(n_rows_weights):
         weight = np.array([(W[i, j] / np.linalg.norm(W[:, j])) ** 2 for j in range(n_cols_weights)])
-        vips[i] = np.sqrt(n_rows_weights * (np.matmul(s.T, weight)) / total_s)
+        vips[i] = np.sqrt(n_rows_weights * np.dot(s, weight) / total_s)
 
     return vips
-
 
 def PLSDA_model_CV(df, labels, n_comp=10,
                    n_fold=5,
