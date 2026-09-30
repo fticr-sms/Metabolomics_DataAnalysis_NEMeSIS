@@ -447,6 +447,8 @@ def match_calibrants(spectrum: dict, mz_ref, tol_ppm: float = 3.0,
                        spectrum carries no peak widths
     """
 
+    mz_ref = np.atleast_1d(np.asarray(mz_ref, dtype=np.float64))
+
     cent_freqs = spectrum['cent_freqs']
     cent_ints = spectrum['cent_ints']
 
@@ -695,9 +697,6 @@ def recalibrate(spectrum: dict, mz_ref, tol_ppm: float = 1.0, mode: str = 'auto'
                   sequence of positions, one per reference mass.
     - mode      : passed to fit_calibration.
 
-    Every calibrant selected is used, with equal weight. Nothing is rejected or
-    down-weighted; if a calibrant is unreliable, drop it from `mz_ref` or point
-    `selection` at a different candidate.
     """
     matched = match_calibrants(spectrum, mz_ref, tol_ppm=tol_ppm,
                                min_intensity=min_intensity,
