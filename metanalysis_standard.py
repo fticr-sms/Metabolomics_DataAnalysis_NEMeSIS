@@ -321,12 +321,14 @@ def metabolite_annotation(annotated_data, full_db, ppm_margin, mass_val_col, add
     matched_names_col = 'Matched names'
     matched_formulas_col = 'Matched formulas'
     matched_add_col = 'Matched adducts'
+    matched_errors_col = 'Matched errors'
     matched_db_col = 'Matched DBs'
     match_count_col = 'Match counts'
     annotated_data[matched_ids_col] = [[] for i in range(len(annotated_data))]
     annotated_data[matched_names_col] = [[] for i in range(len(annotated_data))]
     annotated_data[matched_formulas_col] = [[] for i in range(len(annotated_data))]
     annotated_data[matched_add_col] = [[] for i in range(len(annotated_data))]
+    annotated_data[matched_errors_col] = [[] for i in range(len(annotated_data))]
     annotated_data[matched_db_col] = [[] for i in range(len(annotated_data))]
     if full_db['Kegg'].notnull().sum() > 0:
         annotated_data['Matched KEGG IDs'] = [[] for i in range(len(annotated_data))]
@@ -339,6 +341,7 @@ def metabolite_annotation(annotated_data, full_db, ppm_margin, mass_val_col, add
         matched_names = []
         matched_formulas = []
         matched_adds = []
+        matched_errors = []
         matched_dbs = []
 
         if 'Matched KEGG IDs' in annotated_data:
@@ -370,6 +373,7 @@ def metabolite_annotation(annotated_data, full_db, ppm_margin, mass_val_col, add
             matched_formulas.append(full_db['Formula'][i])
             if 'Matched KEGG IDs' in annotated_data:
                 matched_keggs.append(full_db['Kegg'][i])
+            matched_errors.extend(ppm_dev.loc[i])
             matched_dbs.append(full_db['DB'][i])
 
         # Perform annotation (if any compound was found)
@@ -380,6 +384,7 @@ def metabolite_annotation(annotated_data, full_db, ppm_margin, mass_val_col, add
             annotated_data.at[a, matched_add_col].extend(matched_adds)
             if 'Matched KEGG IDs' in annotated_data:
                 annotated_data.at[a, 'Matched KEGG IDs'].extend(matched_keggs)
+            annotated_data.at[a, matched_errors_col].extend(matched_errors)
             annotated_data.at[a, matched_db_col].extend(matched_dbs)
             annotated_data.at[a, match_count_col] = len(matched_ids)
         else:
@@ -389,6 +394,7 @@ def metabolite_annotation(annotated_data, full_db, ppm_margin, mass_val_col, add
             annotated_data.at[a, matched_add_col] = np.nan
             if 'Matched KEGG IDs' in annotated_data:
                 annotated_data.at[a, 'Matched KEGG IDs'] = np.nan
+            annotated_data.at[a, matched_errors_col] = np.nan
             annotated_data.at[a, matched_db_col] = np.nan
             annotated_data.at[a, match_count_col] = np.nan
     print(f'-> Annotated {annotated_data[matched_ids_col].notnull().sum()} compounds')
