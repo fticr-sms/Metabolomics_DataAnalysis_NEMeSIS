@@ -373,7 +373,7 @@ def metabolite_annotation(annotated_data, full_db, ppm_margin, mass_val_col, add
             matched_formulas.append(full_db['Formula'][i])
             if 'Matched KEGG IDs' in annotated_data:
                 matched_keggs.append(full_db['Kegg'][i])
-            matched_errors.extend(ppm_dev.loc[i])
+            matched_errors.append(np.nanmin(ppm_dev.loc[i]))
             matched_dbs.append(full_db['DB'][i])
 
         # Perform annotation (if any compound was found)
@@ -679,6 +679,8 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                                                 'Matched adducts', 'Matched DBs', 'Match counts']
                                     if 'Matched KEGG IDs' in annotated_data.columns:
                                         rel_cols.append('Matched KEGG IDs')
+                                    if 'Matched errors' in annotated_data.columns:
+                                        rel_cols.append('Matched errors')
                                     #temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
                                     temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
@@ -744,6 +746,8 @@ def duplicate_disambiguator(annotated_data, sample_cols, mcid, mass_col, prev_an
                                         'Matched adducts', 'Matched DBs', 'Match counts']
                             if 'Matched KEGG IDs' in annotated_data.columns:
                                 rel_cols.append('Matched KEGG IDs')
+                            if 'Matched errors' in annotated_data.columns:
+                                rel_cols.append('Matched errors')
                             #temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
                             temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
@@ -995,6 +999,8 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
                                     'Matched adducts', 'Matched DBs', 'Match counts']
                         if 'Matched KEGG IDs' in annotated_data.columns:
                             rel_cols.append('Matched KEGG IDs')
+                        if 'Matched errors' in annotated_data.columns:
+                            rel_cols.append('Matched errors')
                         #temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
                         temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
@@ -1054,6 +1060,8 @@ def individually_merging(annotated_data, given_idxs, sample_cols, mass_col, mcid
                                 'Matched adducts', 'Matched DBs', 'Match counts']
                     if 'Matched KEGG IDs' in annotated_data.columns:
                         rel_cols.append('Matched KEGG IDs')
+                    if 'Matched errors' in annotated_data.columns:
+                        rel_cols.append('Matched errors')
                     #temp_full_new_line[rel_cols] = temp.iloc[0][rel_cols]
                     temp_full_new_line[rel_cols] = subset_df.loc[idx_max, rel_cols]
 
